@@ -294,10 +294,40 @@
   function renderRunVars() {
     const box = $('#run-vars');
     box.textContent = '';
-    const names = Object.keys(App.sessionVars).filter((k) => k[0] !== '@');
-    if (!names.length) return;
+    // まだ実行していなくても、プロジェクトの初期値を見せる（何があるか分かるように）
+    const shown = {};
+    for (const v of Model.project.variables || []) shown[v.name] = v.value;
+    Object.assign(shown, App.sessionVars);
+    const names = Object.keys(shown).filter((k) => k[0] !== '@');
+    if (!names.length) {
+      box.appendChild(Render.div('run-var is-empty', 'まだ変数がありません'));
+      return;
+    }
     for (const k of names) {
-      box.appendChild(Render.div('run-var', `${k}: ${Sim.toStr(App.sessionVars[k])}`));
+      box.appendChild(Render.div('run-var', `${k}: ${Sim.toStr(shown[k])}`));
+    }
+  }
+
+  /** ためすときの変数を、プロジェクトの初期値にもどす */
+  function resetSessionVars() {
+    App.sessionVars = {};
+    renderRunVars();
+    App.toast('ためすときの変数を、初期値にもどしました');
+  }
+
+  /** 書き出したゴーストが覚えている変数（nashi_save.json）を消す */
+  async function resetGhostSave() {
+    try {
+      const r = await api('/api/save/reset', {
+        method: 'POST',
+        body: { project: Model.project, outDir: $('#export-dir') ? $('#export-dir').value : '' },
+      });
+      const n = (r.deleted || []).length;
+      App.toast(n
+        ? `ゴーストの記憶を消しました（${n} か所）。次に動かすと初期値からになります`
+        : '消すものがありませんでした（まだ動かしていないようです）');
+    } catch (e) {
+      App.toast(e.message, true);
     }
   }
 
@@ -1112,6 +1142,8 @@
     $('#btn-run-ssp').addEventListener('click', sendScriptToSsp);
     $('#btn-send-event').addEventListener('click', sendEventToSsp);
     $('#btn-send-comm').addEventListener('click', sendCommToSsp);
+    $('#btn-vars-reset').addEventListener('click', resetSessionVars);
+    $('#btn-save-reset').addEventListener('click', resetGhostSave);
     $('#btn-ssp-install').addEventListener('click', installToSsp);
     $('#btn-ssp-refresh').addEventListener('click', async () => {
       await refreshSsp();

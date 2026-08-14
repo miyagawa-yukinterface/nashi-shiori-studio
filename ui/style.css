@@ -438,7 +438,9 @@ button, input, select, textarea { font-family: inherit; }
   font-size: 11.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-all;
   max-height: 150px; overflow: auto; color: #3b4b60; background: #fff;
 }
-.run-vars { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 5px; }
+.run-vars { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px; }
+.run-vars-title { font-size: 12px; opacity: .75; margin-right: auto; }
+.run-var.is-empty { opacity: .55; }
 .run-var {
   font-size: 11.5px; background: var(--cat-variables); color: #fff; border-radius: 999px;
   padding: 2px 9px; font-weight: 600;

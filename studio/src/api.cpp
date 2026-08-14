@@ -449,6 +449,46 @@ void Api::HandleApi(const HttpRequest& req, HttpResponse& res) {
         return;
     }
 
+    // 書き出したゴーストが覚えている変数（nashi_save.json）を消す。
+    // 好感度などが変な値で固まったとき、手でファイルを消さずにやり直せるように。
+    if (req.path == "/api/save/reset" && req.method == "POST") {
+        JValue body;
+        if (!ParseBody(req, body)) { JsonError(res, 400, "JSON が壊れています"); return; }
+        const JValue& project = body["project"];
+        if (!project.isObj()) { JsonError(res, 400, "プロジェクトがありません"); return; }
+
+        std::string folder = project["meta"]["folder"].asStr();
+        if (folder.empty()) folder = project["meta"]["name"].asStr("nashi-ghost");
+        folder = SafeFolderName(folder, "nashi-ghost");
+        std::wstring wfolder = Utf8ToWide(folder);
+
+        // 書き出し先と、SSP の ghost フォルダの両方を見る
+        std::vector<std::wstring> roots;
+        roots.push_back(DefaultOutDir());
+        std::string outUtf8 = body["outDir"].asStr();
+        if (!outUtf8.empty()) roots.push_back(Utf8ToWide(outUtf8));
+        SspInfo ssp = Ssp();
+        if (!ssp.ghostDir.empty()) roots.push_back(ssp.ghostDir);
+
+        JValue deleted = JValue::makeArr();
+        for (size_t i = 0; i < roots.size(); i++) {
+            std::wstring p = PathJoin(PathJoin(PathJoin(PathJoin(roots[i], wfolder),
+                                                       L"ghost"), L"master"), L"nashi_save.json");
+            bool dup = false;
+            for (size_t k = 0; k < deleted.size(); k++) {
+                if (deleted.at(k).asStr() == WideToUtf8(p)) { dup = true; break; }
+            }
+            if (dup) continue;
+            if (DeleteFileIfExists(p)) deleted.arr.push_back(JValue::makeStr(WideToUtf8(p)));
+        }
+
+        JValue o = JValue::makeObj();
+        o.set("ok", JValue::makeBool(true));
+        o.set("deleted", deleted);
+        Json(res, 200, o);
+        return;
+    }
+
     // 他のゴーストのふりをして、動いているゴーストに話しかける（OnCommunicate の確認）
     if (req.path == "/api/ssp/communicate" && req.method == "POST") {
         JValue body;
