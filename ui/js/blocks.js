@@ -251,6 +251,12 @@ window.NASHI = window.NASHI || {};
     spec: 'これから %id 番のキャラが話す',
     args: { id: { kind: 'input', mode: 'number', def: 2 } },
   });
+  // SERIKO のアニメーション。中身は「ゴースト」タブの「うごき」で作ります。
+  def({
+    type: 'anim', cat: 'looks', shape: 'stack',
+    spec: 'うごき %id を再生する',
+    args: { id: { kind: 'input', mode: 'number', def: 0 } },
+  });
   def({
     type: 'balloon', cat: 'looks', shape: 'stack',
     spec: 'バルーンを %id 番にする',
@@ -467,7 +473,7 @@ window.NASHI = window.NASHI || {};
       '@event', '@event.touch', '@event.every', '@event.comm', '@talk', '@function',
     ],
     talk: ['say', 'newline', 'click_wait', 'clear', 'choice', 'link', 'communicate', 'raw'],
-    looks: ['surface', 'chara', 'balloon', 'sound'],
+    looks: ['surface', 'chara', 'anim', 'balloon', 'sound'],
     control: ['wait', 'if', 'if_else', 'repeat', 'while', 'random_one', 'call',
       'talk_interval', 'end', 'close'],
     variables: [{ button: 'add-var', label: '＋ 変数をつくる' }, '@vars', 'set', 'change'],

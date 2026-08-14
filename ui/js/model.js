@@ -68,6 +68,21 @@
       out.variables = out.variables
         .filter((v) => v && v.name)
         .map((v) => ({ name: String(v.name), value: v.value == null ? 0 : v.value }));
+      // うごき（SERIKO のアニメーション）。書き出すと surfaces.txt に入ります。
+      out.animations = (Array.isArray(out.animations) ? out.animations : [])
+        .map((a, i) => ({
+          id: Number.isFinite(Number(a && a.id)) ? Number(a.id) : i,
+          base: Number(a && a.base) || 0,
+          interval: (a && a.interval) ? String(a.interval) : 'never',
+          every: Number(a && a.every) || 4,
+          patterns: (Array.isArray(a && a.patterns) ? a.patterns : [])
+            .map((p) => ({
+              surface: Number(p && p.surface) || 0,
+              wait: Number.isFinite(Number(p && p.wait)) ? Number(p.wait) : 200,
+              method: (p && p.method) === 'overlay' ? 'overlay' : 'base',
+            })),
+        }));
+
       out.scripts = Array.isArray(out.scripts) ? out.scripts : [];
       let y = 40;
       out.scripts = out.scripts.map((s) => {

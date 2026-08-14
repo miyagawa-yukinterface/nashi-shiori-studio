@@ -8,6 +8,8 @@ param(
     [ValidateSet('x86', 'x64')]
     [string]$Arch = 'x64',
     [switch]$Clean,
+    # 書き出しの中身を見るコンソール（studio\test\export_host.cpp）も作る
+    [switch]$Test,
     # コード署名証明書の拇印。指定すると exe に署名する
     # （スマートアプリコントロール対策。公的CAの証明書でないと効果は薄い）
     [string]$SignThumbprint
@@ -121,6 +123,41 @@ $linkArgs = @(
 Write-Host '[studio] リンク中...' -ForegroundColor Cyan
 & link @linkArgs
 if ($LASTEXITCODE -ne 0) { throw 'リンクに失敗しました。' }
+
+# ---- 書き出しテスト用コンソール --------------------------------------------
+# 画面を出さずに、書き出されるファイルの中身（surfaces.txt など）を見るためのもの。
+if ($Test) {
+    Write-Host '[studio] 書き出しテスト用コンソールをビルド中...' -ForegroundColor Cyan
+    $testObj = Join-Path $obj 'test'
+    New-Item -ItemType Directory -Force -Path $testObj | Out-Null
+    $testSources = @(
+        (Join-Path $root 'test\export_host.cpp'),
+        (Join-Path $src 'exporter.cpp'),
+        (Join-Path $src 'image.cpp'),
+        (Join-Path $src 'zip.cpp'),
+        (Join-Path $src 'deflate.cpp'),
+        (Join-Path $src 'fsutil.cpp'),
+        (Join-Path $repo 'shiori\src\json.cpp'),
+        (Join-Path $repo 'shiori\src\util.cpp')
+    )
+    $testCl = @(
+        '/nologo', '/c', '/O2', '/MT', '/EHsc', '/W3', '/std:c++17', '/utf-8',
+        '/DNDEBUG', '/DWIN32', '/DUNICODE', '/D_UNICODE', '/D_CRT_SECURE_NO_WARNINGS',
+        "/I$src", "/I$repo\shiori\src", "/Fo:$testObj\"
+    ) + $testSources
+    & cl @testCl
+    if ($LASTEXITCODE -ne 0) { throw '書き出しテスト用コンソールのコンパイルに失敗しました。' }
+    $testObjs = $testSources | ForEach-Object {
+        Join-Path $testObj ([System.IO.Path]::GetFileNameWithoutExtension($_) + '.obj')
+    }
+    $testExe = Join-Path $root 'test\export_host.exe'
+    $testLink = @('/nologo', "/OUT:$testExe", '/SUBSYSTEM:CONSOLE') + $testObjs +
+        @('kernel32.lib', 'user32.lib', 'gdi32.lib', 'shell32.lib', 'shlwapi.lib',
+          'comdlg32.lib', 'advapi32.lib', 'ole32.lib', 'oleaut32.lib')
+    & link @testLink
+    if ($LASTEXITCODE -ne 0) { throw '書き出しテスト用コンソールのリンクに失敗しました。' }
+    Write-Host "[studio] OK -> $testExe" -ForegroundColor Green
+}
 
 if ($SignThumbprint) {
     $cert = Get-ChildItem "Cert:\CurrentUser\My\$SignThumbprint" -ErrorAction SilentlyContinue

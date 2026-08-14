@@ -332,6 +332,17 @@ static void RunBlock(const JValue& b, RunCtx& ctx) {
     if (type == "clear")      { Emit(ctx, "\\c"); return; }
     if (type == "raw")        { Emit(ctx, EvalStr(b["text"], ctx)); return; }
 
+    // SERIKO のアニメーションを再生する（\i[n]）。
+    // どんな動きかは shell/master/surfaces.txt に書き出してある。
+    if (type == "anim") {
+        int id = EvalInt(b["id"], ctx, 0);
+        if (id < 0) id = 0;
+        char buf[32];
+        sprintf_s(buf, "\\i[%d]", id);
+        Emit(ctx, buf);
+        return;
+    }
+
     if (type == "balloon") {
         char buf[32];
         sprintf_s(buf, "\\b[%d]", EvalInt(b["id"], ctx, 0));

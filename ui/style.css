@@ -502,3 +502,16 @@ button, input, select, textarea { font-family: inherit; }
 .proj-row .d { font-size: 11px; color: #93a2b4; }
 .proj-row .x { border: 0; background: transparent; color: #a4b1c1; cursor: pointer; font-size: 14px; }
 .proj-row .x:hover { color: #d4563a; }
+
+/* うごき（SERIKO のアニメーション）の編集 */
+.anim-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+.anim-row { border: 1px solid var(--line, #d8d8e0); border-radius: 8px; padding: 10px; }
+.anim-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.anim-id { font-weight: 600; margin-right: 4px; }
+.anim-head .field.row { margin: 0; }
+.anim-head .field.row input, .anim-head .field.row select { width: 8em; }
+.anim-pats { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-left: 10px; }
+.anim-pat { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.anim-pat .field.row { margin: 0; }
+.anim-pat .field.row input { width: 6em; }
+.anim-step { opacity: .6; min-width: 1.5em; }

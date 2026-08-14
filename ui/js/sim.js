@@ -206,6 +206,14 @@
       case 'click_wait': ctx.out += '\\x'; return;
       case 'clear': ctx.out += '\\c'; return;
       case 'raw': ctx.out += toStr(ev(b.text)); return;
+      // SERIKO のアニメーションを再生する（\i[n]）。
+      // プレビューでは動かないが、さくらスクリプトには出す。
+      case 'anim': {
+        let id = Math.floor(toNum(ev(b.id)));
+        if (!(id >= 0)) id = 0;
+        ctx.out += '\\i[' + id + ']';
+        return;
+      }
       case 'balloon': ctx.out += '\\b[' + Math.floor(toNum(ev(b.id))) + ']'; return;
       case 'sound': {
         const f = toStr(ev(b.file));

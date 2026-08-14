@@ -17,3 +17,4 @@ output/
 # テストが作業用に置くもの
 shiori/test/*/nashi.dll
 shiori/test/*/*/nashi.dll
+studio/test/export_host.exe

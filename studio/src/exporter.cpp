@@ -111,6 +111,65 @@ static std::string DrawCharacter(int w, int h, const std::string& hairHex,
     return c.ToPng();
 }
 
+// SERIKO のアニメーション定義。
+//
+//   animationN.interval,sometimes
+//   animationN.patternM,base,1,200,0,0
+//
+// interval は「いつ動きだすか」、pattern は「どの絵を何ミリ秒出すか」です。
+// base は絵をまるごと差しかえる方式で、overlay は上に重ねる方式です。
+// プロジェクトの animations に入っているもののうち、その surface のものだけ書きます。
+static std::string AnimationLines(const JValue& project, int surfaceId) {
+    const JValue& anims = project["animations"];
+    if (!anims.isArr()) return std::string();
+
+    std::string out;
+    for (size_t i = 0; i < anims.size(); i++) {
+        const JValue& a = anims.at(i);
+        if (!a.isObj()) continue;
+        if (a["base"].asInt(0) != surfaceId) continue;
+        if (a["disabled"].asBool(false)) continue;
+
+        int id = a["id"].asInt((int)i);
+        if (id < 0 || id > 127) continue;
+
+        std::string interval = a["interval"].asStr("never");
+        if (interval.empty()) interval = "never";
+        // "random" と "talk" は回数が要る（random,4 のように書く）
+        if (interval == "random" || interval == "talk") {
+            char n[24];
+            sprintf_s(n, ",%d", a["every"].asInt(4) < 1 ? 1 : a["every"].asInt(4));
+            interval += n;
+        }
+        const JValue& pats = a["patterns"];
+        std::string body;
+        int m = 0;
+        for (size_t k = 0; k < pats.size(); k++) {
+            const JValue& p = pats.at(k);
+            if (!p.isObj()) continue;
+            std::string method = p["method"].asStr("base");
+            if (method != "overlay" && method != "base" && method != "replace") method = "base";
+            int surf = p["surface"].asInt(0);
+            int wait = p["wait"].asInt(200);
+            if (wait < 0) wait = 0;
+            char buf[128];
+            sprintf_s(buf, "animation%d.pattern%d,%s,%d,%d,0,0\r\n",
+                      id, m++, method.c_str(), surf, wait);
+            body += buf;
+        }
+        // 絵の指定が 1 つも無ければ、動かしようがないので何も書かない
+        if (m == 0) continue;
+
+        char head2[96];
+        sprintf_s(head2, "animation%d.interval,", id);
+        out += head2;
+        out += interval;
+        out += "\r\n";
+        out += body;
+    }
+    return out;
+}
+
 // DrawCharacter の配置に合わせた当たり判定。
 // なでなで／クリックのイベントは、ここで付けた名前で絞り込みます。
 static std::string CollisionLines(int w, int h) {
@@ -248,6 +307,7 @@ static void AppendShell(std::vector<OutFile>& files, const JValue& project) {
         sprintf_s(head, "surface%d\r\n{\r\n", list[i].id);
         s.data += head;
         s.data += CollisionLines(list[i].w, list[i].h);   // 画像を使うときはその大きさで
+        s.data += AnimationLines(project, list[i].id);    // SERIKO のアニメーション
         s.data += "}\r\n\r\n";
     }
     files.push_back(s);

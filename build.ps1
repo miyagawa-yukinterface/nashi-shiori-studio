@@ -32,6 +32,7 @@ Write-Host '=== 栞 (nashi.dll) ===' -ForegroundColor Yellow
 Invoke-Sub (Join-Path $root 'shiori\build.ps1') $shioriArgs
 
 $studioArgs = @('-Arch', $StudioArch)
+if ($Test) { $studioArgs += '-Test' }
 if ($Clean) { $studioArgs += '-Clean' }
 Write-Host ''
 Write-Host '=== なしスタジオ (nashi-studio.exe) ===' -ForegroundColor Yellow

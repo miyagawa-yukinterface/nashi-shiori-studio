@@ -255,6 +255,15 @@
       ]
     },
     {
+      "id": "p20", "kind": "event", "event": "OnP20",
+      "_": "SERIKO のうごきを再生する",
+      "blocks": [
+        { "type": "anim", "id": 0 },
+        { "type": "anim", "id": 3 },
+        { "type": "anim", "id": -5 }
+      ]
+    },
+    {
       "id": "p17", "kind": "event", "event": "OnP17",
       "_": "ランダムトークの間隔を変える（見た目の出力は無いが、変数を書きかえる）",
       "blocks": [

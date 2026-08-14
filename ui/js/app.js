@@ -394,6 +394,130 @@
       if (img) img.setAttribute('src', shellUrl(id));
     }
     renderShellSlots();
+    renderAnimList();
+  }
+
+  // うごき（SERIKO のアニメーション）
+  const ANIM_INTERVALS = [
+    ['呼んだときだけ', 'never'],
+    ['いつも', 'always'],
+    ['ときどき', 'sometimes'],
+    ['まれに', 'rarely'],
+    ['◯秒に一度くらい', 'random'],
+    ['◯回しゃべるごと', 'talk'],
+    ['起動時に一度だけ', 'runonce'],
+  ];
+
+  function renderAnimList() {
+    const box = $('#anim-list');
+    if (!box) return;
+    const anims = Model.project.animations || [];
+    box.textContent = '';
+    if (!anims.length) {
+      box.appendChild(Render.div('hint', 'まだうごきがありません。下のボタンで作れます。'));
+      return;
+    }
+
+    anims.forEach((a, idx) => {
+      const row = Render.div('anim-row');
+
+      const head = Render.div('anim-head');
+      head.appendChild(Render.el('span', 'anim-id', `うごき ${a.id}`));
+
+      const mk = (label, value, onInput, opts) => {
+        const f = Render.el('label', 'field row');
+        f.appendChild(Render.el('span', null, label));
+        const inp = Render.el('input');
+        inp.type = (opts && opts.type) || 'number';
+        inp.value = value;
+        if (opts && opts.min != null) inp.min = String(opts.min);
+        inp.addEventListener('change', () => {
+          const snap = Model.clone(Model.project);
+          onInput(inp.value);
+          Model.pushUndo(snap);
+          renderAnimList();
+        });
+        f.appendChild(inp);
+        return f;
+      };
+
+      head.appendChild(mk('番号', a.id, (v) => { a.id = Math.max(0, Math.min(127, Number(v) || 0)); },
+        { min: 0 }));
+      head.appendChild(mk('どの立ち絵に付ける', a.base, (v) => { a.base = Number(v) || 0; }, { min: 0 }));
+
+      const sel = Render.el('select');
+      for (const [label, value] of ANIM_INTERVALS) {
+        const o = Render.el('option', null, label);
+        o.value = value;
+        sel.appendChild(o);
+      }
+      sel.value = a.interval;
+      sel.addEventListener('change', () => {
+        const snap = Model.clone(Model.project);
+        a.interval = sel.value;
+        Model.pushUndo(snap);
+        renderAnimList();
+      });
+      const selField = Render.el('label', 'field row');
+      selField.appendChild(Render.el('span', null, 'いつ動く'));
+      selField.appendChild(sel);
+      head.appendChild(selField);
+
+      if (a.interval === 'random' || a.interval === 'talk') {
+        head.appendChild(mk(a.interval === 'random' ? '秒' : '回', a.every,
+          (v) => { a.every = Math.max(1, Number(v) || 1); }, { min: 1 }));
+      }
+
+      const del = Render.el('button', 'btn tiny', '消す');
+      del.addEventListener('click', () => {
+        Model.act(() => { Model.project.animations.splice(idx, 1); });
+        renderAnimList();
+      });
+      head.appendChild(del);
+      row.appendChild(head);
+
+      // パラパラの中身（どの絵を何ミリ秒）
+      const pats = Render.div('anim-pats');
+      a.patterns.forEach((p, k) => {
+        const pr = Render.div('anim-pat');
+        pr.appendChild(Render.el('span', 'anim-step', `${k + 1}`));
+        pr.appendChild(mk('立ち絵', p.surface, (v) => { p.surface = Number(v) || 0; }, { min: 0 }));
+        pr.appendChild(mk('ミリ秒', p.wait, (v) => { p.wait = Math.max(0, Number(v) || 0); }, { min: 0 }));
+        const rm = Render.el('button', 'btn tiny', '−');
+        rm.title = 'このこまを消す';
+        rm.addEventListener('click', () => {
+          Model.act(() => { a.patterns.splice(k, 1); });
+          renderAnimList();
+        });
+        pr.appendChild(rm);
+        pats.appendChild(pr);
+      });
+      const addPat = Render.el('button', 'btn tiny', '＋ こまを足す');
+      addPat.addEventListener('click', () => {
+        Model.act(() => { a.patterns.push({ surface: a.base, wait: 200, method: 'base' }); });
+        renderAnimList();
+      });
+      pats.appendChild(addPat);
+      row.appendChild(pats);
+
+      if (!a.patterns.length) {
+        row.appendChild(Render.div('hint', 'こまが無いので、書き出しても動きません。'));
+      }
+      box.appendChild(row);
+    });
+  }
+
+  function addAnimation() {
+    Model.act(() => {
+      const anims = Model.project.animations;
+      let id = 0;
+      while (anims.some((a) => a.id === id)) id++;
+      anims.push({
+        id, base: 0, interval: 'sometimes', every: 4,
+        patterns: [{ surface: 1, wait: 200, method: 'base' }, { surface: 0, wait: 200, method: 'base' }],
+      });
+    });
+    renderAnimList();
   }
 
   function renderShellSlots() {
@@ -1105,6 +1229,7 @@
     $('#btn-export-dir').addEventListener('click', () => doExport('dir'));
     $('#btn-export-nar').addEventListener('click', () => doExport('nar'));
     $('#btn-add-var').addEventListener('click', () => App.promptNewVariable());
+    $('#btn-anim-add').addEventListener('click', addAnimation);
     $('#btn-shell-add').addEventListener('click', () => {
       const v = prompt('どの番号の立ち絵にしますか？（さくらは 0〜9、うにゅうは 10 以上）', '3');
       if (v == null) return;
