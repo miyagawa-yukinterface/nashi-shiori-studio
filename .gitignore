@@ -1,0 +1,12 @@
+# ビルド成果物・作業ファイル
+shiori/obj/
+shiori/dist/
+studio/obj/
+nashi-studio.exe
+nashi-studio.json
+webview-data/
+projects/
+output/
+**/nashi_save.json
+**/nashi_debug.txt
+.vs/

@@ -1,0 +1,416 @@
+{
+  "format": "nashi/1",
+  "meta": {
+    "name": "テストゴースト",
+    "sakuraName": "さくら",
+    "keroName": "うにゅう",
+    "craftman": "yukin",
+    "version": "1.0.0"
+  },
+  "settings": {
+    "randomTalkInterval": 5,
+    "randomTalkEnabled": true
+  },
+  "variables": [
+    {
+      "name": "好感度",
+      "value": 10
+    },
+    {
+      "name": "あだ名",
+      "value": "きみ"
+    }
+  ],
+  "scripts": [
+    {
+      "id": "s_first",
+      "kind": "event",
+      "event": "OnFirstBoot",
+      "blocks": [
+        {
+          "type": "surface",
+          "who": 0,
+          "id": 0
+        },
+        {
+          "type": "say",
+          "who": 0,
+          "text": "はじめまして。"
+        },
+        {
+          "type": "say",
+          "who": 1,
+          "text": "うにゅうです。"
+        }
+      ]
+    },
+    {
+      "id": "s_boot",
+      "kind": "event",
+      "event": "OnBoot",
+      "blocks": [
+        {
+          "type": "change",
+          "name": "好感度",
+          "value": 1
+        },
+        {
+          "type": "if_else",
+          "cond": {
+            "type": "compare",
+            "op": ">",
+            "a": {
+              "type": "var",
+              "name": "好感度"
+            },
+            "b": 10
+          },
+          "then": [
+            {
+              "type": "say",
+              "who": 0,
+              "text": "おかえりなさい！"
+            }
+          ],
+          "else": [
+            {
+              "type": "say",
+              "who": 0,
+              "text": "こんにちは。"
+            }
+          ]
+        },
+        {
+          "type": "say",
+          "who": 0,
+          "text": {
+            "type": "join",
+            "a": "好感度は ",
+            "b": {
+              "type": "join",
+              "a": {
+                "type": "var",
+                "name": "好感度"
+              },
+              "b": " です。"
+            }
+          }
+        },
+        {
+          "type": "wait",
+          "ms": 500
+        },
+        {
+          "type": "say",
+          "who": 0,
+          "text": "改行\nもテストする\\よ"
+        }
+      ]
+    },
+    {
+      "id": "s_dbl",
+      "kind": "event",
+      "event": "OnMouseDoubleClick",
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "なあに？"
+        },
+        {
+          "type": "choice",
+          "label": "なでる",
+          "target": "なでられた"
+        },
+        {
+          "type": "newline",
+          "count": 1
+        },
+        {
+          "type": "choice",
+          "label": "なんでもない",
+          "target": "なんでもない"
+        }
+      ]
+    },
+    {
+      "id": "f_nade",
+      "kind": "function",
+      "name": "なでられた",
+      "blocks": [
+        {
+          "type": "change",
+          "name": "好感度",
+          "value": 5
+        },
+        {
+          "type": "say",
+          "who": 0,
+          "text": "えへへ。"
+        }
+      ]
+    },
+    {
+      "id": "f_nothing",
+      "kind": "function",
+      "name": "なんでもない",
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "そう。"
+        }
+      ]
+    },
+    {
+      "id": "t_1",
+      "kind": "talk",
+      "name": "天気の話",
+      "weight": 1,
+      "blocks": [
+        {
+          "type": "random_one",
+          "branches": [
+            [
+              {
+                "type": "say",
+                "who": 0,
+                "text": "いい天気だね。"
+              }
+            ],
+            [
+              {
+                "type": "say",
+                "who": 0,
+                "text": "今日は寒いね。"
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t_2",
+      "kind": "talk",
+      "name": "時報",
+      "weight": 2,
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": {
+            "type": "join",
+            "a": "いま ",
+            "b": {
+              "type": "join",
+              "a": {
+                "type": "sys",
+                "key": "hour"
+              },
+              "b": " 時だよ。"
+            }
+          }
+        },
+        {
+          "type": "say",
+          "who": 1,
+          "text": "そうだね。",
+          "nl": false
+        },
+        {
+          "type": "call",
+          "name": "しめ"
+        }
+      ]
+    },
+    {
+      "id": "f_shime",
+      "kind": "function",
+      "name": "しめ",
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "……以上！",
+          "nl": false
+        }
+      ]
+    },
+    {
+      "id": "s_close",
+      "kind": "event",
+      "event": "OnClose",
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "またね。",
+          "nl": false
+        }
+      ]
+    },
+    {
+      "id": "s_loop",
+      "kind": "event",
+      "event": "TestLoop",
+      "blocks": [
+        {
+          "type": "set",
+          "name": "i",
+          "value": 0
+        },
+        {
+          "type": "repeat",
+          "count": 3,
+          "body": [
+            {
+              "type": "change",
+              "name": "i",
+              "value": 1
+            },
+            {
+              "type": "say",
+              "who": 0,
+              "text": {
+                "type": "join",
+                "a": "カウント",
+                "b": {
+                  "type": "var",
+                  "name": "i"
+                }
+              },
+              "nl": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s_nade_head",
+      "kind": "event",
+      "event": "OnNadeNade",
+      "filter": {
+        "area": "Head",
+        "who": 0
+      },
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "あたまなでなで。"
+        }
+      ]
+    },
+    {
+      "id": "s_nade_kero",
+      "kind": "event",
+      "event": "OnNadeNade",
+      "filter": {
+        "who": 1
+      },
+      "blocks": [
+        {
+          "type": "say",
+          "who": 1,
+          "text": "うにゅうをなでるな。"
+        }
+      ]
+    },
+    {
+      "id": "s_click_skirt",
+      "kind": "event",
+      "event": "OnMouseClick",
+      "filter": {
+        "area": "Skirt"
+      },
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "スカートはだめ。"
+        }
+      ]
+    },
+    {
+      "id": "t_3",
+      "kind": "talk",
+      "name": "テスト3",
+      "weight": 1,
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "トーク3",
+          "nl": 1
+        }
+      ]
+    },
+    {
+      "id": "t_4",
+      "kind": "talk",
+      "name": "テスト4",
+      "weight": 1,
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "トーク4",
+          "nl": 1
+        }
+      ]
+    },
+    {
+      "id": "t_5",
+      "kind": "talk",
+      "name": "テスト5",
+      "weight": 1,
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "トーク5",
+          "nl": 1
+        }
+      ]
+    },
+    {
+      "id": "dc_1",
+      "kind": "event",
+      "event": "OnMouseDoubleClick",
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "反応1",
+          "nl": 1
+        }
+      ]
+    },
+    {
+      "id": "dc_2",
+      "kind": "event",
+      "event": "OnMouseDoubleClick",
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "反応2",
+          "nl": 1
+        }
+      ]
+    },
+    {
+      "id": "dc_3",
+      "kind": "event",
+      "event": "OnMouseDoubleClick",
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "反応3",
+          "nl": 1
+        }
+      ]
+    }
+  ]
+}

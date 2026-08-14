@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>なしスタジオ - 伺かゴーストをブロックで作る</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🍐</text></svg>">
+</head>
+<body>
+
+<div id="app">
+  <header id="topbar">
+    <div class="brand"><span class="brand-mark">🍐</span><span class="brand-name">なしスタジオ</span></div>
+
+    <label class="proj-name" title="プロジェクト名（ゴーストの名前）">
+      <input id="ghost-name" type="text" value="なしゴースト" spellcheck="false">
+    </label>
+
+    <div class="top-actions">
+      <button id="btn-new" class="btn ghost-btn" title="あたらしく作る">新規</button>
+      <button id="btn-open" class="btn ghost-btn" title="保存したプロジェクトを開く">開く</button>
+      <button id="btn-save" class="btn" title="Ctrl+S">保存</button>
+      <span class="sep"></span>
+      <button id="btn-undo" class="btn icon-btn" title="元にもどす (Ctrl+Z)">↶</button>
+      <button id="btn-redo" class="btn icon-btn" title="やりなおす (Ctrl+Y)">↷</button>
+      <span class="sep"></span>
+      <button id="btn-export" class="btn primary" title="ゴーストとして書き出す">▶ 書き出し</button>
+    </div>
+  </header>
+
+  <div id="main">
+    <!-- ---------------------------------------------------- palette -->
+    <aside id="palette">
+      <div id="cat-list"></div>
+      <div id="palette-scroll">
+        <div id="palette-blocks"></div>
+      </div>
+    </aside>
+
+    <!-- ---------------------------------------------------- canvas -->
+    <section id="workspace-wrap">
+      <div id="workspace">
+        <div id="canvas"></div>
+      </div>
+      <div id="canvas-hint">
+        <b>ここにブロックを置いていきます</b>
+        左の「イベント」から <i>◯◯のとき</i> をドラッグしてはじめよう
+      </div>
+      <div id="zoom-controls">
+        <button class="btn icon-btn" id="btn-zoom-out" title="縮小">−</button>
+        <button class="btn icon-btn" id="btn-zoom-reset" title="等倍にもどす">100%</button>
+        <button class="btn icon-btn" id="btn-zoom-in" title="拡大">＋</button>
+        <button class="btn icon-btn" id="btn-tidy" title="ブロックを整列">整列</button>
+      </div>
+      <div id="trash" title="ここに落とすと削除">🗑</div>
+    </section>
+
+    <!-- ---------------------------------------------------- side -->
+    <aside id="side">
+      <nav id="side-tabs">
+        <button class="side-tab is-active" data-tab="run">ためす</button>
+        <button class="side-tab" data-tab="ghost">ゴースト</button>
+        <button class="side-tab" data-tab="vars">変数</button>
+        <button class="side-tab" data-tab="check">チェック<span id="check-badge" class="tab-badge"></span></button>
+        <button class="side-tab" data-tab="export">書き出し</button>
+        <button class="side-tab" data-tab="help">ヘルプ</button>
+      </nav>
+
+      <div id="side-body">
+        <!-- ---- run ---- -->
+        <section class="side-panel is-active" data-panel="run">
+          <div class="panel-head">
+            <h2>ためす</h2>
+            <p class="hint">スクリプトの ▶ ボタン、またはここから実行して動きを確認できます。</p>
+          </div>
+          <div class="run-picker">
+            <select id="run-target"></select>
+            <button id="btn-run" class="btn primary small">▶ 実行</button>
+          </div>
+          <div class="ssp-bar">
+            <span id="ssp-status" class="ssp-badge is-off">SSP: 確認中…</span>
+            <button id="btn-run-ssp" class="btn small" title="いま動いているゴーストに、このトークをしゃべらせます">SSPでしゃべらせる</button>
+            <button id="btn-send-event" class="btn small" title="このイベントを SSP のゴーストに送ります">イベント送信</button>
+          </div>
+          <div id="stage">
+            <div class="balloon" id="balloon-0"><div class="balloon-name"></div><div class="balloon-text"></div></div>
+            <img class="chara" id="chara-0" alt="さくら" draggable="false">
+            <div class="balloon side-r" id="balloon-1"><div class="balloon-name"></div><div class="balloon-text"></div></div>
+            <img class="chara small" id="chara-1" alt="うにゅう" draggable="false">
+          </div>
+          <div class="script-out">
+            <div class="script-out-head">
+              <span>さくらスクリプト</span>
+              <button id="btn-copy-script" class="btn tiny">コピー</button>
+            </div>
+            <pre id="script-preview">（まだ実行していません）</pre>
+          </div>
+          <div id="run-vars" class="run-vars"></div>
+        </section>
+
+        <!-- ---- ghost ---- -->
+        <section class="side-panel" data-panel="ghost">
+          <div class="panel-head"><h2>ゴーストの設定</h2></div>
+          <label class="field"><span>ゴースト名</span><input id="meta-name" type="text"></label>
+          <label class="field"><span>本体（さくら）の名前</span><input id="meta-sakura" type="text"></label>
+          <label class="field"><span>相方（うにゅう）の名前</span><input id="meta-kero" type="text"></label>
+          <label class="field"><span>作者名</span><input id="meta-craftman" type="text"></label>
+          <label class="field"><span>作者URL</span><input id="meta-url" type="text" placeholder="https://"></label>
+          <label class="field"><span>バージョン</span><input id="meta-version" type="text" value="1.0.0"></label>
+          <label class="field"><span>説明</span><textarea id="meta-desc" rows="3"></textarea></label>
+
+          <div class="panel-head"><h2>ランダムトーク</h2></div>
+          <label class="field row">
+            <span>自動でしゃべる</span>
+            <input id="set-talk-enabled" type="checkbox" checked>
+          </label>
+          <label class="field"><span>しゃべる間隔（秒）</span><input id="set-talk-interval" type="number" min="0" value="180"></label>
+          <label class="field"><span>同じトークを避ける数（0＝おまかせ）</span><input id="set-no-repeat" type="number" min="0" max="16" value="0"></label>
+          <p class="hint">直近に出したトークを、この数だけ次の抽選からはずします。おまかせのときはトーク数の半分（最大8）です。</p>
+
+          <div class="panel-head"><h2>立ち絵の画像</h2>
+            <p class="hint">用意した PNG を割り当てられます。えらばなかった番号は、下の色で自動生成します。</p>
+          </div>
+          <div id="shell-slots" class="shell-slots"></div>
+          <button id="btn-shell-add" class="btn small">＋ 番号を指定して追加</button>
+
+          <div class="panel-head"><h2>見た目（仮シェル）</h2>
+            <p class="hint">絵を用意していないときは、この色でかんたんな立ち絵を自動生成します。</p>
+          </div>
+          <label class="field row"><span>さくらの髪の色</span><input id="shell-sakura-color" type="color" value="#f08cae"></label>
+          <label class="field row"><span>さくらの服の色</span><input id="shell-sakura-cloth" type="color" value="#6e82c8"></label>
+          <label class="field row"><span>うにゅうの髪の色</span><input id="shell-kero-color" type="color" value="#8fd18a"></label>
+          <label class="field row"><span>うにゅうの服の色</span><input id="shell-kero-cloth" type="color" value="#e8b45c"></label>
+          <div class="shell-preview">
+            <figure><img id="shell-prev-0" alt="さくら 通常"><figcaption>通常</figcaption></figure>
+            <figure><img id="shell-prev-1" alt="さくら 笑顔"><figcaption>笑顔</figcaption></figure>
+            <figure><img id="shell-prev-2" alt="さくら 驚き"><figcaption>驚き</figcaption></figure>
+            <figure><img id="shell-prev-10" alt="うにゅう 通常"><figcaption>相方</figcaption></figure>
+          </div>
+        </section>
+
+        <!-- ---- vars ---- -->
+        <section class="side-panel" data-panel="vars">
+          <div class="panel-head">
+            <h2>変数</h2>
+            <p class="hint">好感度やフラグなど、ゴーストが覚えておく値です。終了時に自動で保存されます。</p>
+          </div>
+          <button id="btn-add-var" class="btn small">＋ 変数をつくる</button>
+          <div id="var-list" class="var-list"></div>
+        </section>
+
+        <!-- ---- check ---- -->
+        <section class="side-panel" data-panel="check">
+          <div class="panel-head">
+            <h2>チェック</h2>
+            <p class="hint">おかしなところを探します。クリックすると、そのブロックまで移動します。</p>
+          </div>
+          <div id="check-list" class="check-list"></div>
+        </section>
+
+        <!-- ---- export ---- -->
+        <section class="side-panel" data-panel="export">
+          <div class="panel-head">
+            <h2>SSP に入れる</h2>
+            <p class="hint">SSP の ghost フォルダへ直接書き出して、そのまま切り替えます。</p>
+          </div>
+          <div id="ssp-info" class="status-line"></div>
+          <div class="btn-row">
+            <button id="btn-ssp-install" class="btn primary">SSP に入れて動かす</button>
+            <button id="btn-ssp-launch" class="btn">SSP を起動</button>
+            <button id="btn-ssp-refresh" class="btn small" title="SSP の状態を確認しなおす">再確認</button>
+          </div>
+          <div id="ssp-result" class="export-result"></div>
+          <label class="field" style="margin-top:10px">
+            <span>SSP の場所（自動で見つからないとき）</span>
+            <input id="ssp-path" type="text" spellcheck="false" placeholder="C:\ssp\ssp.exe">
+          </label>
+          <button id="btn-ssp-path" class="btn small">この場所を使う</button>
+
+          <div class="panel-head"><h2>フォルダ／.nar に書き出す</h2></div>
+          <div id="dll-status" class="status-line"></div>
+          <label class="field"><span>書き出し先フォルダ</span><input id="export-dir" type="text" spellcheck="false"></label>
+          <p class="hint" id="ssp-hint"></p>
+          <label class="field row"><span>仮シェルも書き出す</span><input id="export-shell" type="checkbox" checked></label>
+          <label class="field row"><span>既存のシェル画像を上書き</span><input id="export-overwrite" type="checkbox"></label>
+          <div class="btn-row">
+            <button id="btn-export-dir" class="btn primary">フォルダに書き出す</button>
+            <button id="btn-export-nar" class="btn">.nar を作る</button>
+          </div>
+          <div id="export-result" class="export-result"></div>
+
+          <div class="panel-head"><h2>読み込み</h2>
+            <p class="hint">書き出し済みのゴースト（ghost.json）を読み込んで編集できます。</p>
+          </div>
+          <label class="field"><span>ghost.json またはゴーストフォルダのパス</span><input id="import-path" type="text" spellcheck="false"></label>
+          <button id="btn-import" class="btn small">読み込む</button>
+        </section>
+
+        <!-- ---- help ---- -->
+        <section class="side-panel" data-panel="help">
+          <div class="panel-head"><h2>つかいかた</h2></div>
+          <ol class="help-list">
+            <li><b>イベント</b>から「起動したとき」などをキャンバスにドラッグします。</li>
+            <li>その下に<b>セリフ</b>の「…と話す」ブロックをつなげます。</li>
+            <li><b>ためす</b>タブの ▶ で動きを確認します。</li>
+            <li>「<b>なでられたとき</b>」などのマウス操作は、<b>あたま・かお・むね</b>といった場所ごとに
+              分けて反応させられます（仮シェルにも当たり判定が入っています）。</li>
+            <li><b>チェック</b>タブに気になるところが出ます。クリックするとその場所へ移動します。</li>
+            <li>用意した絵を使うときは、<b>ゴースト</b>タブの「立ち絵の画像」で PNG をえらびます。</li>
+            <li><b>書き出し</b>でフォルダか .nar を作り、SSP にドラッグ＆ドロップで入れます。</li>
+          </ol>
+          <div class="panel-head"><h2>ショートカット</h2></div>
+          <table class="key-table">
+            <tr><td>Ctrl+S</td><td>保存</td></tr>
+            <tr><td>Ctrl+Z / Ctrl+Y</td><td>元にもどす / やりなおす</td></tr>
+            <tr><td>Delete</td><td>えらんだブロックを削除</td></tr>
+            <tr><td>右クリック</td><td>複製・削除メニュー</td></tr>
+            <tr><td>ホイール / 中ドラッグ</td><td>キャンバス移動</td></tr>
+          </table>
+          <div class="panel-head"><h2>ブロックの色</h2></div>
+          <div id="help-cats" class="help-cats"></div>
+          <div class="panel-head"><h2>栞について</h2></div>
+          <p class="hint">
+            書き出したゴーストは <b>nashi.dll</b>（なし栞）で動きます。会話データは
+            <b>ghost/master/ghost.json</b> に入っていて、SSP を動かしたまま書き出し直すと
+            数秒で自動的に読み込み直されます。
+          </p>
+        </section>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div id="drag-layer"></div>
+<div id="ctx-menu" class="ctx-menu"></div>
+<div id="toast"></div>
+<div id="modal-root" class="modal-root"></div>
+
+<script src="js/blocks.js"></script>
+<script src="js/model.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/lint.js"></script>
+<script src="js/render.js"></script>
+<script src="js/drag.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

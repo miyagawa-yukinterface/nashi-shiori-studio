@@ -1,0 +1,138 @@
+# ブロック一覧
+
+エディタで組めるブロックと、それが `ghost.json` でどう表現されるかの対応表です。
+新しいブロックを足すときは **`ui/js/blocks.js`（見た目）**、
+**`ui/js/sim.js`（プレビュー）**、**`shiori/src/interp.cpp`（本番の実行）** の
+3 か所に同じ意味で追加します（`ui/` を直したら `studio\build.ps1` で exe を作り直します）。
+
+数値や文字を入れる欄（`%` の部分）には、**演算・情報カテゴリのブロックをはめ込めます**。
+はめ込んだ場合、その欄の値は文字列や数値ではなくブロック（オブジェクト）になります。
+
+---
+
+## イベント（スクリプトの帽子）
+
+帽子ブロックはブロックではなく「スクリプトの種類」です。
+
+| 帽子 | ghost.json |
+|---|---|
+| ◯◯のとき | `{ "kind": "event", "event": "OnBoot", "blocks": [...] }` |
+| ランダムトーク「名前」えらばれやすさ N | `{ "kind": "talk", "name": "...", "weight": 1, "blocks": [...] }` |
+| 「名前」がよばれたとき | `{ "kind": "function", "name": "...", "blocks": [...] }` |
+| ◯の△が◯◯のとき（マウス系） | `{ "kind": "event", "event": "OnNadeNade", "filter": { "area": "Head", "who": 0 }, "blocks": [...] }` |
+| ずっとくりかえす ◯秒ごと | `{ "kind": "event", "event": "OnSecondChange", "everySec": 5, "blocks": [...] }` |
+
+`function` は選択肢の行き先や「◯◯をよぶ」ブロックから実行されます。
+`talk` も名前で呼び出せます。
+
+主なイベント名: `OnFirstBoot` / `OnBoot` / `OnClose` / `OnMouseDoubleClick` /
+`OnMouseClick` / `OnNadeNade` / `OnMouseMove` / `OnMouseWheel` / `OnHourChange` /
+`OnMinuteChange` / `OnSecondChange` / `OnChoiceSelect` / `OnGhostChanged` /
+`OnGhostChanging` / `OnKeyPress` / `OnSurfaceRestore` / `OnWindowStateMinimize` /
+`OnWindowStateRestore`。
+一覧にないイベントは「その他（自分で書く）」で直接入力できます。
+
+マウス系のイベント（クリック・ダブルクリック・なでなで・ホイール・マウス移動）を選ぶと、
+帽子ブロックが「**◯ の △ が ◯◯のとき**」の形に変わり、**当たった場所**と**相手**で
+しぼり込めます。場所の名前は `Head`（あたま）/ `Face`（かお）/ `Bust`（むね）/
+`Skirt`（スカート）/ `Hand`（て）で、書き出す仮シェルにもこの当たり判定が入っています。
+
+大きく分けると、`OnFirstBoot` / `OnBoot` が**はじめの1回**、`OnSecondChange` が**定常ループ**、
+残りが**イベント**です。`ずっとくりかえす` を選ぶと帽子が「◯秒ごと」の形になります。
+SSP は毎秒たたいてくるので、そのまま処理を積むと毎秒全部動きます。
+体感が変わらない範囲で 5 秒くらいにしておくと軽くなります
+（`◯ミリ秒待つ` は `\_w` ＝**セリフの再生を止める**ブロックで、次のループを遅らせるものではありません）。
+
+`OnNadeNade`（なでられたとき）は SSP のイベントではありません。
+`OnMouseMove` が同じ場所で 8 回続いたときに、栞が自分で作って実行しています。
+
+---
+
+## セリフ
+
+| ブロック | JSON | 出力されるさくらスクリプト |
+|---|---|---|
+| ◯が □ と話す（改行する） | `{"type":"say","who":0,"text":"…","nl":1}` | `\0…\n` |
+| N 回 改行する | `{"type":"newline","count":1}` | `\n` |
+| クリックされるまで待つ | `{"type":"click_wait"}` | `\x` |
+| バルーンの文字を消す | `{"type":"clear"}` | `\c` |
+| 選択肢「L」→ T を出す | `{"type":"choice","label":"L","target":"T"}` | `\q[L,T]` |
+| リンク「L」→ URL を出す | `{"type":"link","label":"L","url":"…"}` | `\_a[…]L\_a` |
+| さくらスクリプト □ をそのまま出す | `{"type":"raw","text":"…"}` | そのまま |
+
+`say` の文章に含まれる `\` は `\\` に、改行は `\n` に自動で変換されます。
+`%username` などの `%` はそのまま通るので、SSP の置換が使えます。
+
+## 見た目
+
+| ブロック | JSON | 出力 |
+|---|---|---|
+| ◯の表情を N 番にする | `{"type":"surface","who":0,"id":0}` | `\0\s[0]` |
+| バルーンを N 番にする | `{"type":"balloon","id":0}` | `\b[0]` |
+| 音 F を鳴らす | `{"type":"sound","file":"a.wav"}` | `\_v[a.wav]` |
+
+## 制御
+
+| ブロック | JSON |
+|---|---|
+| N ミリ秒待つ | `{"type":"wait","ms":500}` → `\_w[500]` |
+| もし ◇ なら | `{"type":"if","cond":◇,"then":[...]}` |
+| もし ◇ なら / そうでなければ | `{"type":"if_else","cond":◇,"then":[...],"else":[...]}` |
+| N 回くりかえす | `{"type":"repeat","count":3,"body":[...]}` |
+| ◇ の間くりかえす | `{"type":"while","cond":◇,"body":[...]}` |
+| つぎのどれかをランダムに | `{"type":"random_one","branches":[[...],[...]]}` |
+| ◯をよぶ | `{"type":"call","name":"トーク名"}` |
+| ランダムトークの間隔を N 秒にする | `{"type":"talk_interval","sec":180}` |
+| ここでトークをおわる | `{"type":"end"}` → `\e` |
+| ゴーストを終了する | `{"type":"close"}` → `\-` |
+
+くりかえしは最大 5000 回、ブロックの実行は最大 40000 ステップで打ち切ります
+（SSP が固まらないための安全装置です）。
+
+## 変数
+
+| ブロック | JSON |
+|---|---|
+| V を X にする | `{"type":"set","name":"V","value":X}` |
+| V を X ずつ変える | `{"type":"change","name":"V","value":X}` |
+| V（値を取り出す） | `{"type":"var","name":"V"}` |
+
+変数の初期値はプロジェクトの `variables` に持ち、実際の値は
+ゴーストの `nashi_save.json` に保存されます。
+
+## 演算（値・条件）
+
+| ブロック | JSON |
+|---|---|
+| A ＋ B（− × ÷ あまり） | `{"type":"arith","op":"+","a":A,"b":B}` |
+| A ＜ B（＝ ＞ ≠） | `{"type":"compare","op":"<","a":A,"b":B}` |
+| A かつ B / A または B | `{"type":"logic","op":"and","a":A,"b":B}` |
+| A ではない | `{"type":"not","a":A}` |
+| A から B までのランダムな数 | `{"type":"random","min":A,"max":B}` |
+| A ％のかくりつ | `{"type":"chance","a":A}` |
+| A と B をつなげる | `{"type":"join","a":A,"b":B}` |
+| A に B がふくまれる | `{"type":"contains","a":A,"b":B}` |
+| A の文字数 | `{"type":"length","a":A}` |
+| A を四捨五入 / 切り捨て / 切り上げ / 絶対値に | `{"type":"round","op":"round","a":A}` |
+
+比較は、両辺が数値として読めるときは数値として、そうでなければ文字列として比べます。
+
+## 情報
+
+| ブロック | JSON | 意味 |
+|---|---|---|
+| いまの時 など | `{"type":"sys","key":"hour"}` | `hour` `minute` `second` `year` `month` `day` `weekday`(0=日) |
+| 起動してからの秒数 / 分数 | `{"type":"sys","key":"uptime"}` / `uptimemin` | |
+| 起動した回数 | `{"type":"sys","key":"boots"}` | 保存データに記録 |
+| 今回のトーク回数 | `{"type":"sys","key":"talks"}` | |
+| ゴースト名 / シェル名 | `{"type":"sys","key":"ghostname"}` / `shellname` | |
+| イベントの情報 N | `{"type":"ref","index":0}` | SSP の `ReferenceN` |
+
+`ReferenceN` の内容はイベントごとに違います。よく使うもの:
+
+| イベント | 0 | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|---|
+| OnMouseDoubleClick | X座標 | Y座標 | ホイール | 相手(0/1) | 当たった場所 |
+| OnSecondChange | ウィンドウ | しゃべってよいか | 累計秒数 | | |
+| OnChoiceSelect | えらばれたID | | | | |
+| OnBoot | シェル名 | | | | |

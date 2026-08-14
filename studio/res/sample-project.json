@@ -1,0 +1,361 @@
+{
+  "format": "nashi/1",
+  "meta": {
+    "name": "なしちゃん",
+    "sakuraName": "なしちゃん",
+    "keroName": "つぶ",
+    "craftman": "あなたの名前",
+    "craftmanUrl": "",
+    "version": "1.0.0",
+    "description": "なしスタジオのサンプルゴーストです。ブロックを組み替えて自分のゴーストにしてください。"
+  },
+  "settings": {
+    "randomTalkInterval": 120,
+    "randomTalkEnabled": true,
+    "defaultSurfaceSakura": 0,
+    "defaultSurfaceKero": 10
+  },
+  "shell": {
+    "sakuraColor": "#f2c14e",
+    "sakuraCloth": "#7fb069",
+    "keroColor": "#b8a1e3",
+    "keroCloth": "#e8e1d4"
+  },
+  "variables": [
+    {
+      "name": "好感度",
+      "value": 0
+    },
+    {
+      "name": "起動回数",
+      "value": 0
+    }
+  ],
+  "scripts": [
+    {
+      "id": "s_first",
+      "kind": "event",
+      "event": "OnFirstBoot",
+      "x": 60,
+      "y": 40,
+      "blocks": [
+        {
+          "type": "surface",
+          "who": 0,
+          "id": 0
+        },
+        {
+          "type": "say",
+          "who": 0,
+          "text": "はじめまして。\nわたしは なしちゃん。",
+          "nl": 1
+        },
+        {
+          "type": "say",
+          "who": 1,
+          "text": "つぶです。よろしく。",
+          "nl": 1
+        },
+        {
+          "type": "say",
+          "who": 0,
+          "text": "これからよろしくね。",
+          "nl": 1
+        }
+      ]
+    },
+    {
+      "id": "s_boot",
+      "kind": "event",
+      "event": "OnBoot",
+      "x": 60,
+      "y": 320,
+      "blocks": [
+        {
+          "type": "change",
+          "name": "起動回数",
+          "value": 1
+        },
+        {
+          "type": "surface",
+          "who": 0,
+          "id": 0
+        },
+        {
+          "type": "if_else",
+          "cond": {
+            "type": "compare",
+            "op": ">",
+            "a": {
+              "type": "var",
+              "name": "起動回数"
+            },
+            "b": 3
+          },
+          "then": [
+            {
+              "type": "surface",
+              "who": 0,
+              "id": 1
+            },
+            {
+              "type": "say",
+              "who": 0,
+              "text": "また来てくれたんだね。うれしい。",
+              "nl": 1
+            }
+          ],
+          "else": [
+            {
+              "type": "say",
+              "who": 0,
+              "text": "おかえりなさい。",
+              "nl": 1
+            }
+          ]
+        },
+        {
+          "type": "say",
+          "who": 0,
+          "nl": 1,
+          "text": {
+            "type": "join",
+            "a": "きょうで ",
+            "b": {
+              "type": "join",
+              "a": {
+                "type": "var",
+                "name": "起動回数"
+              },
+              "b": " 回目だね。"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "s_click",
+      "kind": "event",
+      "event": "OnMouseDoubleClick",
+      "x": 60,
+      "y": 780,
+      "blocks": [
+        {
+          "type": "surface",
+          "who": 0,
+          "id": 2
+        },
+        {
+          "type": "say",
+          "who": 0,
+          "text": "なあに？",
+          "nl": 1
+        },
+        {
+          "type": "choice",
+          "label": "なでる",
+          "target": "なでられた"
+        },
+        {
+          "type": "newline",
+          "count": 1
+        },
+        {
+          "type": "choice",
+          "label": "なんでもない",
+          "target": "なんでもない"
+        }
+      ]
+    },
+    {
+      "id": "s_nade",
+      "kind": "event",
+      "event": "OnNadeNade",
+      "area": "Head",
+      "who": 0,
+      "x": 60,
+      "y": 1020,
+      "blocks": [
+        {
+          "type": "call",
+          "name": "なでられた"
+        }
+      ]
+    },
+    {
+      "id": "f_nade",
+      "kind": "function",
+      "name": "なでられた",
+      "x": 620,
+      "y": 660,
+      "blocks": [
+        {
+          "type": "change",
+          "name": "好感度",
+          "value": 5
+        },
+        {
+          "type": "surface",
+          "who": 0,
+          "id": 1
+        },
+        {
+          "type": "say",
+          "who": 0,
+          "text": "えへへ、うれしい。",
+          "nl": 1
+        },
+        {
+          "type": "if",
+          "cond": {
+            "type": "compare",
+            "op": ">",
+            "a": {
+              "type": "var",
+              "name": "好感度"
+            },
+            "b": 20
+          },
+          "then": [
+            {
+              "type": "say",
+              "who": 0,
+              "text": "……ありがとう。だいすき。",
+              "nl": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f_nothing",
+      "kind": "function",
+      "name": "なんでもない",
+      "x": 620,
+      "y": 940,
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "そっか。",
+          "nl": 1
+        }
+      ]
+    },
+    {
+      "id": "t_weather",
+      "kind": "talk",
+      "name": "ひとりごと",
+      "weight": 2,
+      "x": 620,
+      "y": 40,
+      "blocks": [
+        {
+          "type": "random_one",
+          "branches": [
+            [
+              {
+                "type": "say",
+                "who": 0,
+                "text": "いい天気だね。",
+                "nl": 1
+              }
+            ],
+            [
+              {
+                "type": "say",
+                "who": 0,
+                "text": "ねむくなってきた……",
+                "nl": 1
+              },
+              {
+                "type": "say",
+                "who": 1,
+                "text": "ねるな。",
+                "nl": 1
+              }
+            ],
+            [
+              {
+                "type": "say",
+                "who": 0,
+                "text": "なしって おいしいよね。",
+                "nl": 1
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "t_clock",
+      "kind": "talk",
+      "name": "時報",
+      "weight": 1,
+      "x": 620,
+      "y": 420,
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "nl": 1,
+          "text": {
+            "type": "join",
+            "a": "いま ",
+            "b": {
+              "type": "join",
+              "a": {
+                "type": "sys",
+                "key": "hour"
+              },
+              "b": " 時くらいかな。"
+            }
+          }
+        },
+        {
+          "type": "if",
+          "cond": {
+            "type": "compare",
+            "op": ">",
+            "a": {
+              "type": "sys",
+              "key": "hour"
+            },
+            "b": 22
+          },
+          "then": [
+            {
+              "type": "say",
+              "who": 0,
+              "text": "もう ねる時間だよ。",
+              "nl": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s_close",
+      "kind": "event",
+      "event": "OnClose",
+      "x": 60,
+      "y": 1040,
+      "blocks": [
+        {
+          "type": "surface",
+          "who": 0,
+          "id": 1
+        },
+        {
+          "type": "say",
+          "who": 0,
+          "text": "またね。",
+          "nl": 0
+        },
+        {
+          "type": "close"
+        }
+      ]
+    }
+  ]
+}
