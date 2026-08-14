@@ -61,6 +61,9 @@
       case 'talks': return ctx.sys.talks;
       case 'ghostname': return ctx.sys.ghostName;
       case 'shellname': return ctx.sys.shellName;
+      // ゴースト間通信。OnCommunicate の Reference0 / Reference1。
+      case 'commfrom': return ctx.refs[0] == null ? '' : ctx.refs[0];
+      case 'commtext': return ctx.refs[1] == null ? '' : ctx.refs[1];
       default: return 0;
     }
   }
@@ -194,6 +197,15 @@
         if (f) ctx.out += '\\_v[' + f + ']';
         return;
       }
+      // 他のゴーストに話しかける。プレビューでは普通のセリフとして出す
+      // （相手に届くところは、SSP に入れてから確かめてください）。
+      case 'communicate': {
+        emitScope(ctx, ev(b.who));
+        ctx.out += escapeText(toStr(ev(b.text)));
+        const to = toStr(ev(b.to)).trim();
+        if (to) ctx.commTo = to;
+        return;
+      }
       case 'link': {
         const url = toStr(ev(b.url));
         let label = toStr(ev(b.label)) || url;
@@ -278,6 +290,7 @@
         shellName: 'master',
       }, opt.sys || {}),
       out: '',
+      commTo: '',
       scope: -1,
       steps: 0,
       depth: 0,
@@ -297,7 +310,7 @@
         out += '\\e';
       }
     }
-    return { script: out, vars: ctx.vars };
+    return { script: out, vars: ctx.vars, commTo: ctx.commTo };
   }
 
   // ------------------------------------------------------- SakuraScript 解析

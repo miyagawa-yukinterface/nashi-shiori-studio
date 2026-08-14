@@ -25,6 +25,7 @@ struct RunCtx {
     std::vector<std::string> refs;   // Reference0..N of the current event
 
     std::string out;
+    std::string commTo;              // 話しかける相手（レスポンスの Reference0 になる）
     int scope = -1;                  // last character scope written into out
     int steps = 0;
     int depth = 0;

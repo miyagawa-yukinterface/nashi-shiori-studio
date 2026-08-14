@@ -267,7 +267,12 @@
   // ためすときの Reference。マウス系はブロックで選んだ場所・相手を入れておくと、
   // 「イベントの情報」ブロックが本番と同じ値を返す。
   function refsFor(script) {
-    if (!script || script.kind !== 'event' || !N.MOUSE_EVENTS[script.event]) return [];
+    if (!script || script.kind !== 'event') return [];
+    if (script.event === 'OnCommunicate') {
+      // 相手の名前・言われたこと。空欄なら、ためすとき用の仮の値を入れる。
+      return [script.from || 'ほかのゴースト', script.contains || 'こんにちは'];
+    }
+    if (!N.MOUSE_EVENTS[script.event]) return [];
     const who = script.who >= 0 ? script.who : 0;
     return ['0', '0', '0', String(who), script.area || 'Head'];
   }
@@ -278,7 +283,10 @@
     switchTab('run');
     const res = Sim.runScript(Model.project, script, { vars: App.sessionVars, refs: refsFor(script) });
     App.sessionVars = res.vars;
-    $('#script-preview').textContent = res.script || '（なにも出力されませんでした）';
+    let preview = res.script || '（なにも出力されませんでした）';
+    // 話しかけ先はさくらスクリプトに出ないので、ここで見せる
+    if (res.commTo) preview += `\n\n（「${res.commTo}」に届きます）`;
+    $('#script-preview').textContent = preview;
     renderRunVars();
     playSakura(res.script);
   };

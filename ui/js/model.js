@@ -85,12 +85,17 @@
           // マウス系イベントのしぼり込み（当たった場所・相手）
           if (typeof script.area !== 'string') script.area = '';
           if (typeof script.who !== 'number') script.who = -1;
+          // ゴースト間通信のしぼり込み（だれが・なんと言ったら）
+          if (typeof script.from !== 'string') script.from = '';
+          if (typeof script.contains !== 'string') script.contains = '';
           // くりかえしの間隔（1 なら毎秒）
           script.everySec = Math.max(1, Math.floor(Number(script.everySec) || 1));
           // 読み込んだゴーストの filter を、編集できる形にほどく
           if (s.filter && typeof s.filter === 'object') {
             if (typeof s.filter.area === 'string') script.area = s.filter.area;
             if (typeof s.filter.who === 'number') script.who = s.filter.who;
+            if (typeof s.filter.from === 'string') script.from = s.filter.from;
+            if (typeof s.filter.contains === 'string') script.contains = s.filter.contains;
             delete script.filter;
           }
         }
@@ -173,6 +178,8 @@
         if (!s.event) s.event = 'OnBoot';
         if (typeof s.area !== 'string') s.area = '';
         if (typeof s.who !== 'number') s.who = -1;
+        if (typeof s.from !== 'string') s.from = '';
+        if (typeof s.contains !== 'string') s.contains = '';
         if (typeof s.everySec !== 'number') s.everySec = 1;
       }
       if (kind === 'talk') { s.name = s.name || 'トーク'; if (s.weight == null) s.weight = 1; }
@@ -199,6 +206,10 @@
           const area = (N.AREAS.find((a) => a[1] === (s.area || '')) || [])[0];
           const who = (N.WHO_ANY.find((w) => w[1] === (s.who == null ? -1 : s.who)) || [])[0];
           if (s.area || (s.who != null && s.who >= 0)) label = who + 'の' + area + 'が' + label;
+        }
+        if (s.event === 'OnCommunicate' && (s.from || s.contains)) {
+          const who = s.from ? s.from : 'だれか';
+          label = s.contains ? `${who}に「${s.contains}」と${label}` : `${who}に${label}`;
         }
         return label;
       }

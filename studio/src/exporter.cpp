@@ -303,13 +303,24 @@ std::string RuntimeProgramJson(const JValue& project) {
             // くりかえしの間隔（毎秒でよければ書かない）
             int every = src["everySec"].asInt(1);
             if (every > 1) one.set("everySec", JValue::makeNum(every));
-            // マウス系イベントの絞り込み（当たった場所・相手）。使っていなければ書かない。
-            std::string area = src["area"].asStr();
-            int who = src["who"].asInt(-1);
-            if (!area.empty() || who >= 0) {
+            // イベントの絞り込み。使っていなければ書かない。
+            //   マウス系 … 当たった場所・相手
+            //   ゴースト間通信 … 相手の名前・言われたことにふくまれる言葉
+            // 前に別のイベントを選んでいたときの絞り込みが残っていても、
+            // 今のイベントに関係しないものは書き出さない。
+            std::string ev = src["event"].asStr();
+            bool isMouse = (ev.compare(0, 7, "OnMouse") == 0) || ev == "OnNadeNade";
+            bool isComm = (ev == "OnCommunicate");
+            std::string area = isMouse ? src["area"].asStr() : std::string();
+            int who = isMouse ? src["who"].asInt(-1) : -1;
+            std::string from = isComm ? src["from"].asStr() : std::string();
+            std::string contains = isComm ? src["contains"].asStr() : std::string();
+            if (!area.empty() || who >= 0 || !from.empty() || !contains.empty()) {
                 JValue f = JValue::makeObj();
                 if (!area.empty()) f.set("area", JValue::makeStr(area));
                 if (who >= 0) f.set("who", JValue::makeNum(who));
+                if (!from.empty()) f.set("from", JValue::makeStr(from));
+                if (!contains.empty()) f.set("contains", JValue::makeStr(contains));
                 one.set("filter", f);
             }
         }

@@ -64,7 +64,10 @@ bool ParseRequest(const std::string& utf8, ShioriRequest& out) {
     return !out.id.empty();
 }
 
-static std::string BuildResponse(const std::string& value) {
+// commTo に相手の名前（ゴーストの \0 側の名前）を入れると、
+// Value のスクリプトがそのゴーストへの「通信」として届く（SHIORI/3.0 の Reference0）。
+static std::string BuildResponse(const std::string& value,
+                                 const std::string& commTo = std::string()) {
     std::string body;
     if (value.empty()) {
         body = "SHIORI/3.0 204 No Content\r\n";
@@ -74,6 +77,15 @@ static std::string BuildResponse(const std::string& value) {
     body += "Sender: ";
     body += kShioriName;
     body += "\r\nCharset: UTF-8\r\n";
+    if (!value.empty() && !commTo.empty()) {
+        std::string t;
+        for (size_t i = 0; i < commTo.size(); i++) {   // a header must stay on one line
+            char c = commTo[i];
+            if (c == '\r' || c == '\n') continue;
+            t += c;
+        }
+        if (!t.empty()) body += "Reference0: " + t + "\r\n";
+    }
     if (!value.empty()) {
         std::string v;
         v.reserve(value.size());
@@ -224,6 +236,8 @@ std::string Shiori::RunOne(const JValue& script, const ShioriRequest& req) {
     ctx.refs = req.refs;
     RunScript(script, ctx);
     dirty_ = true;
+    // 出力を捨てる場合（空だったので別のブロックを試す）は、話しかけ先も覚えない
+    if (!ctx.out.empty() && !ctx.commTo.empty()) commTo_ = ctx.commTo;
     return ctx.out;
 }
 
@@ -232,6 +246,10 @@ std::string Shiori::RunOne(const JValue& script, const ShioriRequest& req) {
 //   filter: { "area": "Head", "who": 0 }   マウス系の「だれの・どこを」
 //     area が空、who が無いときは「どこでも／どちらでも」。
 //     Reference3 = 相手(0=本体/1=相方)、Reference4 = 当たり判定名。
+//
+//   filter: { "from": "…", "contains": "…" }  ゴースト間通信の「だれが・なんと言ったら」
+//     Reference0 = 相手の名前（通信ボックスからなら "user"）、Reference1 = 言われたこと。
+//     どちらも「ふくんでいれば一致」。空なら何でも通す。
 //
 //   everySec: 5                            くりかえしの間隔
 //     SSP は OnSecondChange を毎秒送ってくるので、ここで間引く。
@@ -254,7 +272,32 @@ bool Shiori::Matches(const JValue& script, const ShioriRequest& req) const {
         int scope = req.refs.size() > 3 ? atoi(req.refs[3].c_str()) : 0;
         if (want != scope) return false;
     }
+
+    std::string from = Trim(f["from"].asStr());
+    if (!from.empty()) {
+        std::string got = req.refs.empty() ? std::string() : req.refs[0];
+        if (got.find(from) == std::string::npos) return false;
+    }
+
+    std::string keyword = Trim(f["contains"].asStr());
+    if (!keyword.empty()) {
+        std::string got = req.refs.size() > 1 ? req.refs[1] : std::string();
+        if (got.find(keyword) == std::string::npos) return false;
+    }
     return true;
+}
+
+// しぼり込みの細かさ。「"こんにちは" と言われたら」のように条件を書いたブロックを、
+// 条件なしの「話しかけられたとき」より先に使うための目安。
+static int Specificity(const JValue& script) {
+    const JValue& f = script["filter"];
+    if (!f.isObj()) return 0;
+    int n = 0;
+    if (!f["area"].asStr().empty()) n++;
+    if (f["who"].asInt(-1) >= 0) n++;
+    if (!f["from"].asStr().empty()) n++;
+    if (!f["contains"].asStr().empty()) n++;
+    return n;
 }
 
 std::string Shiori::RunHandlers(const std::string& eventId, const ShioriRequest& req, bool* found) {
@@ -265,6 +308,20 @@ std::string Shiori::RunHandlers(const std::string& eventId, const ShioriRequest&
     }
     if (found) *found = !list.empty();
     if (list.empty()) return std::string();
+
+    // 条件を書いたブロックがあるときは、そちらだけを候補にする
+    int best = 0;
+    for (size_t i = 0; i < list.size(); i++) {
+        int s = Specificity(*list[i]);
+        if (s > best) best = s;
+    }
+    if (best > 0) {
+        std::vector<const JValue*> narrowed;
+        for (size_t i = 0; i < list.size(); i++) {
+            if (Specificity(*list[i]) == best) narrowed.push_back(list[i]);
+        }
+        list.swap(narrowed);
+    }
 
     // 同じイベントに複数のブロックがあるとき、直前と同じものは避ける
     if (list.size() > 1) {
@@ -494,11 +551,23 @@ std::string Shiori::Request(const std::string& rawRequest) {
     MaybeReload();
 
     std::string value;
+    commTo_.clear();
     try {
         value = Dispatch(req);
     } catch (...) {
         Log("exception while handling " + req.id);
         value.clear();
+    }
+
+    // ゴースト同士で話しかけ合うと止まらなくなることがあるので、
+    // 話しかけ返しが続いたら、しゃべるだけにして通信は打ち切る。
+    if (req.id == "OnCommunicate") {
+        const int kMaxCommChain = 8;
+        if (!commTo_.empty() && ++commChain_ > kMaxCommChain) commTo_.clear();
+    } else if (!commTo_.empty()) {
+        commChain_ = 1;                // こちらから始めた通信
+    } else {
+        commChain_ = 0;
     }
 
     if (!value.empty()) {
@@ -509,7 +578,7 @@ std::string Shiori::Request(const std::string& rawRequest) {
         }
     }
     if (req.method == "NOTIFY") return BuildResponse("");
-    return BuildResponse(value);
+    return BuildResponse(value, commTo_);
 }
 
 } // namespace nashi

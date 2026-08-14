@@ -57,6 +57,10 @@ private:
     // 同じイベントで直前に選んだブロック（続けて同じ反応にならないように）
     std::map<std::string, std::string> lastEventPick_;
 
+    // ゴースト間通信（この応答を届ける相手と、話しかけ合いが続いた回数）
+    std::string commTo_;
+    int commChain_ = 0;
+
     // なで判定（OnMouseMove を数えて OnNadeNade を作る）
     std::string strokeKey_;
     int strokeCount_ = 0;

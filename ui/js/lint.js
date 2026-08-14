@@ -166,6 +166,17 @@
               issue(out, 'warn', `${title}に、からっぽのさくらスクリプトがあります`, '', s, b);
             }
             break;
+          case 'communicate':
+            if (isEmptyText(b.to)) {
+              issue(out, 'error', `${title}に、話しかける相手が空のブロックがあります`,
+                '相手のゴースト名（本体の名前）を入れてください。'
+                + '「話しかけてきた相手」ブロックを入れると、言われた相手に返せます。', s, b);
+            }
+            if (isEmptyText(b.text)) {
+              issue(out, 'warn', `${title}に、なにも言わずに話しかけるブロックがあります`,
+                '文章がないと、相手には届きません。', s, b);
+            }
+            break;
           case 'var': case 'set': case 'change':
             if (isEmptyText(b.name)) {
               issue(out, 'error', `${title}に、変数をえらんでいないブロックがあります`,

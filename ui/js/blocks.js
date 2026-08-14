@@ -30,6 +30,7 @@ window.NASHI = window.NASHI || {};
     ['1分ごと', 'OnMinuteChange'],
     ['ずっとくりかえす', 'OnSecondChange'],
     ['選択肢がえらばれたとき', 'OnChoiceSelect'],
+    ['話しかけられたとき', 'OnCommunicate'],
     ['他のゴーストから来たとき', 'OnGhostChanged'],
     ['他のゴーストへ行くとき', 'OnGhostChanging'],
     ['キーが押されたとき', 'OnKeyPress'],
@@ -65,6 +66,7 @@ window.NASHI = window.NASHI || {};
     OnChoiceSelect: ['えらばれたID'],
     OnKeyPress: ['押されたキー'],
     OnGhostChanged: ['前のゴースト名'],
+    OnCommunicate: ['相手の名前(通信ボックスなら user)', '言われたこと'],
   };
 
   const WHO = [['さくら', 0], ['うにゅう', 1]];
@@ -149,6 +151,17 @@ window.NASHI = window.NASHI || {};
     },
     hat: true, kind: 'event',
   });
+  // 「話しかけられたとき」を選ぶと、相手と内容でしぼり込める形に変わる
+  def({
+    key: '@event.comm', type: '@event', cat: 'events', shape: 'hat',
+    spec: '%from に %contains と %event',
+    args: {
+      from: { kind: 'input', mode: 'text', def: '', long: true },
+      contains: { kind: 'input', mode: 'text', def: '', long: true },
+      event: { kind: 'eventname', def: 'OnCommunicate' },
+    },
+    hat: true, kind: 'event',
+  });
   // 「ずっとくりかえす」を選ぶと、間隔を指定できる形に変わる
   def({
     key: '@event.every', type: '@event', cat: 'events', shape: 'hat',
@@ -206,6 +219,15 @@ window.NASHI = window.NASHI || {};
     args: {
       label: { kind: 'input', mode: 'text', def: 'ホームページ', long: true },
       url: { kind: 'input', mode: 'text', def: 'https://', long: true },
+    },
+  });
+  def({
+    type: 'communicate', cat: 'talk', shape: 'stack',
+    spec: '%who が %to に %text と話しかける',
+    args: {
+      who: { kind: 'dropdown', options: WHO, def: 0 },
+      to: { kind: 'input', mode: 'text', def: '', long: true },
+      text: { kind: 'input', mode: 'text', def: 'こんにちは。', long: true },
     },
   });
   def({
@@ -401,6 +423,7 @@ window.NASHI = window.NASHI || {};
           ['起動してからの秒数', 'uptime'], ['起動してからの分数', 'uptimemin'],
           ['起動した回数', 'boots'], ['今回のトーク回数', 'talks'],
           ['ゴースト名', 'ghostname'], ['シェル名', 'shellname'],
+          ['話しかけてきた相手', 'commfrom'], ['言われたこと', 'commtext'],
         ],
       },
     },
@@ -420,9 +443,9 @@ window.NASHI = window.NASHI || {};
   N.PALETTE = {
     events: [
       { note: 'ゴーストの動きは、ここからはじまります。キャンバスにドラッグしてください。' },
-      '@event', '@event.touch', '@event.every', '@talk', '@function',
+      '@event', '@event.touch', '@event.every', '@event.comm', '@talk', '@function',
     ],
-    talk: ['say', 'newline', 'click_wait', 'clear', 'choice', 'link', 'raw'],
+    talk: ['say', 'newline', 'click_wait', 'clear', 'choice', 'link', 'communicate', 'raw'],
     looks: ['surface', 'balloon', 'sound'],
     control: ['wait', 'if', 'if_else', 'repeat', 'while', 'random_one', 'call',
       'talk_interval', 'end', 'close'],

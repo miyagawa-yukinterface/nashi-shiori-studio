@@ -86,6 +86,9 @@ static Value SysValue(const std::string& key, RunCtx& ctx) {
     if (key == "month")   return Value::Num(st.wMonth);
     if (key == "day")     return Value::Num(st.wDay);
     if (key == "weekday") return Value::Num(st.wDayOfWeek);   // 0=Sunday
+    // ゴースト間通信。OnCommunicate の Reference0 が相手の名前、Reference1 が言われたこと。
+    if (key == "commfrom") return Value::Str(ctx.refs.size() > 0 ? ctx.refs[0] : std::string());
+    if (key == "commtext") return Value::Str(ctx.refs.size() > 1 ? ctx.refs[1] : std::string());
     if (!ctx.sys) return Value::Num(0);
     if (key == "uptime")    return Value::Num((double)ctx.sys->uptimeSec);
     if (key == "uptimemin") return Value::Num((double)(ctx.sys->uptimeSec / 60));
@@ -328,6 +331,18 @@ static void RunBlock(const JValue& b, RunCtx& ctx) {
         std::string target = EvalStr(b["target"], ctx);
         if (label.empty()) return;
         Emit(ctx, "\\q[" + EscapeText(label) + "," + target + "]");
+        return;
+    }
+
+    // 他のゴーストに話しかける。
+    // 画面には普通のセリフとして出て、同時に相手の OnCommunicate に届く。
+    // 届け先はレスポンスの Reference0 で指定するので、ここでは覚えておくだけ。
+    if (type == "communicate") {
+        int who = EvalInt(b["who"], ctx, 0);
+        EmitScope(ctx, who);
+        Emit(ctx, EscapeText(EvalStr(b["text"], ctx)));
+        std::string to = Trim(EvalStr(b["to"], ctx));
+        if (!to.empty()) ctx.commTo = to;
         return;
     }
 
