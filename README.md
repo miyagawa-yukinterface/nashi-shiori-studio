@@ -97,8 +97,13 @@ Visual Studio の「C++ によるデスクトップ開発」が入っていれ�
 
 ```powershell
 .\build.ps1            # 栞(32bit DLL) → スタジオ(64bit EXE)
-.\build.ps1 -Test      # 栞のテストホストも作る
+.\build.ps1 -Test      # 栞のテストホストも作り、一致テストも走らせる
 ```
+
+`-Test` を付けると、最後に **プレビューと栞の一致テスト** が走ります。
+`ui\js\sim.js`（プレビュー）と `shiori\src\interp.cpp`（本番）は同じ規則を二重に書いているので、
+同じ `ghost.json` を両方に流して、出てきたさくらスクリプトが一致するか見くらべています。
+これだけ **Node.js** を使います（入っていなければ飛ばします。アプリの動作には要りません）。
 
 個別に作るときは `shiori\build.ps1` / `studio\build.ps1`。
 スタジオのビルドでは `studio\tools\embed.ps1` が `ui\` 以下と `nashi.dll` を
@@ -144,6 +149,7 @@ nashi-shiori/
 │   │   ├── json.cpp        小さな JSON パーサ（スタジオと共用）
 │   │   └── util.cpp        文字コード・ファイル・乱数（スタジオと共用）
 │   ├── test/               SSP なしで動かせるテストホスト
+│   │   └── parity/         プレビューと栞の出力を見くらべる一致テスト
 │   └── dist/               ビルド結果（nashi.dll / test_host.exe）
 ├── studio/                 なしスタジオ（C++ / 64bit EXE）
 │   ├── build.ps1

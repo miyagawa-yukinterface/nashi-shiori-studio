@@ -22,7 +22,12 @@
 
   const isNumeric = (v) => v !== '' && v !== null && v !== undefined && !isNaN(Number(v));
   const toNum = (v) => (isNumeric(v) ? Number(v) : 0);
-  const toStr = (v) => (v == null ? '' : typeof v === 'number' ? fmtNum(v) : String(v));
+  // 栞は「はい/いいえ」を数の 1 / 0 として持っている（program.h の Value::Bool）ので、
+  // 文字にするときも 1 / 0 にそろえる。true / false と出すとプレビューだけ表示が変わる。
+  const toStr = (v) => (
+    v == null ? ''
+      : typeof v === 'boolean' ? (v ? '1' : '0')
+        : typeof v === 'number' ? fmtNum(v) : String(v));
   const toBool = (v) => {
     if (typeof v === 'boolean') return v;
     if (typeof v === 'number') return v !== 0;
