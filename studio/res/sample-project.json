@@ -356,6 +356,43 @@
           "type": "close"
         }
       ]
+    },
+    {
+      "id": "s_comm",
+      "kind": "event",
+      "event": "OnCommunicate",
+      "contains": "こんにちは",
+      "x": 620,
+      "y": 1240,
+      "blocks": [
+        {
+          "type": "surface",
+          "who": 0,
+          "id": 1
+        },
+        {
+          "type": "say",
+          "who": 0,
+          "text": {
+            "type": "join",
+            "a": {
+              "type": "sys",
+              "key": "commfrom"
+            },
+            "b": "さんだ。"
+          },
+          "nl": 1
+        },
+        {
+          "type": "communicate",
+          "who": 0,
+          "to": {
+            "type": "sys",
+            "key": "commfrom"
+          },
+          "text": "こんにちは。きょうもいい天気だね。"
+        }
+      ]
     }
   ]
 }

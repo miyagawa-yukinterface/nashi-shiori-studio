@@ -449,6 +449,23 @@ void Api::HandleApi(const HttpRequest& req, HttpResponse& res) {
         return;
     }
 
+    // 他のゴーストのふりをして、動いているゴーストに話しかける（OnCommunicate の確認）
+    if (req.path == "/api/ssp/communicate" && req.method == "POST") {
+        JValue body;
+        if (!ParseBody(req, body)) { JsonError(res, 400, "JSON が壊れています"); return; }
+        std::string sentence = body["sentence"].asStr();
+        if (sentence.empty()) { JsonError(res, 400, "話しかける内容がありません"); return; }
+        std::string sender = body["sender"].asStr();
+        if (sender.empty()) sender = "なしスタジオ";
+        SstpResult r = SstpCommunicate(sentence, sender);
+        if (!r.ok) { JsonError(res, 502, r.error); return; }
+        JValue o = JValue::makeObj();
+        o.set("ok", JValue::makeBool(true));
+        o.set("status", JValue::makeNum(r.status));
+        Json(res, 200, o);
+        return;
+    }
+
     if (req.path == "/api/ssp/install" && req.method == "POST") {
         JValue body;
         if (!ParseBody(req, body)) { JsonError(res, 400, "JSON が壊れています"); return; }

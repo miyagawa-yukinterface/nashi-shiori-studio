@@ -49,7 +49,7 @@ function run(dir, specs) {
     // 行末が \r\r\n になる。まとめて落とす。
     const line = rawLine.replace(/\r+$/, '');
     if (line.startsWith('---- ')) {
-      cur = { value: '', commTo: '', status: '' };
+      cur = { value: '', commTo: '', status: '', age: '' };
       out.push(cur);
       continue;
     }
@@ -57,6 +57,7 @@ function run(dir, specs) {
     if (line.startsWith('SHIORI/3.0 ')) cur.status = line.slice(11);
     else if (line.startsWith('Value: ')) cur.value = line.slice(7);
     else if (line.startsWith('Reference0: ')) cur.commTo = line.slice(12);
+    else if (line.startsWith('Age: ')) cur.age = line.slice(5);
   }
   return out;
 }

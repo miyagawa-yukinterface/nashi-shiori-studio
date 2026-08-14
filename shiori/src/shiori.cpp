@@ -67,7 +67,8 @@ bool ParseRequest(const std::string& utf8, ShioriRequest& out) {
 // commTo に相手の名前（ゴーストの \0 側の名前）を入れると、
 // Value のスクリプトがそのゴーストへの「通信」として届く（SHIORI/3.0 の Reference0）。
 static std::string BuildResponse(const std::string& value,
-                                 const std::string& commTo = std::string()) {
+                                 const std::string& commTo = std::string(),
+                                 int commAge = 0) {
     std::string body;
     if (value.empty()) {
         body = "SHIORI/3.0 204 No Content\r\n";
@@ -84,7 +85,14 @@ static std::string BuildResponse(const std::string& value,
             if (c == '\r' || c == '\n') continue;
             t += c;
         }
-        if (!t.empty()) body += "Reference0: " + t + "\r\n";
+        if (!t.empty()) {
+            body += "Reference0: " + t + "\r\n";
+            // やりとりの世代数。初回が 0 で、返すたびに増える。
+            // SSP 側でも「いつまでも続く会話」を止められるようにするためのもの。
+            char age[24];
+            sprintf_s(age, "Age: %d\r\n", commAge < 0 ? 0 : commAge);
+            body += age;
+        }
     }
     if (!value.empty()) {
         std::string v;
@@ -578,7 +586,8 @@ std::string Shiori::Request(const std::string& rawRequest) {
         }
     }
     if (req.method == "NOTIFY") return BuildResponse("");
-    return BuildResponse(value, commTo_);
+    // commChain_ は「何回目のやりとりか」なので、世代数はその 1 つ手前
+    return BuildResponse(value, commTo_, commChain_ > 0 ? commChain_ - 1 : 0);
 }
 
 } // namespace nashi

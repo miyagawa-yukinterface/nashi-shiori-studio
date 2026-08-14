@@ -159,6 +159,17 @@ SstpResult SstpExecute(const std::string& command, const std::string& sender) {
     return Exchange(req);
 }
 
+// 他のゴーストのふりをして話しかける。受け取ったゴーストには
+// OnCommunicate（Reference0 = Sender、Reference1 = Sentence）として届く。
+SstpResult SstpCommunicate(const std::string& sentence, const std::string& sender) {
+    std::string req = "COMMUNICATE SSTP/1.1\r\n";
+    req += HeaderLine("Charset", "UTF-8");
+    req += HeaderLine("Sender", sender.empty() ? "なしスタジオ" : sender);
+    req += HeaderLine("Sentence", sentence);
+    req += "\r\n";
+    return Exchange(req);
+}
+
 SstpResult SstpNotify(const std::string& eventName, const std::vector<std::string>& refs,
                       const std::string& sender) {
     std::string req = "NOTIFY SSTP/1.1\r\n";

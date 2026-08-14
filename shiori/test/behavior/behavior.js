@@ -78,6 +78,8 @@ const scenarios = [
         out.push(['OnCommunicate:みかん,ねえ', {
           value: '\\0みかんだ\\e',
           commTo: i <= 8 ? 'みかん' : '',
+          // 世代数は初回が 0 で、返すたびに増える。打ち切ったあとは付かない。
+          age: i <= 8 ? String(i - 1) : '',
         }]);
       }
       return out;
@@ -165,6 +167,9 @@ for (const sc of scenarios) {
     }
     if (exp.status !== undefined && res.status !== exp.status) {
       problems.push(`${spec}  応答の種類  出た: "${res.status}" / ほしい: "${exp.status}"`);
+    }
+    if (exp.age !== undefined && res.age !== exp.age) {
+      problems.push(`${spec}  世代数  出た: "${res.age}" / ほしい: "${exp.age}"`);
     }
   });
 

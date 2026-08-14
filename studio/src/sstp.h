@@ -22,6 +22,10 @@ SstpResult SstpSend(const std::string& scriptUtf8, const std::string& sender);
 // EXECUTE（GetName など）
 SstpResult SstpExecute(const std::string& command, const std::string& sender);
 
+// 他のゴーストのふりをして話しかける（OnCommunicate の動作確認用）。
+// 受け取ったゴーストには Reference0 = sender、Reference1 = sentence で届く。
+SstpResult SstpCommunicate(const std::string& sentence, const std::string& sender);
+
 // イベントを投げる（OnMouseDoubleClick などの動作確認用）
 SstpResult SstpNotify(const std::string& eventName, const std::vector<std::string>& refs,
                       const std::string& sender);

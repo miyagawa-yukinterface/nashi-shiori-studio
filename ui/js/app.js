@@ -911,6 +911,7 @@
     badge.classList.toggle('is-off', !info.ok);
     $('#btn-run-ssp').disabled = !info.ok;
     $('#btn-send-event').disabled = !info.ok;
+    $('#btn-send-comm').disabled = !info.ok;
 
     const box = $('#ssp-info');
     if (box) {
@@ -956,6 +957,23 @@
     try {
       await api('/api/ssp/notify', { method: 'POST', body: { event: script.event, refs: refsFor(script) } });
       App.toast(`${script.event} を送りました（SSP に入れたゴーストが反応します）`);
+    } catch (e) {
+      App.toast(e.message, true);
+      refreshSsp();
+    }
+  }
+
+  // 他のゴーストのふりをして、動いているゴーストに話しかける。
+  // 「話しかけられたとき」のブロックを、本物のゴーストで試すためのもの。
+  async function sendCommToSsp() {
+    const script = currentScript();
+    const isComm = script && script.kind === 'event' && script.event === 'OnCommunicate';
+    // 「話しかけられたとき」を選んでいれば、その条件どおりの内容で話しかける
+    const sender = (isComm && script.from) || 'ほかのゴースト';
+    const sentence = (isComm && script.contains) || 'こんにちは';
+    try {
+      await api('/api/ssp/communicate', { method: 'POST', body: { sentence, sender } });
+      App.toast(`「${sender}」が「${sentence}」と話しかけました`);
     } catch (e) {
       App.toast(e.message, true);
       refreshSsp();
@@ -1093,6 +1111,7 @@
 
     $('#btn-run-ssp').addEventListener('click', sendScriptToSsp);
     $('#btn-send-event').addEventListener('click', sendEventToSsp);
+    $('#btn-send-comm').addEventListener('click', sendCommToSsp);
     $('#btn-ssp-install').addEventListener('click', installToSsp);
     $('#btn-ssp-refresh').addEventListener('click', async () => {
       await refreshSsp();
