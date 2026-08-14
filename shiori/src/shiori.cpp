@@ -128,6 +128,7 @@ bool Shiori::Load(const std::wstring& moduleDir) {
     }
     SeedRandom();
     SetLogPath(dir_);
+    saori_.SetBaseDir(dir_);
 
     prog_.Load(dir_);
     progStamp_ = FileStamp(dir_ + L"ghost.json") ^ FileStamp(dir_ + L"nashi.json");
@@ -146,6 +147,7 @@ bool Shiori::Load(const std::wstring& moduleDir) {
 
 void Shiori::Unload() {
     if (ready_) SaveSave();
+    saori_.UnloadAll();          // 借りた外部モジュールを返す
     ready_ = false;
 }
 
@@ -241,6 +243,7 @@ std::string Shiori::RunOne(const JValue& script, const ShioriRequest& req) {
     ctx.prog = &prog_;
     ctx.vars = &vars_;
     ctx.sys = &sys_;
+    ctx.saori = &saori_;
     ctx.refs = req.refs;
     RunScript(script, ctx);
     dirty_ = true;

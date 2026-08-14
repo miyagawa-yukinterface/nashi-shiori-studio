@@ -58,7 +58,7 @@ if ($needVcVars) {
 }
 
 # ---- compile ---------------------------------------------------------------
-$sources = @('dllmain.cpp', 'shiori.cpp', 'program.cpp', 'interp.cpp', 'json.cpp', 'util.cpp') |
+$sources = @('dllmain.cpp', 'shiori.cpp', 'program.cpp', 'interp.cpp', 'saori.cpp', 'json.cpp', 'util.cpp') |
            ForEach-Object { Join-Path $src $_ }
 $dllOut = Join-Path $dist 'nashi.dll'
 

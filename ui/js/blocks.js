@@ -245,6 +245,12 @@ window.NASHI = window.NASHI || {};
       id: { kind: 'input', mode: 'number', def: 0 },
     },
   });
+  // さくら(0) と うにゅう(1) のほかに、3 人目以降を出したいとき
+  def({
+    type: 'chara', cat: 'looks', shape: 'stack',
+    spec: 'これから %id 番のキャラが話す',
+    args: { id: { kind: 'input', mode: 'number', def: 2 } },
+  });
   def({
     type: 'balloon', cat: 'looks', shape: 'stack',
     spec: 'バルーンを %id 番にする',
@@ -409,6 +415,21 @@ window.NASHI = window.NASHI || {};
     },
   });
 
+  // 外部モジュール（SAORI）。ゴーストのフォルダに置いた 32bit の DLL を呼びます。
+  def({
+    type: 'saori', cat: 'operators', shape: 'reporter',
+    spec: '%file を %a %b でよんだ答え %value',
+    args: {
+      file: { kind: 'input', mode: 'text', def: 'saori.dll', long: true },
+      a: { kind: 'input', mode: 'text', def: '', long: true },
+      b: { kind: 'input', mode: 'text', def: '', long: true },
+      value: {
+        kind: 'dropdown', def: -1,
+        options: [['（答え）', -1], ['0番目の値', 0], ['1番目の値', 1], ['2番目の値', 2]],
+      },
+    },
+  });
+
   // ================================================================ 情報
   def({
     type: 'sys', cat: 'info', shape: 'reporter',
@@ -446,14 +467,14 @@ window.NASHI = window.NASHI || {};
       '@event', '@event.touch', '@event.every', '@event.comm', '@talk', '@function',
     ],
     talk: ['say', 'newline', 'click_wait', 'clear', 'choice', 'link', 'communicate', 'raw'],
-    looks: ['surface', 'balloon', 'sound'],
+    looks: ['surface', 'chara', 'balloon', 'sound'],
     control: ['wait', 'if', 'if_else', 'repeat', 'while', 'random_one', 'call',
       'talk_interval', 'end', 'close'],
     variables: [{ button: 'add-var', label: '＋ 変数をつくる' }, '@vars', 'set', 'change'],
     operators: ['arith#+', 'arith#-', 'arith#*', 'arith#/', 'arith#%',
       'compare#<', 'compare#=', 'compare#>', 'compare#!=',
       'logic#and', 'logic#or', 'not', 'random', 'chance',
-      'join', 'contains', 'length', 'round'],
+      'join', 'contains', 'length', 'round', 'saori'],
     info: [
       { note: 'イベントの情報＝ダブルクリックの座標など、イベントごとの追加データです。' },
       'sys', 'ref',

@@ -215,6 +215,25 @@ Value EvalExpr(const JValue& node, RunCtx& ctx) {
         return Value::Num(n);
     }
 
+    // 外部モジュール（SAORI）を呼んで、返ってきた値を使う
+    if (type == "saori") {
+        if (!ctx.saori) return Value::Str("");
+        std::string file = Trim(EvalExpr(node["file"], ctx).asStr());
+        if (file.empty()) return Value::Str("");
+        std::vector<std::string> args;
+        const char* keys[] = { "a", "b", "c" };
+        for (int i = 0; i < 3; i++) {
+            if (!node.has(keys[i]) || node[keys[i]].isNull()) continue;
+            args.push_back(EvalExpr(node[keys[i]], ctx).asStr());
+        }
+        SaoriResult r = ctx.saori->Execute(file, args);
+        if (!r.ok) { Log(r.error); return Value::Str(""); }
+        int want = node["value"].asInt(-1);      // -1 なら Result、0 以降なら ValueN
+        if (want < 0) return Value::Str(r.result);
+        if ((size_t)want < r.values.size()) return Value::Str(r.values[(size_t)want]);
+        return Value::Str("");
+    }
+
     if (type == "chance") {   // "N% の確率で"
         double p = EvalExpr(node["a"], ctx).asNum();
         return Value::Bool(RandUnit() * 100.0 < p);
@@ -280,6 +299,14 @@ static void RunBlock(const JValue& b, RunCtx& ctx) {
         char buf[32];
         sprintf_s(buf, "\\s[%d]", EvalInt(b["id"], ctx, 0));
         Emit(ctx, buf);
+        return;
+    }
+
+    // 3 人目以降のキャラに切りかえる（\p[n]）。0 と 1 は \0 \1 になる。
+    if (type == "chara") {
+        int id = EvalInt(b["id"], ctx, 0);
+        if (id < 0) id = 0;
+        EmitScope(ctx, id);
         return;
     }
 

@@ -232,6 +232,29 @@
       ]
     },
     {
+      "id": "p18", "kind": "event", "event": "OnP18",
+      "_": "3人目以降のキャラ（バックスラッシュ p）",
+      "blocks": [
+        { "type": "say", "who": 0, "text": "さくら", "nl": 1 },
+        { "type": "chara", "id": 2 },
+        { "type": "say", "who": 0, "text": "これは who=0 なので戻る", "nl": 1 },
+        { "type": "chara", "id": 3 },
+        { "type": "raw", "text": "3人目" },
+        { "type": "chara", "id": 3 },
+        { "type": "raw", "text": "同じなら出ない" },
+        { "type": "chara", "id": 0 },
+        { "type": "raw", "text": "もどる" }
+      ]
+    },
+    {
+      "id": "p19", "kind": "event", "event": "OnP19",
+      "_": "SAORIは本物の DLL が無いので、両方とも空を返す",
+      "blocks": [
+        { "type": "say", "who": 0, "text": { "type": "saori", "file": "nai.dll", "a": "x" }, "nl": 1 },
+        { "type": "say", "who": 0, "text": { "type": "saori", "file": "", "a": "" }, "nl": 1 }
+      ]
+    },
+    {
       "id": "p17", "kind": "event", "event": "OnP17",
       "_": "ランダムトークの間隔を変える（見た目の出力は無いが、変数を書きかえる）",
       "blocks": [

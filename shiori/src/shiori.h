@@ -47,6 +47,7 @@ private:
     Program prog_;
     Vars vars_;
     SysInfo sys_;
+    Saori saori_;              // 外部モジュール（読み込んだものを終了まで持つ）
     bool ready_ = false;
     long secondsSinceTalk_ = 0;
     long lastSaveSec_ = 0;

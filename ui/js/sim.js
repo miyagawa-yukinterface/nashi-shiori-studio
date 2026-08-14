@@ -142,6 +142,9 @@
       }
       case 'length': return Array.from(toStr(evalExpr(node.a, ctx))).length;
       case 'chance': return Math.random() * 100 < toNum(evalExpr(node.a, ctx));
+      // 外部モジュール(SAORI)は本物の DLL が要るので、プレビューでは呼べない。
+      // 空を返して、SSP に入れてから確かめてもらう。
+      case 'saori': return '';
       default: return '';
     }
   }
@@ -180,6 +183,13 @@
         emitScope(ctx, ev(b.who));
         ctx.out += '\\s[' + Math.floor(toNum(ev(b.id))) + ']';
         return;
+      // 3 人目以降のキャラに切りかえる（\p[n]）。0 と 1 は \0 \1 になる。
+      case 'chara': {
+        let id = Math.floor(toNum(ev(b.id)));
+        if (!(id >= 0)) id = 0;
+        emitScope(ctx, id);
+        return;
+      }
       case 'newline': {
         let n = Math.floor(toNum(ev(b.count)));
         if (!(n >= 1)) n = 1;

@@ -2,6 +2,7 @@
 #pragma once
 
 #include "program.h"
+#include "saori.h"
 
 #include <string>
 #include <vector>
@@ -22,6 +23,7 @@ struct RunCtx {
     Program* prog = NULL;
     Vars* vars = NULL;
     SysInfo* sys = NULL;
+    Saori* saori = NULL;               // 外部モジュールの呼び出し口
     std::vector<std::string> refs;   // Reference0..N of the current event
 
     std::string out;
