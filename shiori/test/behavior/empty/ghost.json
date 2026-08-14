@@ -1,0 +1,8 @@
+{
+  "format": "nashi/1",
+  "_comment": "ブロックが1つも無いゴースト。既定の反応（あいさつなど）を確かめるためのもの。",
+  "meta": { "name": "からっぽ", "sakuraName": "なしこ", "keroName": "うにゅう" },
+  "settings": { "randomTalkEnabled": false },
+  "variables": [],
+  "scripts": []
+}

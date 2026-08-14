@@ -13,79 +13,41 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const host = require('../lib/host');
 
 const here = __dirname;
-const root = path.resolve(here, '..', '..', '..');
-const dllSrc = path.join(root, 'shiori', 'dist', 'nashi.dll');
-const testHost = path.join(root, 'shiori', 'dist', 'test_host.exe');
-const fixture = path.join(here, 'ghost.json');
+const { red, green, dim, off } = host.COLOR;
 
-const RED = '\x1b[31m', GREEN = '\x1b[32m', DIM = '\x1b[2m', OFF = '\x1b[0m';
-
-function die(msg) {
-  console.error(`${RED}[parity] ${msg}${OFF}`);
-  process.exit(2);
-}
-
-// ------------------------------------------------------------------ したごしらえ
-if (!fs.existsSync(testHost)) {
-  die(`test_host.exe がありません。先に .\\build.ps1 -Test を実行してください。\n         ${testHost}`);
-}
-if (!fs.existsSync(dllSrc)) die(`nashi.dll がありません: ${dllSrc}`);
-
-// 栞は自分と同じフォルダの ghost.json を読むので、DLL をここへ持ってくる
-fs.copyFileSync(dllSrc, path.join(here, 'nashi.dll'));
-// 前回の変数の保存が残っていると結果が変わるので消す
-const savePath = path.join(here, 'nashi_save.json');
-if (fs.existsSync(savePath)) fs.unlinkSync(savePath);
-
-const project = JSON.parse(fs.readFileSync(fixture, 'utf8'));
+const project = JSON.parse(fs.readFileSync(path.join(here, 'ghost.json'), 'utf8'));
 const cases = (project.scripts || []).filter(
   (s) => s.kind === 'event' && /^OnP\d+$/.test(s.event || '')
 );
-if (!cases.length) die('ghost.json に OnP** のかたまりがありません。');
+if (!cases.length) {
+  console.error(`${red}[parity] ghost.json に OnP** のかたまりがありません。${off}`);
+  process.exit(2);
+}
 
 // ------------------------------------------------------------------ 栞 を動かす
-const specs = cases.map((s) => {
-  const refs = s.refs || [];
-  return refs.length ? `${s.event}:${refs.join(',')}` : s.event;
-});
-for (const spec of specs) {
-  if (spec.includes(' ')) die(`Reference に空白は使えません（test_host の都合）: ${spec}`);
-}
-
-let raw;
+let shiori;
 try {
-  raw = execFileSync(testHost, [here, ...specs], { encoding: 'utf8', maxBuffer: 1 << 24 });
+  shiori = host.run(here, cases.map((s) => {
+    const refs = s.refs || [];
+    return refs.length ? `${s.event}:${refs.join(',')}` : s.event;
+  }));
 } catch (e) {
-  die(`test_host.exe の実行に失敗しました: ${e.message}`);
-}
-
-// "---- OnP01" のかたまりごとに、Value: と Reference0: を取り出す
-const shiori = [];
-let cur = null;
-for (const rawLine of raw.split('\n')) {
-  // 応答そのものが \r\n を持っていて、それを printf がテキストモードで書くので
-  // 行末が \r\r\n になる。まとめて落とす。
-  const line = rawLine.replace(/\r+$/, '');
-  if (line.startsWith('---- ')) {
-    cur = { value: '', commTo: '' };
-    shiori.push(cur);
-    continue;
-  }
-  if (!cur) continue;
-  if (line.startsWith('Value: ')) cur.value = line.slice(7);
-  else if (line.startsWith('Reference0: ')) cur.commTo = line.slice(12);
+  console.error(`${red}[parity] ${e.message}${off}`);
+  process.exit(2);
 }
 if (shiori.length !== cases.length) {
-  die(`栞の応答が ${shiori.length} 件で、かたまりの数 ${cases.length} と合いません。`);
+  console.error(`${red}[parity] 栞の応答が ${shiori.length} 件で、`
+    + `かたまりの数 ${cases.length} と合いません。${off}`);
+  process.exit(2);
 }
 
 // ------------------------------------------------------------ プレビュー を動かす
 global.window = {};
 for (const f of ['blocks.js', 'sim.js']) {
-  (0, eval)(fs.readFileSync(path.join(root, 'ui', 'js', f), 'utf8'));
+  (0, eval)(fs.readFileSync(path.join(host.root, 'ui', 'js', f), 'utf8'));
 }
 const Sim = global.window.NASHI.Sim;
 
@@ -106,19 +68,18 @@ cases.forEach((s, i) => {
   const a = sim[i], b = shiori[i];
   const note = (s._ || '').trim();
   if (a.value === b.value && a.commTo === b.commTo) {
-    console.log(`${GREEN}  OK  ${OFF}${s.event}  ${DIM}${note}${OFF}`);
+    console.log(`${green}  OK  ${off}${s.event}  ${dim}${note}${off}`);
     return;
   }
   bad++;
-  console.log(`${RED}  ちがう ${s.event}${OFF}  ${DIM}${note}${OFF}`);
+  console.log(`${red}  ちがう ${s.event}${off}  ${dim}${note}${off}`);
   if (a.value !== b.value) {
     console.log(`        プレビュー: ${a.value}`);
     console.log(`        栞        : ${b.value}`);
-    // 最初に食い違った場所を指す
     let k = 0;
     while (k < a.value.length && k < b.value.length && a.value[k] === b.value[k]) k++;
-    console.log(`        ${DIM}${k} 文字目から違います`
-      + ` (プレビュー "${a.value.slice(k, k + 12)}" / 栞 "${b.value.slice(k, k + 12)}")${OFF}`);
+    console.log(`        ${dim}${k} 文字目から違います`
+      + ` (プレビュー "${a.value.slice(k, k + 12)}" / 栞 "${b.value.slice(k, k + 12)}")${off}`);
   }
   if (a.commTo !== b.commTo) {
     console.log(`        話しかけ先  プレビュー: "${a.commTo}" / 栞: "${b.commTo}"`);
@@ -127,8 +88,8 @@ cases.forEach((s, i) => {
 
 console.log('');
 if (bad) {
-  console.log(`${RED}[parity] ${cases.length} 件中 ${bad} 件がズレています。`
-    + ` ui\\js\\sim.js と shiori\\src\\interp.cpp を見くらべてください。${OFF}`);
+  console.log(`${red}[parity] ${cases.length} 件中 ${bad} 件がズレています。`
+    + ` ui\\js\\sim.js と shiori\\src\\interp.cpp を見くらべてください。${off}`);
   process.exit(1);
 }
-console.log(`${GREEN}[parity] ${cases.length} 件すべて一致しました。${OFF}`);
+console.log(`${green}[parity] ${cases.length} 件すべて一致しました。${off}`);

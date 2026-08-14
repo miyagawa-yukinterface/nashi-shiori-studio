@@ -37,18 +37,21 @@ Write-Host ''
 Write-Host '=== なしスタジオ (nashi-studio.exe) ===' -ForegroundColor Yellow
 Invoke-Sub (Join-Path $root 'studio\build.ps1') $studioArgs
 
-# プレビュー(ui\js\sim.js) と 栞(interp.cpp) がズレていないか見くらべる。
-# 同じ規則を二重に実装しているので、片方だけ直したまま気づかない事故を防ぐため。
-# Node.js を使うのはここだけで、アプリの動作には要りません。
+# テスト。Node.js を使うのはここだけで、アプリの動作には要りません。
+#   parity   … プレビュー(ui\js\sim.js) と 栞(interp.cpp) の出力が一致するか
+#              （同じ規則を二重に実装しているので、片方だけ直す事故を防ぐ）
+#   behavior … 栞だけが持っている判断（どれを選ぶか・既定の反応・間引き）が期待どおりか
 if ($Test) {
     Write-Host ''
-    Write-Host '=== プレビューと栞の一致テスト ===' -ForegroundColor Yellow
+    Write-Host '=== テスト ===' -ForegroundColor Yellow
     $node = Get-Command node -ErrorAction SilentlyContinue
     if (-not $node) {
         Write-Host '  Node.js が無いので飛ばします（https://nodejs.org/ で入れると走ります）' -ForegroundColor DarkYellow
     } else {
-        & node (Join-Path $root 'shiori\test\parity\parity.js')
-        if ($LASTEXITCODE -ne 0) { throw '一致テストが失敗しました。' }
+        foreach ($t in @('shiori\test\parity\parity.js', 'shiori\test\behavior\behavior.js')) {
+            & node (Join-Path $root $t)
+            if ($LASTEXITCODE -ne 0) { throw "$([System.IO.Path]::GetFileName($t)) が失敗しました。" }
+        }
     }
 }
 

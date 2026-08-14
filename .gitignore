@@ -14,5 +14,6 @@ output/
 # git bundle などの手元バックアップ（リポジトリには入れない）
 *.bundle
 
-# 一致テストが作業用に置くもの
-shiori/test/parity/nashi.dll
+# テストが作業用に置くもの
+shiori/test/*/nashi.dll
+shiori/test/*/*/nashi.dll

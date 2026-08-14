@@ -1,0 +1,79 @@
+{
+  "format": "nashi/1",
+  "_comment": [
+    "栞のふるまい（どのブロックを選ぶか・しぼり込み・くりかえしの間引き・通信）を",
+    "確かめるためのゴーストです。behavior.js が期待する応答を持っているので、",
+    "ここを直したら behavior.js の期待値も直してください。",
+    "どれを選ぶかが1つに決まるように、同じイベントに複数置くときは条件で分けています。"
+  ],
+  "meta": { "name": "ふるまいテスト", "sakuraName": "さくら", "keroName": "うにゅう" },
+  "settings": { "randomTalkEnabled": false },
+  "variables": [{ "name": "かず", "value": 0 }],
+  "scripts": [
+    {
+      "id": "b_boot", "kind": "event", "event": "OnBoot",
+      "blocks": [{ "type": "say", "who": 0, "text": "おきた", "nl": 0 }]
+    },
+    {
+      "id": "b_close", "kind": "event", "event": "OnClose",
+      "_": "\\- を書いていないので、栞が足すはず",
+      "blocks": [{ "type": "say", "who": 0, "text": "ばいばい", "nl": 0 }]
+    },
+
+    {
+      "id": "b_nade_any", "kind": "event", "event": "OnNadeNade",
+      "_": "条件なし。あたま用があるときは、そちらに負けるはず",
+      "blocks": [{ "type": "say", "who": 0, "text": "どこか", "nl": 0 }]
+    },
+    {
+      "id": "b_nade_head", "kind": "event", "event": "OnNadeNade",
+      "filter": { "area": "Head" },
+      "blocks": [{ "type": "say", "who": 0, "text": "あたま", "nl": 0 }]
+    },
+
+    {
+      "id": "b_comm_any", "kind": "event", "event": "OnCommunicate",
+      "_": "条件なし",
+      "blocks": [{ "type": "say", "who": 0, "text": "だれか", "nl": 0 }]
+    },
+    {
+      "id": "b_comm_word", "kind": "event", "event": "OnCommunicate",
+      "filter": { "contains": "こんにちは" },
+      "_": "言葉つき。条件なしより優先されるはず",
+      "blocks": [{ "type": "say", "who": 0, "text": "あいさつ", "nl": 0 }]
+    },
+    {
+      "id": "b_comm_from", "kind": "event", "event": "OnCommunicate",
+      "filter": { "from": "みかん", "contains": "ねえ" },
+      "_": "相手＋言葉。いちばん細かいので、これが最優先",
+      "blocks": [
+        { "type": "communicate", "who": 0, "to": { "type": "sys", "key": "commfrom" },
+          "text": "みかんだ" }
+      ]
+    },
+
+    {
+      "id": "b_every", "kind": "event", "event": "OnSecondChange", "everySec": 3,
+      "_": "3 秒ごと。毎秒たたいても 3 回に 1 回しか動かないはず",
+      "blocks": [
+        { "type": "change", "name": "かず", "value": 1 },
+        { "type": "say", "who": 0, "text": { "type": "var", "name": "かず" }, "nl": 0 }
+      ]
+    },
+
+    {
+      "id": "b_empty_out", "kind": "event", "event": "OnEmptyOut",
+      "_": "何も出力しない。204 が返るはず",
+      "blocks": [{ "type": "set", "name": "かず", "value": { "type": "var", "name": "かず" } }]
+    },
+
+    {
+      "id": "b_choice", "kind": "event", "event": "OnChoiceTest",
+      "blocks": [{ "type": "choice", "label": "はい", "target": "こたえ" }]
+    },
+    {
+      "id": "f_answer", "kind": "function", "name": "こたえ",
+      "blocks": [{ "type": "say", "who": 0, "text": "えらばれた", "nl": 0 }]
+    }
+  ]
+}
