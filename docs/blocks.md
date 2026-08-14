@@ -4,6 +4,7 @@
 新しいブロックを足すときは **`ui/js/blocks.js`（見た目）**、
 **`ui/js/sim.js`（プレビュー）**、**`shiori/src/interp.cpp`（本番の実行）** の
 3 か所に同じ意味で追加します（`ui/` を直したら `studio\build.ps1` で exe を作り直します）。
+新しいブロックに「空だと困る欄」があるなら、**`ui/js/lint.js`（チェックタブ）** にも足します。
 
 数値や文字を入れる欄（`%` の部分）には、**演算・情報カテゴリのブロックをはめ込めます**。
 はめ込んだ場合、その欄の値は文字列や数値ではなくブロック（オブジェクト）になります。
@@ -21,15 +22,16 @@
 | 「名前」がよばれたとき | `{ "kind": "function", "name": "...", "blocks": [...] }` |
 | ◯の△が◯◯のとき（マウス系） | `{ "kind": "event", "event": "OnNadeNade", "filter": { "area": "Head", "who": 0 }, "blocks": [...] }` |
 | ずっとくりかえす ◯秒ごと | `{ "kind": "event", "event": "OnSecondChange", "everySec": 5, "blocks": [...] }` |
+| ◯に□と話しかけられたとき | `{ "kind": "event", "event": "OnCommunicate", "filter": { "from": "さくら", "contains": "こんにちは" }, "blocks": [...] }` |
 
 `function` は選択肢の行き先や「◯◯をよぶ」ブロックから実行されます。
 `talk` も名前で呼び出せます。
 
 主なイベント名: `OnFirstBoot` / `OnBoot` / `OnClose` / `OnMouseDoubleClick` /
 `OnMouseClick` / `OnNadeNade` / `OnMouseMove` / `OnMouseWheel` / `OnHourChange` /
-`OnMinuteChange` / `OnSecondChange` / `OnChoiceSelect` / `OnGhostChanged` /
-`OnGhostChanging` / `OnKeyPress` / `OnSurfaceRestore` / `OnWindowStateMinimize` /
-`OnWindowStateRestore`。
+`OnMinuteChange` / `OnSecondChange` / `OnChoiceSelect` / `OnCommunicate` /
+`OnGhostChanged` / `OnGhostChanging` / `OnKeyPress` / `OnSurfaceRestore` /
+`OnWindowStateMinimize` / `OnWindowStateRestore`。
 一覧にないイベントは「その他（自分で書く）」で直接入力できます。
 
 マウス系のイベント（クリック・ダブルクリック・なでなで・ホイール・マウス移動）を選ぶと、
@@ -46,6 +48,15 @@ SSP は毎秒たたいてくるので、そのまま処理を積むと毎秒全�
 `OnNadeNade`（なでられたとき）は SSP のイベントではありません。
 `OnMouseMove` が同じ場所で 8 回続いたときに、栞が自分で作って実行しています。
 
+**話しかけられたとき**（`OnCommunicate`）を選ぶと、帽子ブロックが
+「**◯ に □ と話しかけられたとき**」の形に変わります。左が相手の名前、右が言われたことで、
+どちらも**ふくんでいれば一致**・空欄なら「だれでも／なんでも」です。
+SSP の通信ボックスから話しかけられた場合、相手の名前は `user` になります。
+
+同じイベントに条件付きと条件なしの両方があるときは、**条件を書いたほうが優先**されます
+（「『こんにちは』と話しかけられたとき」があれば、素の「話しかけられたとき」は使われません）。
+これはマウス系のしぼり込みでも同じです。
+
 ---
 
 ## セリフ
@@ -58,10 +69,17 @@ SSP は毎秒たたいてくるので、そのまま処理を積むと毎秒全�
 | バルーンの文字を消す | `{"type":"clear"}` | `\c` |
 | 選択肢「L」→ T を出す | `{"type":"choice","label":"L","target":"T"}` | `\q[L,T]` |
 | リンク「L」→ URL を出す | `{"type":"link","label":"L","url":"…"}` | `\_a[…]L\_a` |
+| ◯が T に □ と話しかける | `{"type":"communicate","who":0,"to":"T","text":"…"}` | `\0…`（＋応答に `Reference0: T`） |
 | さくらスクリプト □ をそのまま出す | `{"type":"raw","text":"…"}` | そのまま |
 
 `say` の文章に含まれる `\` は `\\` に、改行は `\n` に自動で変換されます。
 `%username` などの `%` はそのまま通るので、SSP の置換が使えます。
+
+**話しかける**（`communicate`）は、画面では普通のセリフと同じように表示されて、
+同時に相手のゴーストの `OnCommunicate` に届きます。`to` には相手の**本体（`\0`）の名前**を
+入れてください。言われた相手にそのまま返すときは、`to` に「話しかけてきた相手」ブロックを
+はめ込みます。エディタの「ためす」では届け先の名前を表示するだけなので、
+実際に届くかは SSP に入れて確かめてください。
 
 ## 見た目
 
@@ -126,6 +144,7 @@ SSP は毎秒たたいてくるので、そのまま処理を積むと毎秒全�
 | 起動した回数 | `{"type":"sys","key":"boots"}` | 保存データに記録 |
 | 今回のトーク回数 | `{"type":"sys","key":"talks"}` | |
 | ゴースト名 / シェル名 | `{"type":"sys","key":"ghostname"}` / `shellname` | |
+| 話しかけてきた相手 / 言われたこと | `{"type":"sys","key":"commfrom"}` / `commtext` | `OnCommunicate` の `Reference0` / `Reference1` |
 | イベントの情報 N | `{"type":"ref","index":0}` | SSP の `ReferenceN` |
 
 `ReferenceN` の内容はイベントごとに違います。よく使うもの:
@@ -136,3 +155,4 @@ SSP は毎秒たたいてくるので、そのまま処理を積むと毎秒全�
 | OnSecondChange | ウィンドウ | しゃべってよいか | 累計秒数 | | |
 | OnChoiceSelect | えらばれたID | | | | |
 | OnBoot | シェル名 | | | | |
+| OnCommunicate | 相手の名前 | 言われたこと | | | |

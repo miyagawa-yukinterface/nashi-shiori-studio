@@ -10,3 +10,6 @@ output/
 **/nashi_save.json
 **/nashi_debug.txt
 .vs/
+
+# git bundle などの手元バックアップ（リポジトリには入れない）
+*.bundle
