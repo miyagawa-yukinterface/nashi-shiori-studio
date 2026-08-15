@@ -1,0 +1,132 @@
+== folder: export-test / 12 ファイル
+---- ghost/master/ghost.json (2346 バイト)
+{
+  "format": "nashi/1",
+  "meta": {
+    "name": "書き出しテスト",
+    "sakuraName": "なしこ",
+    "keroName": "つぶ",
+    "craftman": "ミヤガワ",
+    "craftmanUrl": "https://example.com/",
+    "version": "2.0.0"
+  },
+  "settings": {
+    "randomTalkInterval": 120,
+    "randomTalkEnabled": true,
+    "noRepeatCount": 3
+  },
+  "variables": [
+    {
+      "name": "好感度",
+      "value": 5
+    },
+    {
+      "name": "こたえ",
+      "value": ""
+    }
+  ],
+  "scripts": [
+    {
+      "id": "s_boot",
+      "kind": "event",
+      "event": "OnBoot",
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "おはよう。",
+          "nl": 1
+        }
+      ]
+    },
+    {
+      "id": "s_head",
+      "kind": "event",
+      "event": "OnNadeNade",
+      "filter": {
+        "area": "Head",
+        "who": 0
+      },
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "えへへ。",
+          "nl": 1
+        }
+      ]
+    },
+    {
+      "id": "s_comm",
+      "kind": "event",
+      "event": "OnCommunicate",
+      "filter": {
+        "from": "みかん",
+        "contains": "ねえ"
+      },
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "みかんだ。",
+          "nl": 1
+        }
+      ]
+    },
+    {
+      "id": "s_mixed",
+      "kind": "event",
+      "event": "OnBoot",
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "しぼり込みなし。",
+          "nl": 1
+        }
+      ]
+    },
+    {
+      "id": "s_talk",
+      "kind": "talk",
+      "name": "ひとりごと",
+      "weight": 3,
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "ひまだなあ。",
+          "nl": 1
+        }
+      ]
+    },
+    {
+      "id": "s_off",
+      "kind": "talk",
+      "name": "つかわない",
+      "weight": 1,
+      "disabled": true,
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "でない。",
+          "nl": 1
+        }
+      ]
+    },
+    {
+      "id": "s_func",
+      "kind": "function",
+      "name": "こたえる",
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "はい。",
+          "nl": 1
+        }
+      ]
+    }
+  ]
+}

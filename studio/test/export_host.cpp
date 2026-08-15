@@ -9,6 +9,8 @@
 #include <windows.h>
 #include <cstdio>
 #include <string>
+#include <io.h>
+#include <fcntl.h>
 
 #include "exporter.h"
 #include "json.h"
@@ -19,6 +21,9 @@ using namespace nashi;
 
 int wmain(int argc, wchar_t** argv) {
     SetConsoleOutputCP(CP_UTF8);
+    // 書き出したものをそのまま出す（\n を \r\n に化けさせない）。
+    // 答え合わせテストが中身をバイトで見くらべるので、ここは素通しにします。
+    _setmode(_fileno(stdout), _O_BINARY);
     if (argc < 2) {
         printf("usage: export_host <project.json> [name-filter]\n");
         return 1;

@@ -42,6 +42,8 @@ Invoke-Sub (Join-Path $root 'studio\build.ps1') $studioArgs
 #   parity   … プレビュー(ui\js\sim.js) と 栞(interp.cpp) の出力が一致するか
 #              （同じ規則を二重に実装しているので、片方だけ直す事故を防ぐ）
 #   behavior … 栞だけが持っている判断（どれを選ぶか・既定の反応・間引き）が期待どおりか
+#   export   … 書き出したファイル（surfaces.txt など）の中身が期待どおりか
+#   editor   … エディタのデータ整形とチェックタブが期待どおりか
 if ($Test) {
     Write-Host ''
     Write-Host '=== テスト ===' -ForegroundColor Yellow
@@ -49,7 +51,8 @@ if ($Test) {
     if (-not $node) {
         Write-Host '  Node.js が無いので飛ばします（https://nodejs.org/ で入れると走ります）' -ForegroundColor DarkYellow
     } else {
-        foreach ($t in @('shiori\test\parity\parity.js', 'shiori\test\behavior\behavior.js')) {
+        foreach ($t in @('shiori\test\parity\parity.js', 'shiori\test\behavior\behavior.js',
+                         'studio\test\export.js', 'ui\test\editor.js')) {
             & node (Join-Path $root $t)
             if ($LASTEXITCODE -ne 0) { throw "$([System.IO.Path]::GetFileName($t)) が失敗しました。" }
         }

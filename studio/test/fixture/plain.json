@@ -1,0 +1,14 @@
+{
+  "format": "nashi/1",
+  "_comment": [
+    "「更新のありか」を決めていない・うごきも変数も無い、いちばん素のゴースト。",
+    "descript.txt に homeurl の行が出ないことを確かめます。"
+  ],
+  "meta": { "name": "すなお", "folder": "plain" },
+  "scripts": [
+    {
+      "id": "p_boot", "kind": "event", "event": "OnBoot",
+      "blocks": [{ "type": "say", "who": 0, "text": "やあ。", "nl": 1 }]
+    }
+  ]
+}

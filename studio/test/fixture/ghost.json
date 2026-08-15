@@ -1,0 +1,116 @@
+{
+  "format": "nashi/1",
+  "_comment": [
+    "書き出しの答え合わせテスト（export.js）の材料です。",
+    "ここを直したら studio/test/expected/ の期待値も直してください。",
+    "ふつうの形だけでなく、書き出してはいけないもの（番号が範囲外・こまが無い・",
+    "カンマ入りのファイル名など）もわざと入れてあります。"
+  ],
+  "meta": {
+    "name": "書き出しテスト",
+    "folder": "export-test",
+    "sakuraName": "なしこ",
+    "keroName": "つぶ",
+    "craftman": "ミヤガワ",
+    "craftmanUrl": "https://example.com/",
+    "homeUrl": "https://example.com/ghost/export-test/",
+    "version": "2.0.0",
+    "description": "書き出しの中身を確かめるためのゴースト"
+  },
+  "settings": {
+    "randomTalkEnabled": true,
+    "randomTalkInterval": 120,
+    "noRepeatCount": 3,
+    "defaultSurfaceSakura": 0,
+    "defaultSurfaceKero": 10
+  },
+  "variables": [
+    { "name": "好感度", "value": 5 },
+    { "name": "こたえ", "value": "" }
+  ],
+  "animations": [
+    {
+      "id": 0,
+      "base": 0,
+      "interval": "random",
+      "every": 6,
+      "patterns": [
+        { "method": "overlay", "surface": 1, "wait": 120, "x": 0, "y": 0 },
+        { "method": "interpolate", "surface": 2, "wait": 80, "x": -12, "y": 4 },
+        { "method": "blend-multiply", "surface": 3, "wait": 60, "x": 0, "y": 0 },
+        { "method": "start", "surface": 1 },
+        { "method": "stop", "surface": 200 },
+        { "method": "import", "file": "kira.png", "wait": 700, "x": 0, "y": 10 },
+        { "method": "import", "file": "こわれる,名前.png", "wait": 100 },
+        { "method": "import", "file": "../そとへ.png", "wait": 100 },
+        { "method": "しらない名前", "surface": 4, "wait": 50 }
+      ],
+      "collisions": [
+        { "name": "Wing", "shape": "rect", "x1": 10, "y1": 20, "x2": 90, "y2": 120 },
+        { "name": "Tail", "shape": "ellipse", "x1": 0, "y1": 0, "x2": 40, "y2": 60 },
+        { "name": "Bell", "shape": "circle", "x1": 50, "y1": 60, "x2": 12 },
+        { "name": "Zero", "shape": "circle", "x1": 50, "y1": 60, "x2": 0 },
+        { "name": "Hair", "shape": "polygon", "points": "100,100 200,300 50,200" },
+        { "name": "Few", "shape": "polygon", "points": "1,2 3,4" },
+        { "name": "", "shape": "rect", "x1": 1, "y1": 1, "x2": 2, "y2": 2 }
+      ]
+    },
+    {
+      "id": 1,
+      "base": 10,
+      "interval": "talk",
+      "every": 3,
+      "patterns": [{ "method": "base", "surface": 11, "wait": 200, "x": 0, "y": 0 }]
+    },
+    {
+      "id": 2,
+      "base": 0,
+      "interval": "always",
+      "patterns": [],
+      "_": "こまが無いので、書き出されないはず"
+    },
+    {
+      "id": 128,
+      "base": 0,
+      "interval": "always",
+      "patterns": [{ "method": "base", "surface": 1, "wait": 100 }],
+      "_": "番号が範囲外なので、書き出されないはず"
+    }
+  ],
+  "scripts": [
+    {
+      "id": "s_boot", "kind": "event", "event": "OnBoot",
+      "blocks": [{ "type": "say", "who": 0, "text": "おはよう。", "nl": 1 }]
+    },
+    {
+      "id": "s_head", "kind": "event", "event": "OnNadeNade",
+      "area": "Head", "who": 0,
+      "_": "マウス系なので filter に area と who が付くはず",
+      "blocks": [{ "type": "say", "who": 0, "text": "えへへ。", "nl": 1 }]
+    },
+    {
+      "id": "s_comm", "kind": "event", "event": "OnCommunicate",
+      "from": "みかん", "contains": "ねえ",
+      "_": "通信なので filter に from と contains が付くはず",
+      "blocks": [{ "type": "say", "who": 0, "text": "みかんだ。", "nl": 1 }]
+    },
+    {
+      "id": "s_mixed", "kind": "event", "event": "OnBoot",
+      "area": "Head", "from": "みかん",
+      "_": "マウスでも通信でもないので、どちらの条件も付かないはず",
+      "blocks": [{ "type": "say", "who": 0, "text": "しぼり込みなし。", "nl": 1 }]
+    },
+    {
+      "id": "s_talk", "kind": "talk", "name": "ひとりごと", "weight": 3,
+      "blocks": [{ "type": "say", "who": 0, "text": "ひまだなあ。", "nl": 1 }]
+    },
+    {
+      "id": "s_off", "kind": "talk", "name": "つかわない", "weight": 1, "disabled": true,
+      "blocks": [{ "type": "say", "who": 0, "text": "でない。", "nl": 1 }]
+    },
+    {
+      "id": "s_func", "kind": "function", "name": "こたえる",
+      "blocks": [{ "type": "say", "who": 0, "text": "はい。", "nl": 1 }]
+    }
+  ]
+}

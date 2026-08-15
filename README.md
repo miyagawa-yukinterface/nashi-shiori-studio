@@ -138,15 +138,19 @@ Visual Studio の「C++ によるデスクトップ開発」が入っていれ�
 .\build.ps1 -Test      # 栞のテストホストも作り、一致テストも走らせる
 ```
 
-`-Test` を付けると、最後に 2 つのテストが走ります。
+`-Test` を付けると、最後に 4 つのテストが走ります。
 
 | | |
 |---|---|
 | **一致テスト**（`shiori\test\parity`） | `ui\js\sim.js`（プレビュー）と `shiori\src\interp.cpp`（本番）は同じ規則を二重に書いているので、同じ `ghost.json` を両方に流して、出てきたさくらスクリプトが一致するか見くらべます |
-| **ふるまいテスト**（`shiori\test\behavior`） | 栞だけが持っている判断 — 同じイベントに複数あるときどれを選ぶか、ブロックが無いときの既定の反応、`OnClose` の `\-`、「◯秒ごと」の間引き、なでなでの生成、通信の届け先 — が期待どおりか |
+| **ふるまいテスト**（`shiori\test\behavior`） | 栞だけが持っている判断 — 同じイベントに複数あるときどれを選ぶか、ブロックが無いときの既定の反応、`OnClose` の `\-`、「◯秒ごと」の間引き、なでなでの生成、通信の届け先、待たない SAORI — が期待どおりか |
+| **書き出しテスト**（`studio\test`） | 書き出したファイル（`surfaces.txt` / `descript.txt` / `ghost.json` / `install.txt`）の中身が期待どおりか。`updates2.dau` は MD5 を node の `crypto` と突き合わせます |
+| **エディタテスト**（`ui\test`） | 読みこんだプロジェクトの整形（`model.js`）と、チェックタブが出す注意（`lint.js`）が期待どおりか |
 
-この 2 つだけ **Node.js** を使います（入っていなければ飛ばします。アプリの動作には要りません）。
-ブロックやふるまいを足したら、`shiori\test\` の材料と期待値もいっしょに直してください。
+この 4 つだけ **Node.js** を使います（入っていなければ飛ばします。アプリの動作には要りません）。
+ブロックやふるまいを足したら、`shiori\test\` `studio\test\` `ui\test\` の材料と期待値も
+いっしょに直してください。書き出しかたをわざと変えたときは、出てきたものを目で確かめてから
+`node studio\test\export.js --update` で期待値を作りなおします。
 
 個別に作るときは `shiori\build.ps1` / `studio\build.ps1`。
 スタジオのビルドでは `studio\tools\embed.ps1` が `ui\` 以下と `nashi.dll` を
@@ -199,7 +203,7 @@ nashi-shiori/
 │   └── dist/               ビルド結果（nashi.dll / test_host.exe）
 ├── studio/                 なしスタジオ（C++ / 64bit EXE）
 │   ├── build.ps1
-│   ├── test/                書き出しの中身を見るコンソール（-Test で作る）
+│   ├── test/               書き出しの答え合わせテスト（-Test で作るコンソール付き）
 │   ├── res/                アイコン・埋め込むサンプルプロジェクト
 │   ├── third_party/        WebView2 SDK（ヘッダ + 静的ローダ）
 │   ├── tools/embed.ps1     ui\ と nashi.dll をリソース化
@@ -217,6 +221,7 @@ nashi-shiori/
 ├── ui/                     画面（exe に埋め込まれる）
 │   ├── index.html
 │   ├── style.css
+│   ├── test/               整形とチェックタブのテスト（画面を出さずに動かす）
 │   └── js/
 │       ├── blocks.js       ブロック定義（ここを増やすとブロックが増える）
 │       ├── model.js        プロジェクトのデータと Undo

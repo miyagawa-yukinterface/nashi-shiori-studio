@@ -1,0 +1,15 @@
+== folder: export-test / 12 ファイル
+---- ghost/master/descript.txt (306 バイト)
+charset,UTF-8
+type,ghost
+name,書き出しテスト
+sakura.name,なしこ
+kero.name,つぶ
+craftman,ミヤガワ
+craftmanw,ミヤガワ
+craftmanurl,https://example.com/
+shiori,nashi.dll
+homeurl,https://example.com/ghost/export-test/
+sakura.seriko.defaultsurface,0
+kero.seriko.defaultsurface,10
+

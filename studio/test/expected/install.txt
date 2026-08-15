@@ -1,0 +1,7 @@
+== folder: export-test / 12 ファイル
+---- install.txt (78 バイト)
+charset,UTF-8
+type,ghost
+name,書き出しテスト
+directory,export-test
+
