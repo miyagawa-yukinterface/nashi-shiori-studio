@@ -39,6 +39,9 @@ std::string ShellImagePath(const JValue& project, int surfaceId);
 std::vector<OutFile> BuildGhostFiles(const JValue& project, const std::string& dll,
                                      bool includeShell, std::string* folderOut);
 
+// ネットワーク更新の照合表（updates2.dau）を、そのフォルダの中身から作る
+std::string BuildUpdatesDau(const std::wstring& root);
+
 ExportResult ExportToDir(const JValue& project, const std::wstring& outDir, const std::string& dll,
                          bool includeShell, bool overwriteShell);
 

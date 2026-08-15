@@ -5,6 +5,7 @@
 #include "util.h"
 
 #include <cstdio>
+#include <cstdlib>
 
 namespace nashi {
 
@@ -151,6 +152,8 @@ static std::string AnimationLines(const JValue& project, int surfaceId) {
             static const char* kMethods[] = {
                 "overlay", "overlayfast", "base", "replace",
                 "interpolate", "asis", "reduce", "move",
+                "blend-multiply", "blend-screen", "blend-overlay", "blend-add",
+                "start", "stop", "import",
             };
             std::string method = p["method"].asStr("base");
             bool known = false;
@@ -165,7 +168,29 @@ static std::string AnimationLines(const JValue& project, int surfaceId) {
             int px = p["x"].asInt(0), py = p["y"].asInt(0);
             if (px < -9999) px = -9999; if (px > 9999) px = 9999;
             if (py < -9999) py = -9999; if (py > 9999) py = 9999;
-            char buf[128];
+            char buf[320];
+
+            if (method == "start" || method == "stop") {
+                // 別のうごきを動かす／止める。番号だけを書く（ウェイトは見られない）
+                if (surf < 0 || surf > 127) continue;
+                sprintf_s(buf, "animation%d.pattern%d,%s,%d\r\n", id, m++, method.c_str(), surf);
+                body += buf;
+                continue;
+            }
+            if (method == "import") {
+                // APNG / GIF / WebP をそのまま差しこむ
+                std::string file = Trim(p["file"].asStr());
+                if (file.empty() || file.size() > 160) continue;
+                if (file.find(',') != std::string::npos) continue;      // 1 行が壊れる
+                if (file.find("..") != std::string::npos) continue;     // 外へは出さない
+                if (file.find('\r') != std::string::npos ||
+                    file.find('\n') != std::string::npos) continue;
+                sprintf_s(buf, "animation%d.pattern%d,import,%s,%d,%d,%d\r\n",
+                          id, m++, file.c_str(), wait, px, py);
+                body += buf;
+                continue;
+            }
+
             sprintf_s(buf, "animation%d.pattern%d,%s,%d,%d,%d,%d\r\n",
                       id, m++, method.c_str(), surf, wait, px, py);
             body += buf;
@@ -173,9 +198,10 @@ static std::string AnimationLines(const JValue& project, int surfaceId) {
         // 絵の指定が 1 つも無ければ、動かしようがないので何も書かない
         if (m == 0) continue;
 
-        // このうごきが動いている間だけ有効な当たり判定
+        // このうごきが動いている間だけ有効な当たり判定。
+        // 四角は collision、それ以外の形は collisionex で書きます。
         const JValue& cols = a["collisions"];
-        int c = 0;
+        int c = 0, cx = 0;
         for (size_t k = 0; k < cols.size(); k++) {
             const JValue& one = cols.at(k);
             if (!one.isObj()) continue;
@@ -184,11 +210,45 @@ static std::string AnimationLines(const JValue& project, int surfaceId) {
             for (size_t n = 0; n < name.size(); n++) {         // 1 行に収める
                 if (name[n] == ',' || name[n] == '\r' || name[n] == '\n') name[n] = ' ';
             }
-            char cbuf[192];
-            sprintf_s(cbuf, "animation%d.collision%d,%d,%d,%d,%d,%s\r\n",
-                      id, c++, one["x1"].asInt(0), one["y1"].asInt(0),
-                      one["x2"].asInt(0), one["y2"].asInt(0), name.c_str());
-            body += cbuf;
+            std::string shape = one["shape"].asStr("rect");
+            int x1 = one["x1"].asInt(0), y1 = one["y1"].asInt(0);
+            int x2 = one["x2"].asInt(0), y2 = one["y2"].asInt(0);
+            char cbuf[320];
+
+            if (shape == "ellipse") {
+                sprintf_s(cbuf, "animation%d.collisionex%d,%s,ellipse,%d,%d,%d,%d\r\n",
+                          id, cx++, name.c_str(), x1, y1, x2, y2);
+                body += cbuf;
+            } else if (shape == "circle") {
+                if (x2 <= 0) continue;                         // 半径 0 は触れない
+                sprintf_s(cbuf, "animation%d.collisionex%d,%s,circle,%d,%d,%d\r\n",
+                          id, cx++, name.c_str(), x1, y1, x2);
+                body += cbuf;
+            } else if (shape == "polygon") {
+                // "100,100 200,300 50,200" のように書いてもらったものを数だけ取り出す
+                std::vector<int> nums;
+                std::string src = one["points"].asStr();
+                for (size_t n = 0; n < src.size(); ) {
+                    if ((src[n] >= '0' && src[n] <= '9') || src[n] == '-') {
+                        size_t e = n + 1;
+                        while (e < src.size() && src[e] >= '0' && src[e] <= '9') e++;
+                        nums.push_back(atoi(src.substr(n, e - n).c_str()));
+                        n = e;
+                    } else {
+                        n++;
+                    }
+                }
+                if (nums.size() < 6 || nums.size() % 2 != 0) continue;   // かどは 3 つ以上
+                if (nums.size() > 64) nums.resize(64);
+                std::string line = "animation" + NumToStr(id) + ".collisionex" +
+                                   NumToStr(cx++) + "," + name + ",polygon";
+                for (size_t n = 0; n < nums.size(); n++) line += "," + NumToStr(nums[n]);
+                body += line + "\r\n";
+            } else {
+                sprintf_s(cbuf, "animation%d.collision%d,%d,%d,%d,%d,%s\r\n",
+                          id, c++, x1, y1, x2, y2, name.c_str());
+                body += cbuf;
+            }
         }
 
         char head2[96];
@@ -490,6 +550,50 @@ std::vector<OutFile> BuildGhostFiles(const JValue& project, const std::string& d
     return files;
 }
 
+// ------------------------------------------------ ネットワーク更新の照合表
+//
+// updates2.dau は「どのファイルが、どんな中身か」の一覧です。使う人の SSP は
+// これを見て、変わったファイルだけ落としてきます。1 行が 1 ファイルで、
+//
+//     ghost\master\ghost.json <0x01> md5 <0x01> <CRLF>
+//
+// という形です（区切りは 0x01、MD5 は小文字 16 進）。
+// この形は公式には書かれていないので、公開されている読み取り側の実装
+// （ninix-kagari の lib/ninix/update.rb）に合わせています。
+// うまくいかないときは、フォルダを SSP に投げれば SSP が作り直してくれます。
+static bool SkipInDau(const std::wstring& rel) {
+    std::wstring low = rel;
+    for (size_t i = 0; i < low.size(); i++) {
+        if (low[i] >= L'A' && low[i] <= L'Z') low[i] = (wchar_t)(low[i] - L'A' + L'a');
+    }
+    // 使う人ごとの持ちもの・こちらの作業用ファイルは配らない
+    if (low.find(L"nashi_save.json") != std::wstring::npos) return true;
+    if (low.find(L"nashi_debug.txt") != std::wstring::npos) return true;
+    if (low == L"updates2.dau" || low == L"updates.txt") return true;
+    if (low == L"delete.txt") return true;              // サーバ側だけの指示書
+    if (low == L"thumbs.db" || low == L"desktop.ini") return true;
+    if (low.compare(0, 5, L".git\\") == 0 || low == L".git") return true;
+    return false;
+}
+
+std::string BuildUpdatesDau(const std::wstring& root) {
+    std::vector<std::wstring> rels = ListFilesDeep(root);
+    std::string out;
+    for (size_t i = 0; i < rels.size(); i++) {
+        if (SkipInDau(rels[i])) continue;
+        std::string data;
+        if (!ReadBinaryFile(PathJoin(root, rels[i]), data)) continue;
+        std::string md5 = Md5Hex(data);
+        if (md5.empty()) continue;
+        out += WideToUtf8(rels[i]);
+        out += '\x01';
+        out += md5;
+        out += '\x01';
+        out += "\r\n";
+    }
+    return out;
+}
+
 // -------------------------------------------------------------- 書き出し
 
 ExportResult ExportToDir(const JValue& project, const std::wstring& outDir, const std::string& dll,
@@ -521,6 +625,16 @@ ExportResult ExportToDir(const JValue& project, const std::wstring& outDir, cons
         }
         r.written.push_back(files[i].name);
     }
+
+    // 「更新のありか」を決めているゴーストには、照合表も置く。
+    // 中身から作るので、自分で差し替えた絵や、あとから足したファイルもそのまま入る。
+    if (!project["meta"]["homeUrl"].asStr("").empty()) {
+        std::string dau = BuildUpdatesDau(r.root);
+        if (!dau.empty() && WriteBinaryFile(PathJoin(r.root, L"updates2.dau"), dau)) {
+            r.written.push_back("updates2.dau");
+        }
+    }
+
     r.ok = true;
     return r;
 }

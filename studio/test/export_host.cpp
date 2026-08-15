@@ -24,6 +24,20 @@ int wmain(int argc, wchar_t** argv) {
         return 1;
     }
 
+    // export_host --dau <フォルダ>
+    //   そのフォルダから updates2.dau を作って見せる（0x01 は <1> と書く）
+    if (std::wstring(argv[1]) == L"--dau") {
+        if (argc < 3) { printf("usage: export_host --dau <folder>\n"); return 1; }
+        std::string dau = BuildUpdatesDau(argv[2]);
+        for (size_t i = 0; i < dau.size(); i++) {
+            if (dau[i] == '\x01') printf("<1>");
+            else if (dau[i] == '\r') printf("<CR>");
+            else if (dau[i] == '\n') printf("<LF>\n");
+            else putchar(dau[i]);
+        }
+        return 0;
+    }
+
     std::string text;
     if (!ReadBinaryFile(argv[1], text)) {
         printf("読めません: %ls\n", argv[1]);

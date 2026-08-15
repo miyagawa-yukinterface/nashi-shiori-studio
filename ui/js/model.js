@@ -6,8 +6,12 @@
   const clone = (v) => JSON.parse(JSON.stringify(v));
 
   // こまの重ねかた（SERIKO の描画メソッド）。書き出しでもこの名前だけ通します。
+  // start / stop は別のうごきを動かす／止める、import は APNG などを差しこむ指定です。
   const ANIM_METHODS = ['overlay', 'overlayfast', 'base', 'replace',
-    'interpolate', 'asis', 'reduce', 'move'];
+    'interpolate', 'asis', 'reduce', 'move',
+    'blend-multiply', 'blend-screen', 'blend-overlay', 'blend-add',
+    'start', 'stop', 'import'];
+  const ANIM_SHAPES = ['rect', 'ellipse', 'circle', 'polygon'];
 
   let seq = 0;
   function uid(prefix) {
@@ -88,14 +92,17 @@
               method: ANIM_METHODS.indexOf(p && p.method) >= 0 ? p.method : 'base',
               x: Number(p && p.x) || 0,
               y: Number(p && p.y) || 0,
+              file: p && p.file ? String(p.file) : '',
             })),
           // このうごきの間だけ有効な当たり判定
           collisions: (Array.isArray(a && a.collisions) ? a.collisions : [])
             .filter((c) => c && String(c.name || '').trim())
             .map((c) => ({
               name: String(c.name).trim(),
+              shape: ANIM_SHAPES.indexOf(c.shape) >= 0 ? c.shape : 'rect',
               x1: Number(c.x1) || 0, y1: Number(c.y1) || 0,
               x2: Number(c.x2) || 0, y2: Number(c.y2) || 0,
+              points: c.points ? String(c.points) : '',
             })),
         }));
 

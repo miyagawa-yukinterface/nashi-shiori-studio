@@ -418,6 +418,21 @@
     ['すきとおりを無視する', 'asis'],
     ['すきとおりをけずる', 'reduce'],
     ['位置だけ動かす', 'move'],
+    ['かけあわせ', 'blend-multiply'],
+    ['スクリーン', 'blend-screen'],
+    ['オーバーレイ', 'blend-overlay'],
+    ['足しあわせ', 'blend-add'],
+    ['ほかのうごきを動かす', 'start'],
+    ['ほかのうごきを止める', 'stop'],
+    ['動く絵を差しこむ', 'import'],
+  ];
+
+  // 当たり判定のかたち
+  const ANIM_SHAPES = [
+    ['四角', 'rect'],
+    ['だ円', 'ellipse'],
+    ['丸', 'circle'],
+    ['多角形', 'polygon'],
   ];
 
   function renderAnimList() {
@@ -516,11 +531,23 @@
         pr.appendChild(Render.el('span', 'anim-step', `${k + 1}`));
         pr.appendChild(pick('重ねかた', ANIM_METHODS, p.method || 'base',
           (v) => { p.method = v; }));
-        pr.appendChild(mk('立ち絵', p.surface, (v) => { p.surface = Number(v) || 0; }, { min: 0 }));
-        pr.appendChild(mk('ミリ秒', p.wait, (v) => { p.wait = Math.max(0, Number(v) || 0); }, { min: 0 }));
-        // 位置ずらし。0 のままなら基準の絵とぴったり重なります。
-        pr.appendChild(mk('よこ', p.x || 0, (v) => { p.x = Number(v) || 0; }));
-        pr.appendChild(mk('たて', p.y || 0, (v) => { p.y = Number(v) || 0; }));
+        // 重ねかたによって、必要な欄が変わる
+        if (p.method === 'start' || p.method === 'stop') {
+          pr.appendChild(mk('うごき番号', p.surface,
+            (v) => { p.surface = Math.max(0, Math.min(127, Number(v) || 0)); }, { min: 0 }));
+        } else {
+          if (p.method === 'import') {
+            pr.appendChild(mk('動く絵', p.file || '', (v) => { p.file = String(v).trim(); },
+              { type: 'text' }));
+          } else {
+            pr.appendChild(mk('立ち絵', p.surface, (v) => { p.surface = Number(v) || 0; }, { min: 0 }));
+          }
+          pr.appendChild(mk('ミリ秒', p.wait, (v) => { p.wait = Math.max(0, Number(v) || 0); },
+            { min: 0 }));
+          // 位置ずらし。0 のままなら基準の絵とぴったり重なります。
+          pr.appendChild(mk('よこ', p.x || 0, (v) => { p.x = Number(v) || 0; }));
+          pr.appendChild(mk('たて', p.y || 0, (v) => { p.y = Number(v) || 0; }));
+        }
         const rm = Render.el('button', 'btn tiny', '−');
         rm.title = 'このこまを消す';
         rm.addEventListener('click', () => {
@@ -544,10 +571,21 @@
         const cr = Render.div('anim-pat');
         cr.appendChild(Render.el('span', 'anim-step', 'あたり'));
         cr.appendChild(mk('名前', c.name, (v) => { c.name = String(v).trim(); }, { type: 'text' }));
-        cr.appendChild(mk('左', c.x1, (v) => { c.x1 = Number(v) || 0; }));
-        cr.appendChild(mk('上', c.y1, (v) => { c.y1 = Number(v) || 0; }));
-        cr.appendChild(mk('右', c.x2, (v) => { c.x2 = Number(v) || 0; }));
-        cr.appendChild(mk('下', c.y2, (v) => { c.y2 = Number(v) || 0; }));
+        cr.appendChild(pick('かたち', ANIM_SHAPES, c.shape || 'rect', (v) => { c.shape = v; }));
+        if (c.shape === 'circle') {
+          cr.appendChild(mk('中心よこ', c.x1, (v) => { c.x1 = Number(v) || 0; }));
+          cr.appendChild(mk('中心たて', c.y1, (v) => { c.y1 = Number(v) || 0; }));
+          cr.appendChild(mk('半径', c.x2, (v) => { c.x2 = Math.max(0, Number(v) || 0); }, { min: 0 }));
+        } else if (c.shape === 'polygon') {
+          cr.appendChild(mk('かどの位置', c.points || '', (v) => { c.points = String(v); },
+            { type: 'text' }));
+          cr.appendChild(Render.el('span', 'hint', 'x,y を空白でならべます（3 つ以上）'));
+        } else {
+          cr.appendChild(mk('左', c.x1, (v) => { c.x1 = Number(v) || 0; }));
+          cr.appendChild(mk('上', c.y1, (v) => { c.y1 = Number(v) || 0; }));
+          cr.appendChild(mk('右', c.x2, (v) => { c.x2 = Number(v) || 0; }));
+          cr.appendChild(mk('下', c.y2, (v) => { c.y2 = Number(v) || 0; }));
+        }
         const rm = Render.el('button', 'btn tiny', '−');
         rm.title = 'この当たり判定を消す';
         rm.addEventListener('click', () => {
@@ -562,7 +600,10 @@
       addCol.addEventListener('click', () => {
         Model.act(() => {
           if (!Array.isArray(a.collisions)) a.collisions = [];
-          a.collisions.push({ name: 'Anim' + a.id, x1: 0, y1: 0, x2: 60, y2: 60 });
+          a.collisions.push({
+            name: 'Anim' + a.id, shape: 'rect',
+            x1: 0, y1: 0, x2: 60, y2: 60, points: '',
+          });
         });
         renderAnimList();
       });

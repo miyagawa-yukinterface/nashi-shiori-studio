@@ -1,6 +1,7 @@
 #include "fsutil.h"
 
 #include <commdlg.h>
+#include <wincrypt.h>          // MD5（ネットワーク更新の照合表づくり）
 
 #include <cstdio>
 
@@ -99,6 +100,59 @@ std::vector<FileInfo> ListFiles(const std::wstring& dir, const std::wstring& pat
         out.push_back(info);
     } while (FindNextFileW(h, &fd));
     FindClose(h);
+    return out;
+}
+
+// 下のフォルダもたどって、相対パスを集める（深さは 16 まで）
+static void ListDeepInto(const std::wstring& root, const std::wstring& rel,
+                         int depth, std::vector<std::wstring>& out) {
+    if (depth > 16) return;
+    std::wstring dir = rel.empty() ? root : PathJoin(root, rel);
+    WIN32_FIND_DATAW fd;
+    HANDLE h = FindFirstFileW(PathJoin(dir, L"*").c_str(), &fd);
+    if (h == INVALID_HANDLE_VALUE) return;
+    do {
+        std::wstring name = fd.cFileName;
+        if (name == L"." || name == L"..") continue;
+        std::wstring next = rel.empty() ? name : (rel + L"\\" + name);
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            ListDeepInto(root, next, depth + 1, out);
+        } else {
+            out.push_back(next);
+        }
+    } while (FindNextFileW(h, &fd));
+    FindClose(h);
+}
+
+std::vector<std::wstring> ListFilesDeep(const std::wstring& dir) {
+    std::vector<std::wstring> out;
+    ListDeepInto(dir, std::wstring(), 0, out);
+    return out;
+}
+
+std::string Md5Hex(const std::string& data) {
+    HCRYPTPROV prov = 0;
+    HCRYPTHASH hash = 0;
+    std::string out;
+    if (!CryptAcquireContextW(&prov, NULL, NULL, PROV_RSA_FULL,
+                              CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) {
+        return out;
+    }
+    if (CryptCreateHash(prov, CALG_MD5, 0, 0, &hash)) {
+        if (CryptHashData(hash, (const BYTE*)data.c_str(), (DWORD)data.size(), 0)) {
+            BYTE digest[16];
+            DWORD len = sizeof(digest);
+            if (CryptGetHashParam(hash, HP_HASHVAL, digest, &len, 0) && len == sizeof(digest)) {
+                static const char* hex = "0123456789abcdef";
+                for (DWORD i = 0; i < len; i++) {
+                    out += hex[(digest[i] >> 4) & 0xF];
+                    out += hex[digest[i] & 0xF];
+                }
+            }
+        }
+        CryptDestroyHash(hash);
+    }
+    CryptReleaseContext(prov, 0);
     return out;
 }
 

@@ -30,6 +30,13 @@ struct FileInfo {
 std::vector<FileInfo> ListFiles(const std::wstring& dir, const std::wstring& pattern);
 std::string FileTimeToIso(const FILETIME& ft);
 
+// dir の中のファイルを、下のフォルダもふくめて集める。
+// 返るのは dir からの相対パス（区切りは \）。
+std::vector<std::wstring> ListFilesDeep(const std::wstring& dir);
+
+// MD5 を小文字の 16 進で返す（ネットワーク更新の照合表に使う）
+std::string Md5Hex(const std::string& data);
+
 // PNG をえらぶダイアログを出す（複数可）。キャンセルなら空。
 std::vector<std::wstring> PickPngFiles();
 
