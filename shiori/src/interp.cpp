@@ -76,6 +76,26 @@ static std::string BlockType(const JValue& b) {
 
 // ---------------------------------------------------------------- expressions
 
+// [ … ] の中に入れる文字を安全にする。
+//
+// さくらスクリプトのタグは ] で終わるので、中身に ] が混じると、その先が
+// 「命令」として読まれます。ここへ入る文字は、他のゴーストから来た言葉
+// （OnCommunicate の Reference）や、使う人が入力ボックスに書いたものかも
+// しれないので、必ず通してから出します。
+// dropComma を立てると、区切りに使う , も落とします（\q の行き先など）。
+//
+// ui/js/sim.js の safeTag と同じ規則にしてください（一致テストが見ています）。
+static std::string TagArg(const std::string& s, bool dropComma) {
+    std::string out;
+    for (size_t i = 0; i < s.size(); i++) {
+        char c = s[i];
+        if (c == '[' || c == ']' || c == '\r' || c == '\n') continue;
+        if (dropComma && c == ',') continue;
+        out += c;
+    }
+    return out;
+}
+
 static Value SysValue(const std::string& key, RunCtx& ctx) {
     SYSTEMTIME st;
     GetLocalTime(&st);
@@ -373,24 +393,26 @@ static void RunBlock(const JValue& b, RunCtx& ctx) {
     }
 
     if (type == "sound") {
-        std::string f = EvalStr(b["file"], ctx);
+        std::string f = TagArg(EvalStr(b["file"], ctx), false);
         if (!f.empty()) Emit(ctx, "\\_v[" + f + "]");
         return;
     }
 
     if (type == "link") {
-        std::string url = EvalStr(b["url"], ctx);
+        std::string url = TagArg(EvalStr(b["url"], ctx), false);
         std::string label = EvalStr(b["label"], ctx);
         if (label.empty()) label = url;
-        if (!url.empty()) Emit(ctx, "\\_a[" + url + "]" + EscapeText(label) + "\\_a");
+        if (!url.empty()) {
+            Emit(ctx, "\\_a[" + url + "]" + TagArg(EscapeText(label), false) + "\\_a");
+        }
         return;
     }
 
     if (type == "choice") {
-        std::string label = EvalStr(b["label"], ctx);
-        std::string target = EvalStr(b["target"], ctx);
+        std::string label = TagArg(EscapeText(EvalStr(b["label"], ctx)), false);
+        std::string target = TagArg(EvalStr(b["target"], ctx), true);
         if (label.empty()) return;
-        Emit(ctx, "\\q[" + EscapeText(label) + "," + target + "]");
+        Emit(ctx, "\\q[" + label + "," + target + "]");
         return;
     }
 
@@ -409,16 +431,9 @@ static void RunBlock(const JValue& b, RunCtx& ctx) {
     // さくらスクリプトの中に置ける文字にする（1 行・カンマと括弧なし）
     // \![…] は「,」で区切って「]」で終わるので、そのまま入れると命令が壊れます。
     if (type == "ask" || type == "change_ghost" || type == "open_browser" || type == "raise") {
+        // 命令を壊す文字（, [ ] 改行）を落としてから使う
         struct Safe {
-            static std::string One(const std::string& s) {
-                std::string t;
-                for (size_t i = 0; i < s.size(); i++) {
-                    char c = s[i];
-                    if (c == ',' || c == '[' || c == ']' || c == '\r' || c == '\n') continue;
-                    t += c;
-                }
-                return Trim(t);
-            }
+            static std::string One(const std::string& s) { return Trim(TagArg(s, true)); }
         };
 
         // たずねて、答えを変数に入れる。

@@ -264,6 +264,18 @@
       ]
     },
     {
+      "id": "p27", "kind": "event", "event": "OnP27",
+      "refs": ["わるいゴースト", "やあ]\\![open]"],
+      "_": "外から来た言葉を、リンク・音・選択肢にはめても、命令として読ませない",
+      "blocks": [
+        { "type": "link", "label": { "type": "sys", "key": "commtext" },
+          "url": { "type": "sys", "key": "commtext" } },
+        { "type": "sound", "file": { "type": "sys", "key": "commtext" } },
+        { "type": "choice", "label": { "type": "sys", "key": "commtext" },
+          "target": { "type": "sys", "key": "commtext" } }
+      ]
+    },
+    {
       "id": "p25", "kind": "event", "event": "OnP25",
       "_": "いまごろ・季節・曜日の名前（どちらも同じ時計を見るので、同じ答えになるはず）",
       "blocks": [

@@ -144,13 +144,15 @@ void Api::Handle(const HttpRequest& req, HttpResponse& res) {
 }
 
 void Api::HandleApi(const HttpRequest& req, HttpResponse& res) {
-    // 他のサイトから勝手に叩かれないように、独自ヘッダを必須にする
-    if (req.method != "GET") {
-        std::map<std::string, std::string>::const_iterator it = req.headers.find("x-nashi");
-        if (it == req.headers.end() || it->second != "1") {
-            JsonError(res, 403, "unexpected origin");
-            return;
-        }
+    // 他のページから勝手に叩かれないようにする。通すのは
+    //   ・画面の JS が付ける独自ヘッダ（外のページからは付けられません）
+    //   ・自分の画面から出た要求（画像の <img src> はヘッダを付けられないので、こちら）
+    // のどちらかだけ。GET も同じ扱いにします（読めなくても、送れること自体を許さない）。
+    std::map<std::string, std::string>::const_iterator it = req.headers.find("x-nashi");
+    bool marked = (it != req.headers.end() && it->second == "1");
+    if (!marked && !req.sameOrigin) {
+        JsonError(res, 403, "unexpected origin");
+        return;
     }
 
     // ---- 状態 ----------------------------------------------------------

@@ -32,6 +32,21 @@ std::string ReadStream(IStream* stream) {
     return out;
 }
 
+// 外に出してよい URL か（http / https だけ）。
+// ShellExecute は file:// や独自スキームも開いてしまうので、ここで絞ります。
+bool IsWebUrl(const std::wstring& uri) {
+    return _wcsnicmp(uri.c_str(), L"http://", 7) == 0 ||
+           _wcsnicmp(uri.c_str(), L"https://", 8) == 0;
+}
+
+// 自分の画面（https://nashi.example/…）を指しているか
+bool IsOwnOrigin(const std::wstring& uri) {
+    std::wstring origin = kVirtualOrigin;
+    if (_wcsnicmp(uri.c_str(), origin.c_str(), origin.size()) != 0) return false;
+    wchar_t next = uri.size() > origin.size() ? uri[origin.size()] : L'/';
+    return next == L'/' || next == L'\0';       // nashi.example.evil.com よけ
+}
+
 std::string TakeCoStr(LPWSTR s) {
     if (!s) return std::string();
     std::string out = WideToUtf8(s);
@@ -128,6 +143,18 @@ bool WebView::Create(HWND parent,
                                                     req.headers["x-nashi"] = TakeCoStr(v);
                                                 }
                                             }
+                                            // どこのページから出た要求か。自分の画面からのものだけ通します
+                                            // （画像の <img src> は独自ヘッダを付けられないので、ここで見ます）。
+                                            const wchar_t* keys[] = { L"Referer", L"Origin" };
+                                            for (int k = 0; k < 2 && !req.sameOrigin; k++) {
+                                                has = FALSE;
+                                                if (FAILED(headers->Contains(keys[k], &has)) || !has) continue;
+                                                LPWSTR v = nullptr;
+                                                if (FAILED(headers->GetHeader(keys[k], &v)) || !v) continue;
+                                                std::wstring from = v;
+                                                CoTaskMemFree(v);
+                                                if (IsOwnOrigin(from)) req.sameOrigin = true;
+                                            }
                                         }
 
                                         ComPtr<IStream> content;
@@ -186,17 +213,43 @@ bool WebView::Create(HWND parent,
                                     .Get(),
                                 &token);
 
-                            // 外部リンクは既定のブラウザに任せる
+                            // 外部リンクは既定のブラウザに任せる。
+                            // ただし渡すのは http / https だけ。file:// や独自スキームを
+                            // そのまま ShellExecute すると、プログラムを起動できてしまいます。
                             web->add_NewWindowRequested(
                                 Callback<ICoreWebView2NewWindowRequestedEventHandler>(
                                     [](ICoreWebView2*,
                                        ICoreWebView2NewWindowRequestedEventArgs* args) -> HRESULT {
                                         LPWSTR uri = nullptr;
                                         if (SUCCEEDED(args->get_Uri(&uri)) && uri) {
-                                            ShellExecuteW(NULL, L"open", uri, NULL, NULL, SW_SHOWNORMAL);
+                                            if (IsWebUrl(uri)) {
+                                                ShellExecuteW(NULL, L"open", uri, NULL, NULL,
+                                                              SW_SHOWNORMAL);
+                                            }
                                             CoTaskMemFree(uri);
                                         }
                                         args->put_Handled(TRUE);
+                                        return S_OK;
+                                    })
+                                    .Get(),
+                                &token);
+
+                            // 画面が外のページに変わらないようにする。
+                            // 変わってしまうと、見た目はなしスタジオのまま中身が別物になります。
+                            web->add_NavigationStarting(
+                                Callback<ICoreWebView2NavigationStartingEventHandler>(
+                                    [](ICoreWebView2*,
+                                       ICoreWebView2NavigationStartingEventArgs* args) -> HRESULT {
+                                        LPWSTR raw = nullptr;
+                                        if (FAILED(args->get_Uri(&raw)) || !raw) return S_OK;
+                                        std::wstring uri = raw;
+                                        CoTaskMemFree(raw);
+                                        if (IsOwnOrigin(uri) || uri == L"about:blank") return S_OK;
+                                        args->put_Cancel(TRUE);
+                                        if (IsWebUrl(uri)) {          // 外のページはブラウザで
+                                            ShellExecuteW(NULL, L"open", uri.c_str(), NULL, NULL,
+                                                          SW_SHOWNORMAL);
+                                        }
                                         return S_OK;
                                     })
                                     .Get(),

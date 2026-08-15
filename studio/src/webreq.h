@@ -12,6 +12,9 @@ struct HttpRequest {
     std::map<std::string, std::string> query;    // デコード済み
     std::map<std::string, std::string> headers;  // 小文字のキー
     std::string body;
+    // この要求が、なしスタジオ自身の画面から出たものか
+    // （外のページから叩かれていないか。webview.cpp が Referer / Origin を見て決めます）
+    bool sameOrigin = false;
 };
 
 struct HttpResponse {

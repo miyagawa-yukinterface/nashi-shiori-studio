@@ -167,6 +167,15 @@
     }
   }
 
+  // [ … ] の中に入れる文字を安全にする。
+  // ] が混じると、その先が命令として読まれてしまいます。ここへ入るのは
+  // ほかのゴーストから来た言葉かもしれないので、必ず通してから出します。
+  // shiori/src/interp.cpp の TagArg と同じ規則にすること（一致テストが見ています）。
+  function safeTag(text, dropComma) {
+    const re = dropComma ? /[,[\]\r\n]/g : /[[\]\r\n]/g;
+    return String(text == null ? '' : text).replace(re, '');
+  }
+
   function emitScope(ctx, who) {
     who = Math.floor(toNum(who));
     if (ctx.scope === who) return;
@@ -234,7 +243,7 @@
       }
       case 'balloon': ctx.out += '\\b[' + Math.floor(toNum(ev(b.id))) + ']'; return;
       case 'sound': {
-        const f = toStr(ev(b.file));
+        const f = safeTag(toStr(ev(b.file)), false);
         if (f) ctx.out += '\\_v[' + f + ']';
         return;
       }
@@ -248,21 +257,21 @@
         return;
       }
       case 'link': {
-        const url = toStr(ev(b.url));
-        let label = toStr(ev(b.label)) || url;
-        if (url) ctx.out += '\\_a[' + url + ']' + escapeText(label) + '\\_a';
+        const url = safeTag(toStr(ev(b.url)), false);
+        const label = toStr(ev(b.label)) || url;
+        if (url) ctx.out += '\\_a[' + url + ']' + safeTag(escapeText(label), false) + '\\_a';
         return;
       }
       case 'choice': {
-        const label = toStr(ev(b.label));
+        const label = safeTag(escapeText(toStr(ev(b.label))), false);
         if (!label) return;
-        ctx.out += '\\q[' + escapeText(label) + ',' + toStr(ev(b.target)) + ']';
+        ctx.out += '\\q[' + label + ',' + safeTag(toStr(ev(b.target)), true) + ']';
         return;
       }
       // \![…] でお願いする系。プレビューでは何も起きないが、出力は本番と同じにする。
       // カンマ・角かっこは命令を壊すので、栞と同じ規則で落とす。
       case 'ask': case 'change_ghost': case 'open_browser': case 'raise': {
-        const one = (v) => toStr(v).replace(/[,[\]\r\n]/g, '').trim();
+        const one = (v) => safeTag(toStr(v), true).trim();
         if (b.type === 'ask') {
           const into = one(b.into);
           if (into) ctx.out += '\\![open,inputbox,nashi:' + into + ',-1,' + one(ev(b.initial)) + ']';
