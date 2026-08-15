@@ -177,6 +177,14 @@
                 '文章がないと、相手には届きません。', s, b);
             }
             break;
+          case 'update':
+            // 「更新のありか」が無いと、SSP は更新しようがない
+            if (isEmptyText((project.meta || {}).homeUrl)) {
+              issue(out, 'warn', `${title}に、ネットワーク更新のブロックがあります`,
+                'ゴーストの設定の「更新のありか」が空です。'
+                + '入れておかないと、SSP は更新できません。', s, b);
+            }
+            break;
           case 'var': case 'set': case 'change':
             if (isEmptyText(b.name)) {
               issue(out, 'error', `${title}に、変数をえらんでいないブロックがあります`,

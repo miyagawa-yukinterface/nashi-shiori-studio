@@ -35,8 +35,10 @@
 `OnMouseClick` / `OnNadeNade` / `OnMouseMove` / `OnMouseWheel` / `OnHourChange` /
 `OnMinuteChange` / `OnSecondChange` / `OnChoiceSelect` / `OnCommunicate` /
 `OnGhostChanged` / `OnGhostChanging` / `OnKeyPress` / `OnSurfaceRestore` /
-`OnWindowStateMinimize` / `OnWindowStateRestore`。
-一覧にないイベントは「その他（自分で書く）」で直接入力できます。
+`OnWindowStateMinimize` / `OnWindowStateRestore` /
+`OnUpdateBegin` / `OnUpdateReady` / `OnUpdateComplete` / `OnUpdateFailure`。
+一覧にないイベントは「その他（自分で書く）」で直接入力できます
+（`OnUpdate.OnDownloadBegin` のような細かい途中経過もここから書けます）。
 
 マウス系のイベント（クリック・ダブルクリック・なでなで・ホイール・マウス移動）を選ぶと、
 帽子ブロックが「**◯ の △ が ◯◯のとき**」の形に変わり、**当たった場所**と**相手**で
@@ -114,11 +116,17 @@ SSP の通信ボックスから話しかけられた場合、相手の名前は 
 | つぎのどれかをランダムに | `{"type":"random_one","branches":[[...],[...]]}` |
 | ◯をよぶ | `{"type":"call","name":"トーク名"}` |
 | ランダムトークの間隔を N 秒にする | `{"type":"talk_interval","sec":180}` |
+| ネットワーク更新をする | `{"type":"update"}` → `\![updatebymyself]` |
 | ここでトークをおわる | `{"type":"end"}` → `\e` |
 | ゴーストを終了する | `{"type":"close"}` → `\-` |
 
 くりかえしは最大 5000 回、ブロックの実行は最大 40000 ステップで打ち切ります
 （SSP が固まらないための安全装置です）。
+
+**ネットワーク更新**（`update`）は、SSP に「新しいものが無いか見にいって」と頼みます。
+ゴーストの設定の**更新のありか**（`descript.txt` の `homeurl`）が空だと何も起きないので、
+チェックタブが注意します。結果は `OnUpdateComplete` / `OnUpdateFailure` で返ってきます。
+くわしくは README の「ネットワーク更新に対応する」を見てください。
 
 ## 変数
 
@@ -179,3 +187,13 @@ SSP の通信ボックスから話しかけられた場合、相手の名前は 
 | OnChoiceSelect | えらばれたID | | | | |
 | OnBoot | シェル名 | | | | |
 | OnCommunicate | 相手の名前 | 言われたこと | | | |
+| OnUpdateBegin | ゴースト名 | フォルダの場所 | | 種類 | |
+| OnUpdateReady | ファイル数−1 | ファイル名(カンマ区切り) | 種類 | | |
+| OnUpdateComplete | none / changed | 更新したファイル名 | | 種類 | |
+| OnUpdateFailure | 失敗したわけ | できなかったファイル名 | | 種類 | |
+
+`OnUpdateComplete` の 0 番は、`none`（新しいものは無かった）か `changed`（更新した）です。
+`OnUpdateFailure` の 0 番は `timeout` / `md5 miss` / `artificial`（自分でやめた）/ `404` などです。
+
+ブロックを書かなかったときは、**更新できたとき**と**失敗したとき**だけ栞が一言いいます
+（毎回だとうるさいので、「変わりなし」と途中経過は黙っています）。

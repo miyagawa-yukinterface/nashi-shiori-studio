@@ -792,6 +792,7 @@
     setVal('#meta-kero', m.keroName);
     setVal('#meta-craftman', m.craftman);
     setVal('#meta-url', m.craftmanUrl);
+    setVal('#meta-homeurl', m.homeUrl);
     setVal('#meta-version', m.version);
     setVal('#meta-desc', m.description);
     setVal('#set-talk-interval', s.randomTalkInterval);
@@ -837,6 +838,7 @@
     bind('#meta-kero', (v) => { Model.project.meta.keroName = v; });
     bind('#meta-craftman', (v) => { Model.project.meta.craftman = v; });
     bind('#meta-url', (v) => { Model.project.meta.craftmanUrl = v; });
+    bind('#meta-homeurl', (v) => { Model.project.meta.homeUrl = v.trim(); });
     bind('#meta-version', (v) => { Model.project.meta.version = v; });
     bind('#meta-desc', (v) => { Model.project.meta.description = v; });
     bind('#set-talk-interval', (v) => { Model.project.settings.randomTalkInterval = Number(v) || 0; });

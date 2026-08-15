@@ -241,6 +241,8 @@
         ctx.out += '\\q[' + escapeText(label) + ',' + toStr(ev(b.target)) + ']';
         return;
       }
+      // ネットワーク更新。プレビューでは何も起きないが、出力は本番と同じにする。
+      case 'update': ctx.out += '\\![updatebymyself]'; return;
       case 'end': ctx.out += '\\e'; ctx.stopped = true; return;
       case 'stop': ctx.stopped = true; return;
       case 'close': ctx.out += '\\-'; ctx.stopped = true; return;

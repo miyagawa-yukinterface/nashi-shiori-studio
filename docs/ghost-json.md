@@ -18,6 +18,7 @@
     "keroName": "つぶ",            // 相方の名前
     "craftman": "作者名",
     "craftmanUrl": "",
+    "homeUrl": "",                 // ネットワーク更新のありか（descript.txt の homeurl）
     "version": "1.0.0"
   },
 

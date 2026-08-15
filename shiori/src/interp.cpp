@@ -384,6 +384,10 @@ static void RunBlock(const JValue& b, RunCtx& ctx) {
         return;
     }
 
+    // ネットワーク更新をはじめる。あとは SSP がやって、
+    // 結果は OnUpdateComplete / OnUpdateFailure で返ってくる。
+    if (type == "update") { Emit(ctx, "\\![updatebymyself]"); return; }
+
     if (type == "end")   { Emit(ctx, "\\e"); ctx.stopped = true; return; }
     if (type == "stop")  { ctx.stopped = true; return; }
     if (type == "close") { Emit(ctx, "\\-"); ctx.closed = true; ctx.stopped = true; return; }

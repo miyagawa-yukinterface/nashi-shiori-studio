@@ -37,6 +37,10 @@ window.NASHI = window.NASHI || {};
     ['サーフェスがもどったとき', 'OnSurfaceRestore'],
     ['最小化されたとき', 'OnWindowStateMinimize'],
     ['最小化からもどったとき', 'OnWindowStateRestore'],
+    ['更新をはじめたとき', 'OnUpdateBegin'],
+    ['更新するものが見つかったとき', 'OnUpdateReady'],
+    ['更新がおわったとき', 'OnUpdateComplete'],
+    ['更新に失敗したとき', 'OnUpdateFailure'],
     ['その他（自分で書く）', '__custom__'],
   ];
 
@@ -67,6 +71,12 @@ window.NASHI = window.NASHI || {};
     OnKeyPress: ['押されたキー'],
     OnGhostChanged: ['前のゴースト名'],
     OnCommunicate: ['相手の名前(通信ボックスなら user)', '言われたこと'],
+    OnUpdateBegin: ['ゴースト名', 'フォルダの場所', '', '種類(ghost/shell/balloon…)'],
+    OnUpdateReady: ['更新するファイル数−1', 'ファイル名(カンマ区切り)', '種類'],
+    OnUpdateComplete: ['none=変更なし / changed=更新した', '更新したファイル名', '', '種類'],
+    OnUpdateFailure: ['失敗したわけ(timeout など)', 'できなかったファイル名', '', '種類'],
+    'OnUpdate.OnDownloadBegin': ['落としているファイル名', '何個目(0から)', '全部の数−1'],
+    'OnUpdate.OnMD5CompareFailure': ['ファイル名', '正しいMD5', '落ちてきたMD5'],
   };
 
   const WHO = [['さくら', 0], ['うにゅう', 1]];
@@ -313,6 +323,9 @@ window.NASHI = window.NASHI || {};
     spec: 'ランダムトークの間隔を %sec 秒にする',
     args: { sec: { kind: 'input', mode: 'number', def: 180 } },
   });
+  // ネットワーク更新をはじめる（\![updatebymyself]）。
+  // ゴーストの設定の「更新のありか」が空だと、SSP は何もできません。
+  def({ type: 'update', cat: 'control', shape: 'stack', spec: 'ネットワーク更新をする' });
   def({ type: 'end', cat: 'control', shape: 'cap', spec: 'ここでトークをおわる' });
   def({ type: 'close', cat: 'control', shape: 'cap', spec: 'ゴーストを終了する' });
 
@@ -475,7 +488,7 @@ window.NASHI = window.NASHI || {};
     talk: ['say', 'newline', 'click_wait', 'clear', 'choice', 'link', 'communicate', 'raw'],
     looks: ['surface', 'chara', 'anim', 'balloon', 'sound'],
     control: ['wait', 'if', 'if_else', 'repeat', 'while', 'random_one', 'call',
-      'talk_interval', 'end', 'close'],
+      'talk_interval', 'update', 'end', 'close'],
     variables: [{ button: 'add-var', label: '＋ 変数をつくる' }, '@vars', 'set', 'change'],
     operators: ['arith#+', 'arith#-', 'arith#*', 'arith#/', 'arith#%',
       'compare#<', 'compare#=', 'compare#>', 'compare#!=',

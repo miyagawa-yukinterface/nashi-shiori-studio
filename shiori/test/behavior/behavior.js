@@ -120,6 +120,22 @@ const scenarios = [
     })(),
   },
   {
+    name: 'ネットワーク更新 — 結果だけ知らせ、途中経過と「変わりなし」は黙る',
+    dir: EMPTY,
+    steps: [
+      ['OnUpdateBegin:なしこ,C:\\ghost,,ghost', { status: '204 No Content' }],
+      ['OnUpdateReady:2,a.txt,ghost', { status: '204 No Content' }],
+      ['OnUpdate.OnDownloadBegin:a.txt,0,2', { status: '204 No Content' }],
+      ['OnUpdateComplete:none,,,ghost', { status: '204 No Content' }],
+      ['OnUpdateComplete:changed,a.txt,,ghost',
+        '\\0\\s[0]更新できたよ。\\n新しくなったところは、つぎに起動したときからだよ。\\e'],
+      ['OnUpdateFailure:timeout,a.txt,,ghost',
+        '\\0\\s[0]更新できなかったみたい。\\n（timeout）\\e'],
+      // 自分でやめたときは黙る
+      ['OnUpdateFailure:artificial,,,ghost', { status: '204 No Content' }],
+    ],
+  },
+  {
     name: '何も出力しないブロックは 204／選択肢の行き先が呼ばれる',
     dir: MAIN,
     steps: [

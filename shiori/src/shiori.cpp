@@ -460,6 +460,23 @@ std::string Shiori::BuiltinDefault(const std::string& id, const ShioriRequest& r
         }
         return "\\0\\s[2]……あんまり触らないで。";
     }
+    // ネットワーク更新。ブロックを書いていなくても、結果だけは知らせる。
+    // 途中経過（OnUpdateBegin / OnUpdateReady / OnUpdate.On…）は毎回しゃべると
+    // うるさいので黙っておき、書きたい人はブロックで書く。
+    if (id == "OnUpdateComplete") {
+        std::string how = req.refs.empty() ? std::string() : req.refs[0];
+        // "none" = 新しいものは無かった。黙っておく（起動のたびに言うとうるさい）
+        if (how != "changed") return std::string();
+        return "\\0\\s[0]更新できたよ。\\n新しくなったところは、つぎに起動したときからだよ。";
+    }
+    if (id == "OnUpdateFailure") {
+        std::string why = req.refs.empty() ? std::string() : req.refs[0];
+        if (why == "artificial") return std::string();      // 自分でやめたときは黙る
+        std::string out = "\\0\\s[0]更新できなかったみたい。";
+        if (!why.empty()) out += "\\n（" + EscapeText(why) + "）";
+        return out;
+    }
+
     (void)req;
     (void)name;
     return std::string();

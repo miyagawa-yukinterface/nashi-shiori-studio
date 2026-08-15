@@ -439,6 +439,10 @@ std::vector<OutFile> BuildGhostFiles(const JValue& project, const std::string& d
              Line("craftmanw", meta["craftman"].asStr("unknown")) +
              Line("craftmanurl", meta["craftmanUrl"].asStr("")) +
              Line("shiori", "nashi.dll") +
+             // ネットワーク更新のありか。空なら書かない（書くと更新を試して失敗する）
+             (meta["homeUrl"].asStr("").empty()
+                  ? std::string()
+                  : Line("homeurl", meta["homeUrl"].asStr(""))) +
              Line("sakura.seriko.defaultsurface",
                   NumToStr(project["settings"]["defaultSurfaceSakura"].asNum(0))) +
              Line("kero.seriko.defaultsurface",

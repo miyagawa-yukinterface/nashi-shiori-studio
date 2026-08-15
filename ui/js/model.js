@@ -30,6 +30,7 @@
           keroName: 'うにゅう',
           craftman: '',
           craftmanUrl: '',
+          homeUrl: '',
           version: '1.0.0',
           description: '',
         },
