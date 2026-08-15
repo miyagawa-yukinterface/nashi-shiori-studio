@@ -483,6 +483,9 @@
         pr.appendChild(Render.el('span', 'anim-step', `${k + 1}`));
         pr.appendChild(mk('立ち絵', p.surface, (v) => { p.surface = Number(v) || 0; }, { min: 0 }));
         pr.appendChild(mk('ミリ秒', p.wait, (v) => { p.wait = Math.max(0, Number(v) || 0); }, { min: 0 }));
+        // 位置ずらし。0 のままなら基準の絵とぴったり重なります。
+        pr.appendChild(mk('よこ', p.x || 0, (v) => { p.x = Number(v) || 0; }));
+        pr.appendChild(mk('たて', p.y || 0, (v) => { p.y = Number(v) || 0; }));
         const rm = Render.el('button', 'btn tiny', '−');
         rm.title = 'このこまを消す';
         rm.addEventListener('click', () => {
@@ -494,7 +497,7 @@
       });
       const addPat = Render.el('button', 'btn tiny', '＋ こまを足す');
       addPat.addEventListener('click', () => {
-        Model.act(() => { a.patterns.push({ surface: a.base, wait: 200, method: 'base' }); });
+        Model.act(() => { a.patterns.push({ surface: a.base, wait: 200, method: 'base', x: 0, y: 0 }); });
         renderAnimList();
       });
       pats.appendChild(addPat);
@@ -514,7 +517,10 @@
       while (anims.some((a) => a.id === id)) id++;
       anims.push({
         id, base: 0, interval: 'sometimes', every: 4,
-        patterns: [{ surface: 1, wait: 200, method: 'base' }, { surface: 0, wait: 200, method: 'base' }],
+        patterns: [
+          { surface: 1, wait: 200, method: 'base', x: 0, y: 0 },
+          { surface: 0, wait: 200, method: 'base', x: 0, y: 0 },
+        ],
       });
     });
     renderAnimList();

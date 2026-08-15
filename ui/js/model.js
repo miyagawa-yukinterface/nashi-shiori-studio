@@ -80,6 +80,8 @@
               surface: Number(p && p.surface) || 0,
               wait: Number.isFinite(Number(p && p.wait)) ? Number(p.wait) : 200,
               method: (p && p.method) === 'overlay' ? 'overlay' : 'base',
+              x: Number(p && p.x) || 0,
+              y: Number(p && p.y) || 0,
             })),
         }));
 

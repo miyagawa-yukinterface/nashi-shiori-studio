@@ -152,9 +152,13 @@ static std::string AnimationLines(const JValue& project, int surfaceId) {
             int surf = p["surface"].asInt(0);
             int wait = p["wait"].asInt(200);
             if (wait < 0) wait = 0;
+            // こまごとの位置ずらし（基準の絵の左上からの相対）
+            int px = p["x"].asInt(0), py = p["y"].asInt(0);
+            if (px < -9999) px = -9999; if (px > 9999) px = 9999;
+            if (py < -9999) py = -9999; if (py > 9999) py = 9999;
             char buf[128];
-            sprintf_s(buf, "animation%d.pattern%d,%s,%d,%d,0,0\r\n",
-                      id, m++, method.c_str(), surf, wait);
+            sprintf_s(buf, "animation%d.pattern%d,%s,%d,%d,%d,%d\r\n",
+                      id, m++, method.c_str(), surf, wait, px, py);
             body += buf;
         }
         // 絵の指定が 1 つも無ければ、動かしようがないので何も書かない
