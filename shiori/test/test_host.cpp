@@ -93,6 +93,7 @@ int wmain(int argc, wchar_t** wargv) {
     }
     printf("== load ok: %s\n", WideToUtf8(wdir.c_str()).c_str());
 
+    bool unloaded = false;
     for (int i = 2; i < argc; i++) {
         std::string spec = args[(size_t)i];
         int repeat = 1;
@@ -103,6 +104,18 @@ int wmain(int argc, wchar_t** wargv) {
             spec = spec.substr(0, star);
             if (repeat < 1) repeat = 1;
         }
+        // "!unload" calls unload() early, then keeps the process alive.
+        // Lets us check that a slow SAORI finishing *after* the ghost is gone
+        // does not touch freed memory (see saori.cpp).
+        if (spec == "!unload") {
+            fnUnload();
+            FreeLibrary(dll);           // SSP と同じで、unload のすぐあとに外す
+            unloaded = true;
+            printf("---- %s\n", spec.c_str());
+            printf("(unloaded)\n");
+            continue;
+        }
+
         // "!sleep:300" waits instead of sending a request.
         // Used to give background work (async SAORI) time to finish.
         if (spec.compare(0, 7, "!sleep:") == 0) {
@@ -131,8 +144,10 @@ int wmain(int argc, wchar_t** wargv) {
         }
     }
 
-    fnUnload();
-    FreeLibrary(dll);
+    if (!unloaded) {
+        fnUnload();
+        FreeLibrary(dll);
+    }
     printf("== unload ok\n");
     return 0;
 }

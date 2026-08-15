@@ -155,6 +155,31 @@ const scenarios = [
     ],
   },
   {
+    name: '本物の SAORI — 待つ呼び出しと、待たない呼び出しの両方',
+    dir: MAIN,
+    steps: [
+      // 待つほう。SAORI が返した Result: がそのままセリフになる
+      ['OnSaoriSync', { value: '\\0すぐ\\e' }],
+      // 待たないほう。呼んだ時点では何も出ない
+      ['OnSaoriReal', { status: '204 No Content' }],
+      ['!sleep:600', null],
+      ['OnSecondChange:0,1,1', { value: '\\0とどいた:slow_saori.dll\\e' }],
+      ['OnShowAnswer', { value: '\\0ぬるい\\e' }],
+    ],
+  },
+  {
+    name: 'おそい SAORI の途中で終了しても、栞は落ちない',
+    dir: MAIN,
+    steps: [
+      // 6.5 秒かかる呼び出しを始めてから、すぐ unload（＋ FreeLibrary）する。
+      // 栞が消えたあとに答えが返ってくる順番になるので、置き場を分けあう作りと
+      // 「走っている間は栞を外させない」押さえが効いていないと、ここで落ちます。
+      ['OnSaoriVerySlow', { status: '204 No Content' }],
+      ['!unload', null],
+      ['!sleep:3000', null],
+    ],
+  },
+  {
     name: '待たない SAORI — 答えが届くと変数に入り、つぎの秒に知らせる',
     dir: MAIN,
     steps: [

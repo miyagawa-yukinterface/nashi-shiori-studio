@@ -68,6 +68,31 @@
     },
 
     {
+      "id": "b_saori_real", "kind": "event", "event": "OnSaoriReal",
+      "_": "本物の SAORI（テスト用のおそいもの）を、答えを待たずによぶ",
+      "blocks": [
+        { "type": "saori_call", "file": "slow_saori.dll", "a": "200", "b": "ぬるい",
+          "into": "こたえ" }
+      ]
+    },
+    {
+      "id": "b_saori_slow", "kind": "event", "event": "OnSaoriVerySlow",
+      "_": "栞が待つ時間（5 秒）より長くかかる呼び出し。終了と重なる場面を作る",
+      "blocks": [
+        { "type": "saori_call", "file": "slow_saori.dll", "a": "6500", "b": "おそい",
+          "into": "こたえ" }
+      ]
+    },
+    {
+      "id": "b_saori_sync", "kind": "event", "event": "OnSaoriSync",
+      "_": "答えを待つほうの呼び出し（ふつうの使いかた）",
+      "blocks": [
+        { "type": "say", "who": 0, "nl": 0,
+          "text": { "type": "saori", "file": "slow_saori.dll", "a": "50", "b": "すぐ",
+                    "value": -1 } }
+      ]
+    },
+    {
       "id": "b_saori_call", "kind": "event", "event": "OnSaoriTest",
       "_": "答えを待たずに SAORI をよぶ。本物の DLL は無いので、答えは空で届くはず",
       "blocks": [

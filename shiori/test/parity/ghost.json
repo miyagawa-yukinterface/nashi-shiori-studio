@@ -264,6 +264,30 @@
       ]
     },
     {
+      "id": "p28", "kind": "event", "event": "OnP28",
+      "_": "長い文字は上限で切る（つなげ続けてもメモリを食いつぶさない）",
+      "blocks": [
+        { "type": "set", "name": "文字の初期値", "value": "abcd" },
+        { "type": "repeat", "count": 15, "body": [
+          { "type": "set", "name": "文字の初期値",
+            "value": { "type": "join",
+                       "a": { "type": "var", "name": "文字の初期値" },
+                       "b": { "type": "var", "name": "文字の初期値" } } }
+        ] },
+        { "type": "say", "who": 0, "nl": 1,
+          "text": { "type": "length", "a": { "type": "var", "name": "文字の初期値" } } },
+        { "type": "set", "name": "文字の初期値", "value": "あいう" },
+        { "type": "repeat", "count": 14, "body": [
+          { "type": "set", "name": "文字の初期値",
+            "value": { "type": "join",
+                       "a": { "type": "var", "name": "文字の初期値" },
+                       "b": { "type": "var", "name": "文字の初期値" } } }
+        ] },
+        { "type": "say", "who": 0, "nl": 1,
+          "text": { "type": "length", "a": { "type": "var", "name": "文字の初期値" } } }
+      ]
+    },
+    {
       "id": "p27", "kind": "event", "event": "OnP27",
       "refs": ["わるいゴースト", "やあ]\\![open]"],
       "_": "外から来た言葉を、リンク・音・選択肢にはめても、命令として読ませない",

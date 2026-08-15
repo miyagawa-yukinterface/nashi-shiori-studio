@@ -11,8 +11,25 @@ static const int kMaxSteps = 40000;
 static const int kMaxDepth = 48;
 static const int kMaxLoop  = 5000;
 static const size_t kMaxOut = 32000;
+static const size_t kMaxValue = 32000;   // 変数 1 つぶんの長さの上限
 
 // ---------------------------------------------------------------- helpers
+
+// 長すぎる文字は切ります（UTF-8 の途中では切りません）。
+// 上限が無いと「V を『V と V をつなげる』にする」を 30 回まわすだけで 1GB になり、
+// 32bit の栞はメモリを使いきって、SSP ごと落ちてしまいます。
+// ui/js/sim.js の capText と同じ規則にしてください。
+std::string CapText(const std::string& s) {
+    if (s.size() <= kMaxValue) return s;
+    size_t n = kMaxValue;
+    while (n > 0 && ((unsigned char)s[n] & 0xC0) == 0x80) n--;   // 続きバイトの手前まで戻す
+    return s.substr(0, n);
+}
+
+static Value CapValue(const Value& v) {
+    if (v.isNum || v.str.size() <= kMaxValue) return v;
+    return Value::Str(CapText(v.str));
+}
 
 std::string EscapeText(const std::string& text) {
     std::string out;
@@ -237,7 +254,10 @@ Value EvalExpr(const JValue& node, RunCtx& ctx) {
     if (type == "join") {
         std::string a = EvalExpr(node["a"], ctx).asStr();
         std::string b = EvalExpr(node["b"], ctx).asStr();
-        return Value::Str(a + b);
+        // 上限までで切る（つなげ続けてメモリを食いつぶさないように）。
+        // 先に b を縮めたりせず、つないでから CapText に任せること。
+        // 途中で切ると UTF-8 の文字が半分だけ残り、プレビューと答えがズレます。
+        return Value::Str(CapText(a + b));
     }
 
     if (type == "contains") {
@@ -514,7 +534,7 @@ static void RunBlock(const JValue& b, RunCtx& ctx) {
     if (type == "set") {
         if (!ctx.vars) return;
         std::string name = b["name"].asStr();
-        if (!name.empty()) ctx.vars->set(name, EvalExpr(b["value"], ctx));
+        if (!name.empty()) ctx.vars->set(name, CapValue(EvalExpr(b["value"], ctx)));
         return;
     }
 

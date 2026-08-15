@@ -18,6 +18,8 @@ output/
 shiori/test/fixture/nashi.dll
 shiori/test/*/nashi.dll
 shiori/test/*/*/nashi.dll
+shiori/test/*/slow_saori.dll
+shiori/test/*/*/slow_saori.dll
 studio/test/export_host.exe
 
 # 配布用のまとめ（-Release で作る）

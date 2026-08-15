@@ -88,13 +88,26 @@ Write-Host "[nashi] OK -> $dllOut ($size KB)" -ForegroundColor Green
 
 # ---- test host -------------------------------------------------------------
 if ($Test) {
+    # 中間ファイルは別のフォルダへ。栞のリンクが拾ってしまわないように。
+    $testObj = Join-Path $obj 'testbuild'
+    New-Item -ItemType Directory -Force -Path $testObj | Out-Null
+
     $testOut = Join-Path $dist 'test_host.exe'
     Write-Host "[nashi] テストホストをビルド中..." -ForegroundColor Cyan
     & cl /nologo /O2 /MT /EHsc /W3 /utf-8 /D_CRT_SECURE_NO_WARNINGS `
         (Join-Path $root 'test\test_host.cpp') `
-        "/Fo:$obj\test_" "/Fe:$testOut" /link /SUBSYSTEM:CONSOLE
+        "/Fo:$testObj\" "/Fe:$testOut" /link /SUBSYSTEM:CONSOLE
     if ($LASTEXITCODE -ne 0) { throw 'テストホストのビルドに失敗しました。' }
     Copy-Item $dllOut (Join-Path $root 'test\fixture\nashi.dll') -Force
     Write-Host "[nashi] OK -> $testOut" -ForegroundColor Green
+
+    # 待たない呼び出しを確かめるための、おそい SAORI（栞と同じ 32bit）
+    $saoriOut = Join-Path $dist 'slow_saori.dll'
+    Write-Host "[nashi] テスト用の SAORI をビルド中..." -ForegroundColor Cyan
+    & cl /nologo /O2 /MT /EHsc /W3 /utf-8 /D_CRT_SECURE_NO_WARNINGS `
+        (Join-Path $root 'test\saori\slow_saori.cpp') `
+        "/Fo:$testObj\" "/Fe:$saoriOut" /link /DLL /EXPORT:load /EXPORT:unload /EXPORT:request
+    if ($LASTEXITCODE -ne 0) { throw 'テスト用 SAORI のビルドに失敗しました。' }
+    Write-Host "[nashi] OK -> $saoriOut" -ForegroundColor Green
     Write-Host "[nashi] 動作確認: .\dist\test_host.exe .\test\fixture OnFirstBoot OnBoot OnClose" -ForegroundColor DarkGray
 }

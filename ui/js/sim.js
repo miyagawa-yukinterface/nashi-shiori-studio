@@ -6,7 +6,19 @@
 (function (N) {
 
   const MAX_STEPS = 40000;
+  const MAX_VALUE = 32000;   // 変数 1 つぶんの長さの上限（バイト）
   const MAX_LOOP = 5000;
+
+  // 長すぎる文字は切る（UTF-8 の途中では切らない）。
+  // shiori/src/interp.cpp の CapText と同じ規則にすること（一致テストが見ています）。
+  function capText(s) {
+    if (s.length <= MAX_VALUE / 4) return s;      // どう転んでも上限以下
+    const bytes = new TextEncoder().encode(s);
+    if (bytes.length <= MAX_VALUE) return s;
+    let n = MAX_VALUE;
+    while (n > 0 && (bytes[n] & 0xC0) === 0x80) n--;
+    return new TextDecoder().decode(bytes.subarray(0, n));
+  }
 
   function escapeText(text) {
     let out = '';
@@ -153,7 +165,8 @@
         return a ? true : toBool(evalExpr(node.b, ctx));
       }
       case 'not': return !toBool(evalExpr(node.a, ctx));
-      case 'join': return toStr(evalExpr(node.a, ctx)) + toStr(evalExpr(node.b, ctx));
+      // つなげ続けてメモリを食いつぶさないように、上限までで切る
+      case 'join': return capText(toStr(evalExpr(node.a, ctx)) + toStr(evalExpr(node.b, ctx)));
       case 'contains': {
         const a = toStr(evalExpr(node.a, ctx)), b = toStr(evalExpr(node.b, ctx));
         return b === '' ? true : a.indexOf(b) >= 0;
@@ -303,9 +316,12 @@
       case 'end': ctx.out += '\\e'; ctx.stopped = true; return;
       case 'stop': ctx.stopped = true; return;
       case 'close': ctx.out += '\\-'; ctx.stopped = true; return;
-      case 'set':
-        if (b.name) ctx.vars[b.name] = ev(b.value);
+      case 'set': {
+        if (!b.name) return;
+        const v = ev(b.value);
+        ctx.vars[b.name] = typeof v === 'string' ? capText(v) : v;
         return;
+      }
       case 'change':
         if (b.name) ctx.vars[b.name] = toNum(ctx.vars[b.name]) + toNum(ev(b.value));
         return;

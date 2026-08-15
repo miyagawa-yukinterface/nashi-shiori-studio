@@ -25,6 +25,9 @@ function requireBuild() {
 function prepare(dir) {
   requireBuild();
   fs.copyFileSync(dllSrc, path.join(dir, 'nashi.dll'));
+  // テスト用のおそい SAORI も、ゴーストのフォルダに置く（あれば）
+  const saori = path.join(root, 'shiori', 'dist', 'slow_saori.dll');
+  if (fs.existsSync(saori)) fs.copyFileSync(saori, path.join(dir, 'slow_saori.dll'));
   for (const junk of ['nashi_save.json', 'nashi_debug.txt']) {
     const p = path.join(dir, junk);
     if (fs.existsSync(p)) fs.unlinkSync(p);

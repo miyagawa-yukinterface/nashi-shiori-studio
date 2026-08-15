@@ -6,7 +6,6 @@
 
 #include <string>
 #include <vector>
-#include <map>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -33,13 +32,18 @@ struct SaoriDone {
 //
 // SAORI の DLL は「同時に 2 か所から呼ばれる」ことを想定していないものが多いので、
 // Execute は（待たない呼び出しもふくめて）ひとつずつ順番に行います。
+//
+// 置き場（Core）はヒープに持ち、この Saori と、走っているスレッドで分けあいます。
+// ゴーストが終わるとき、まだ終わらない呼び出しがあったら、この Saori は自分の分だけ
+// 手放して消えます。置き場は**最後のスレッドが片づける**ので、遅い SAORI が
+// あとから答えを書きにきても、消えたメモリを触ることがありません。
 class Saori {
 public:
     Saori();
     ~Saori();
 
     // baseDir はゴーストのフォルダ（DLL の相対パスの起点）
-    void SetBaseDir(const std::wstring& dir) { dir_ = dir; }
+    void SetBaseDir(const std::wstring& dir);
 
     // file は "kawari.dll" のような相対パス（.. は使えません）
     SaoriResult Execute(const std::string& file, const std::vector<std::string>& args);
@@ -55,35 +59,20 @@ public:
     // まだ走っている本数
     int Running();
 
+    // 読み込んだ DLL を返す（走っているものが終わっているときだけ）
     void UnloadAll();
 
     static const int kMaxJobs = 4;        // 同時に走らせる上限
 
+    struct Core;                          // 中身は saori.cpp の中だけ
+
 private:
-    struct Module {
-        HMODULE dll = NULL;
-        void* request = NULL;
-        void* unload = NULL;
-        bool ready = false;
-    };
-    struct Job {
-        Saori* self;
-        std::string file, into;
-        std::vector<std::string> args;
-        int valueIndex;
-    };
-    Module* Get(const std::string& file, std::string& err);
-    static DWORD WINAPI ThreadMain(void* param);
+    Saori(const Saori&);                  // 複製はしません
+    Saori& operator=(const Saori&);
+
     bool WaitAll(DWORD ms);               // 走っているものが終わるまで待つ
 
-    std::wstring dir_;
-    std::map<std::string, Module> mods_;
-
-    CRITICAL_SECTION execCs_;             // DLL の呼び出しをひとつずつにする
-    CRITICAL_SECTION doneCs_;             // 届いた答えと、走っている本数
-    std::vector<SaoriDone> done_;
-    std::vector<HANDLE> threads_;
-    int running_;
+    Core* core_;
 };
 
 } // namespace nashi
