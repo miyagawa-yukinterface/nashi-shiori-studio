@@ -51,6 +51,13 @@ private:
     Saori saori_;              // 外部モジュール（読み込んだものを終了まで持つ）
     // 待たずに呼んだ SAORI の、まだ知らせていない答え（OnSaoriDone のもと）
     std::vector<SaoriDone> saoriDone_;
+
+    // 「N 秒後によぶ」の予約。dueSec は起動してからの秒数。
+    struct Timer {
+        long dueSec;
+        std::string name;
+    };
+    std::vector<Timer> timers_;
     bool ready_ = false;
     long secondsSinceTalk_ = 0;
     long lastSaveSec_ = 0;

@@ -84,6 +84,26 @@
     },
 
     {
+      "id": "b_ask", "kind": "event", "event": "OnAskTest",
+      "_": "たずねる。答えは OnUserInput で返ってきて、栞が変数に入れるはず",
+      "blocks": [{ "type": "ask", "into": "こたえ", "initial": "" }]
+    },
+    {
+      "id": "b_show", "kind": "event", "event": "OnShowAnswer",
+      "blocks": [{ "type": "say", "who": 0, "nl": 0, "text": { "type": "var", "name": "こたえ" } }]
+    },
+
+    {
+      "id": "b_later", "kind": "event", "event": "OnLaterTest",
+      "_": "5 秒後によぶ。予約するだけなので、ここでは何も出ないはず",
+      "blocks": [{ "type": "later", "sec": 5, "name": "あとで" }]
+    },
+    {
+      "id": "f_later", "kind": "function", "name": "あとで",
+      "blocks": [{ "type": "say", "who": 0, "text": "おまたせ", "nl": 0 }]
+    },
+
+    {
       "id": "b_choice", "kind": "event", "event": "OnChoiceTest",
       "blocks": [{ "type": "choice", "label": "はい", "target": "こたえ" }]
     },

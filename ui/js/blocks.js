@@ -42,6 +42,8 @@ window.NASHI = window.NASHI || {};
     ['更新がおわったとき', 'OnUpdateComplete'],
     ['更新に失敗したとき', 'OnUpdateFailure'],
     ['SAORI の答えがとどいたとき', 'OnSaoriDone'],
+    ['答えが返ってきたとき', 'OnUserInput'],
+    ['答えをやめたとき', 'OnUserInputCancel'],
     ['その他（自分で書く）', '__custom__'],
   ];
 
@@ -79,6 +81,8 @@ window.NASHI = window.NASHI || {};
     'OnUpdate.OnDownloadBegin': ['落としているファイル名', '何個目(0から)', '全部の数−1'],
     'OnUpdate.OnMD5CompareFailure': ['ファイル名', '正しいMD5', '落ちてきたMD5'],
     OnSaoriDone: ['よんだファイル名', '届いた答え'],
+    OnUserInput: ['たずねたときのID', '入力された内容'],
+    OnUserInputCancel: ['たずねたときのID', 'close＝閉じた / timeout＝時間切れ'],
   };
 
   const WHO = [['さくら', 0], ['うにゅう', 1]];
@@ -325,6 +329,43 @@ window.NASHI = window.NASHI || {};
     spec: 'ランダムトークの間隔を %sec 秒にする',
     args: { sec: { kind: 'input', mode: 'number', def: 180 } },
   });
+  // 使う人に文字を入力してもらい、答えを変数に入れる（\![open,inputbox,…]）。
+  // 質問そのものは、ふつうのセリフブロックで先に言っておきます。
+  def({
+    type: 'ask', cat: 'control', shape: 'stack',
+    spec: 'たずねて、答えを %into に入れる（はじめから %initial と書いておく）',
+    args: {
+      into: { kind: 'varname', def: '' },
+      initial: { kind: 'input', mode: 'text', def: '', long: true },
+    },
+  });
+  def({
+    type: 'later', cat: 'control', shape: 'stack',
+    spec: '%sec 秒後に %name をよぶ',
+    args: {
+      sec: { kind: 'input', mode: 'number', def: 30 },
+      name: { kind: 'funcname', def: '' },
+    },
+  });
+  def({
+    type: 'raise', cat: 'control', shape: 'stack',
+    spec: 'イベント %event を自分で起こす（情報 %a を付ける）',
+    args: {
+      event: { kind: 'input', mode: 'text', def: 'OnBoot', long: true },
+      a: { kind: 'input', mode: 'text', def: '', long: true },
+    },
+  });
+  def({
+    type: 'change_ghost', cat: 'control', shape: 'cap',
+    spec: '%name に交代する',
+    args: { name: { kind: 'input', mode: 'text', def: 'random', long: true } },
+  });
+  def({
+    type: 'open_browser', cat: 'control', shape: 'stack',
+    spec: '%url をブラウザで開く',
+    args: { url: { kind: 'input', mode: 'text', def: 'https://', long: true } },
+  });
+
   // 外部モジュール（SAORI）を、答えを待たずに呼ぶ。
   // 時間のかかる SAORI を「◯◯でよんだ答え」で呼ぶと、その間 SSP が止まります。
   // こちらは別のスレッドで動いて、答えが届いたら変数に入り、OnSaoriDone が起きます。
@@ -508,7 +549,8 @@ window.NASHI = window.NASHI || {};
     talk: ['say', 'newline', 'click_wait', 'clear', 'choice', 'link', 'communicate', 'raw'],
     looks: ['surface', 'chara', 'anim', 'balloon', 'sound'],
     control: ['wait', 'if', 'if_else', 'repeat', 'while', 'random_one', 'call',
-      'talk_interval', 'update', 'saori_call', 'end', 'close'],
+      'talk_interval', 'ask', 'later', 'raise', 'update', 'saori_call',
+      'open_browser', 'end', 'close', 'change_ghost'],
     variables: [{ button: 'add-var', label: '＋ 変数をつくる' }, '@vars', 'set', 'change'],
     operators: ['arith#+', 'arith#-', 'arith#*', 'arith#/', 'arith#%',
       'compare#<', 'compare#=', 'compare#>', 'compare#!=',

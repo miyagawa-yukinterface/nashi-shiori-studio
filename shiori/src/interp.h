@@ -19,6 +19,12 @@ struct SysInfo {
     std::vector<std::string> recentTalks;  // newest first; kept to avoid repeats
 };
 
+// 「N 秒後によぶ」の予約。栞がためておき、時間が来たら動かします。
+struct LaterCall {
+    int afterSec;
+    std::string name;
+};
+
 struct RunCtx {
     Program* prog = NULL;
     Vars* vars = NULL;
@@ -28,6 +34,7 @@ struct RunCtx {
 
     std::string out;
     std::string commTo;              // 話しかける相手（レスポンスの Reference0 になる）
+    std::vector<LaterCall> later;    // 「N 秒後によぶ」の予約
     int scope = -1;                  // last character scope written into out
     int steps = 0;
     int depth = 0;

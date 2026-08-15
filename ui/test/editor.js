@@ -189,6 +189,24 @@ check('答えの入れ先も「使っている」に数える',
   issuesOf(withScript([{ type: 'saori_call', file: 'a.dll', into: 'こたえ' }]),
     'どこでも使われていません'), []);
 
+// --- たずねる・◯秒後によぶ
+check('たずねる先が空',
+  issuesOf(withScript([{ type: 'ask', into: '' }]), '答えの入れ先が空の「たずねる」'), ['error']);
+
+check('たずねる先が無い変数',
+  issuesOf(withScript([{ type: 'ask', into: 'ないよ' }]), '「ないよ」がありません'), ['error']);
+
+check('たずねる先も「使っている」に数える',
+  issuesOf(withScript([{ type: 'ask', into: 'こたえ' }]), 'どこでも使われていません'), []);
+
+check('◯秒後によぶ先が無いトーク',
+  issuesOf(withScript([{ type: 'later', sec: 5, name: 'ないトーク' }]), 'というトークがありません'),
+  ['error']);
+
+check('◯秒後によぶ先が空',
+  issuesOf(withScript([{ type: 'later', sec: 5, name: '' }]), '行き先がえらばれていません'),
+  ['error']);
+
 check('どこでも使われていない変数は言う',
   issuesOf(withScript([{ type: 'say', who: 0, text: 'やあ' }]), 'どこでも使われていません'),
   ['warn']);

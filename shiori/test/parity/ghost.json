@@ -264,6 +264,31 @@
       ]
     },
     {
+      "id": "p23", "kind": "event", "event": "OnP23",
+      "_": "たずねる・ブラウザ・イベントを自分で起こす（カンマや角かっこは落とす）",
+      "blocks": [
+        { "type": "ask", "into": "こたえ", "initial": "なまえ" },
+        { "type": "ask", "into": "", "initial": "入れ先が空なので出ない" },
+        { "type": "open_browser", "url": "https://example.com/a,b[c]" },
+        { "type": "raise", "event": "OnMyEvent", "a": "おまけ" },
+        { "type": "raise", "event": "OnNoRef", "a": "" },
+        { "type": "later", "sec": 5, "name": "あとで" },
+        { "type": "say", "who": 0, "text": "きいた", "nl": 1 }
+      ]
+    },
+    {
+      "id": "p24", "kind": "event", "event": "OnP24",
+      "_": "交代したら、あとのブロックは動かない",
+      "blocks": [
+        { "type": "change_ghost", "name": "みかん" },
+        { "type": "say", "who": 0, "text": "ここは出ない", "nl": 1 }
+      ]
+    },
+    {
+      "id": "f_later", "kind": "function", "name": "あとで",
+      "blocks": [{ "type": "say", "who": 0, "text": "おまたせ", "nl": 1 }]
+    },
+    {
       "id": "p22", "kind": "event", "event": "OnP22",
       "_": "答えを待たない SAORI。呼んだ時点では、どちらも何も出さない",
       "blocks": [

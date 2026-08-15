@@ -37,7 +37,7 @@
 `OnGhostChanged` / `OnGhostChanging` / `OnKeyPress` / `OnSurfaceRestore` /
 `OnWindowStateMinimize` / `OnWindowStateRestore` /
 `OnUpdateBegin` / `OnUpdateReady` / `OnUpdateComplete` / `OnUpdateFailure` /
-`OnSaoriDone`。
+`OnSaoriDone` / `OnUserInput` / `OnUserInputCancel`。
 一覧にないイベントは「その他（自分で書く）」で直接入力できます
 （`OnUpdate.OnDownloadBegin` のような細かい途中経過もここから書けます）。
 
@@ -150,6 +150,11 @@ SSP の通信ボックスから話しかけられた場合、相手の名前は 
 | つぎのどれかをランダムに | `{"type":"random_one","branches":[[...],[...]]}` |
 | ◯をよぶ | `{"type":"call","name":"トーク名"}` |
 | ランダムトークの間隔を N 秒にする | `{"type":"talk_interval","sec":180}` |
+| たずねて、答えを V に入れる | `{"type":"ask","into":"V","initial":""}` → `\![open,inputbox,nashi:V,-1,…]` |
+| N 秒後に ◯ をよぶ | `{"type":"later","sec":30,"name":"トーク名"}` |
+| イベント E を自分で起こす | `{"type":"raise","event":"E","a":""}` → `\![raise,E,…]` |
+| ◯ に交代する | `{"type":"change_ghost","name":"…"}` → `\![change,ghost,…]` |
+| URL をブラウザで開く | `{"type":"open_browser","url":"…"}` → `\![open,browser,…]` |
 | ネットワーク更新をする | `{"type":"update"}` → `\![updatebymyself]` |
 | F を A B でよぶ（答えを待たずに V に入れる） | `{"type":"saori_call","file":"F","a":A,"b":B,"into":"V","value":-1}` |
 | ここでトークをおわる | `{"type":"end"}` → `\e` |
@@ -157,6 +162,24 @@ SSP の通信ボックスから話しかけられた場合、相手の名前は 
 
 くりかえしは最大 5000 回、ブロックの実行は最大 40000 ステップで打ち切ります
 （SSP が固まらないための安全装置です）。
+
+**たずねる**（`ask`）は入力ボックスを出して、使う人が書いたものを**変数にそのまま入れます**。
+質問そのものは、ふつうのセリフブロックで先に言っておいてください
+（「なまえは？」と話す → たずねる、の順に置きます）。
+入力ボックスの ID は `nashi:変数名` にしてあり、SSP から `OnUserInput` が返ってきたときに
+栞が中身を見て変数へ入れます。イベントとしても受け取れるので、
+「答えが返ってきたとき」の帽子ブロックでお礼を言わせることもできます。
+カンマや角かっこを含む変数名は使えません（SSP への命令が壊れるため、チェックタブが止めます）。
+
+**N 秒後によぶ**（`later`）は、名前を付けたトークを**あとで**動かします。栞が予約を覚えていて、
+つぎの「ずっとくりかえす」で時間を見ます。予約は最大 32 件、いちばん先で 1 日後までです。
+ゴーストを終了すると予約は消えます（保存はしません）。
+
+**交代する**（`change_ghost`）は帽子の下の最後に置くブロックです（そのあとは動きません）。
+名前を `random` にすると、入っているゴーストの中からランダムに交代します。
+
+**イベントを自分で起こす**（`raise`）は、別の帽子ブロックへ話を渡すときに使います。
+「情報」に入れたものは `Reference0` として届きます。
 
 **ネットワーク更新**（`update`）は、SSP に「新しいものが無いか見にいって」と頼みます。
 ゴーストの設定の**更新のありか**（`descript.txt` の `homeurl`）が空だと何も起きないので、
@@ -238,6 +261,8 @@ SSP の通信ボックスから話しかけられた場合、相手の名前は 
 | OnUpdateComplete | none / changed | 更新したファイル名 | | 種類 | |
 | OnUpdateFailure | 失敗したわけ | できなかったファイル名 | | 種類 | |
 | OnSaoriDone | よんだファイル名 | 届いた答え | | | |
+| OnUserInput | たずねたときのID | 入力された内容 | | | |
+| OnUserInputCancel | たずねたときのID | close / timeout | | | |
 
 `OnUpdateComplete` の 0 番は、`none`（新しいものは無かった）か `changed`（更新した）です。
 `OnUpdateFailure` の 0 番は `timeout` / `md5 miss` / `artificial`（自分でやめた）/ `404` などです。

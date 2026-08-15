@@ -241,6 +241,33 @@
         ctx.out += '\\q[' + escapeText(label) + ',' + toStr(ev(b.target)) + ']';
         return;
       }
+      // \![…] でお願いする系。プレビューでは何も起きないが、出力は本番と同じにする。
+      // カンマ・角かっこは命令を壊すので、栞と同じ規則で落とす。
+      case 'ask': case 'change_ghost': case 'open_browser': case 'raise': {
+        const one = (v) => toStr(v).replace(/[,[\]\r\n]/g, '').trim();
+        if (b.type === 'ask') {
+          const into = one(b.into);
+          if (into) ctx.out += '\\![open,inputbox,nashi:' + into + ',-1,' + one(ev(b.initial)) + ']';
+          return;
+        }
+        if (b.type === 'change_ghost') {
+          const name = one(ev(b.name));
+          if (name) { ctx.out += '\\![change,ghost,' + name + ']'; ctx.stopped = true; }
+          return;
+        }
+        if (b.type === 'open_browser') {
+          const url = one(ev(b.url));
+          if (url) ctx.out += '\\![open,browser,' + url + ']';
+          return;
+        }
+        const evName = one(ev(b.event));
+        if (!evName) return;
+        const a = one(ev(b.a));
+        ctx.out += '\\![raise,' + evName + (a ? ',' + a : '') + ']';
+        return;
+      }
+      // 「N 秒後によぶ」。プレビューでは待てないので、何も起きない。
+      case 'later': return;
       // 答えを待たない SAORI。プレビューでは本物の DLL を読めないので、
       // 何も起きない（変数にも入れない。答えは「あとで届く」ものなので）。
       case 'saori_call': return;

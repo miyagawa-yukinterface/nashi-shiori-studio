@@ -120,6 +120,33 @@ const scenarios = [
     })(),
   },
   {
+    name: 'たずねる — 返ってきた答えを、栞が変数に入れる',
+    dir: MAIN,
+    steps: [
+      ['OnAskTest', { value: '\\![open,inputbox,nashi:こたえ,-1,]\\e' }],
+      // SSP は OK が押されると OnUserInput を送ってくる
+      ['OnUserInput:nashi:こたえ,ミヤガワ', { status: '204 No Content' }],
+      ['OnShowAnswer', { value: '\\0ミヤガワ\\e' }],
+      // 知らない ID のときは、変数をいじらない
+      ['OnUserInput:よそのID,べつのこたえ', { status: '204 No Content' }],
+      ['OnShowAnswer', { value: '\\0ミヤガワ\\e' }],
+    ],
+  },
+  {
+    name: '◯秒後によぶ — 時間が来たら動く',
+    dir: MAIN,
+    steps: [
+      ['OnLaterTest', { status: '204 No Content' }],   // 予約するだけ
+      ['OnSecondChange:0,1,1', { status: '204 No Content' }],
+      ['OnSecondChange:0,1,2', { status: '204 No Content' }],
+      ['OnSecondChange:0,1,3', { value: '\\01\\e' }],   // これはいつもの「3 秒ごと」
+      ['OnSecondChange:0,1,4', { status: '204 No Content' }],
+      ['OnSecondChange:0,1,5', { value: '\\0おまたせ\\e' }],
+      ['OnSecondChange:0,1,6', { value: '\\02\\e' }],   // 一度きり。あとはいつもどおり
+      ['OnSecondChange:0,1,7', { status: '204 No Content' }],
+    ],
+  },
+  {
     name: '待たない SAORI — 答えが届くと変数に入り、つぎの秒に知らせる',
     dir: MAIN,
     steps: [

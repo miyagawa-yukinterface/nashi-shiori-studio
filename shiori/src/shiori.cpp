@@ -249,6 +249,15 @@ std::string Shiori::RunOne(const JValue& script, const ShioriRequest& req) {
     dirty_ = true;
     // 出力を捨てる場合（空だったので別のブロックを試す）は、話しかけ先も覚えない
     if (!ctx.out.empty() && !ctx.commTo.empty()) commTo_ = ctx.commTo;
+
+    // 「N 秒後によぶ」の予約を引き取る（動かすのは、つぎの OnSecondChange）
+    const size_t kMaxTimers = 32;
+    for (size_t i = 0; i < ctx.later.size() && timers_.size() < kMaxTimers; i++) {
+        Timer t;
+        t.dueSec = sys_.uptimeSec + ctx.later[i].afterSec;
+        t.name = ctx.later[i].name;
+        timers_.push_back(t);
+    }
     return ctx.out;
 }
 
@@ -530,6 +539,20 @@ std::string Shiori::Dispatch(const ShioriRequest& req) {
             if (!sfound) { saoriDone_.clear(); break; }
         }
 
+        // 「N 秒後によぶ」の予約。時間が来たものを 1 つだけ動かす
+        // （同じ秒に 2 つ来ても、返せる返事は 1 つなので、残りは次の秒へ）。
+        for (size_t i = 0; i < timers_.size(); i++) {
+            if (timers_[i].dueSec > sys_.uptimeSec) continue;
+            std::string name = timers_[i].name;
+            timers_.erase(timers_.begin() + (long)i);
+            const JValue* fn = prog_.functionByName(name);
+            if (!fn) fn = prog_.scriptById(name);
+            if (!fn) { Log("later: そんな名前のトークはありません: " + name); break; }
+            std::string out = RunOne(*fn, req);
+            if (!out.empty()) { secondsSinceTalk_ = 0; return out; }
+            break;
+        }
+
         bool canTalk = true;
         if (req.refs.size() > 1 && !req.refs[1].empty()) canTalk = (req.refs[1] == "1");
 
@@ -572,6 +595,18 @@ std::string Shiori::Dispatch(const ShioriRequest& req) {
             std::string out = RunHandlers("OnNadeNade", req, &nadeFound);
             if (out.empty() && !nadeFound) out = BuiltinDefault("OnNadeNade", req);
             if (!out.empty()) { secondsSinceTalk_ = 0; return out; }
+        }
+    }
+
+    // 入力ボックスの答え。「たずねる」ブロックが付けた ID なら、変数に入れる。
+    // ID は "nashi:変数名" の形にしてある（interp.cpp の "ask"）。
+    if (id == "OnUserInput" && !req.refs.empty()) {
+        const std::string& boxId = req.refs[0];
+        if (boxId.compare(0, 6, "nashi:") == 0 && boxId.size() > 6) {
+            std::string name = boxId.substr(6);
+            std::string answer = req.refs.size() > 1 ? req.refs[1] : std::string();
+            vars_.set(name, Value::Str(answer));
+            dirty_ = true;
         }
     }
 

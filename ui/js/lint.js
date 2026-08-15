@@ -177,6 +177,43 @@
                 '文章がないと、相手には届きません。', s, b);
             }
             break;
+          case 'ask':
+            if (isEmptyText(b.into)) {
+              issue(out, 'error', `${title}に、答えの入れ先が空の「たずねる」ブロックがあります`,
+                '入れる変数を決めてください。決めないと、たずねても答えを使えません。', s, b);
+            } else if (varNames.indexOf(b.into) < 0) {
+              issue(out, 'error', `変数「${b.into}」がありません（${title}）`,
+                '変数タブで作るか、別の変数にえらび直してください。', s, b);
+            } else if (/[,[\]]/.test(b.into)) {
+              issue(out, 'error', `変数「${b.into}」の名前は「たずねる」には使えません`,
+                'カンマや角かっこが入っていると、SSP への命令が壊れます。名前を変えてください。', s, b);
+            }
+            break;
+          case 'later':
+            if (isEmptyText(b.name)) {
+              issue(out, 'error', `${title}の「◯秒後によぶ」で、行き先がえらばれていません`, '', s, b);
+            } else if (typeof b.name === 'string' && callable.indexOf(b.name) < 0) {
+              issue(out, 'error', `「${b.name}」というトークがありません（${title}）`,
+                '名前を変えたときは、よび出し側も直してください。', s, b);
+            }
+            break;
+          case 'raise':
+            if (isEmptyText(b.event)) {
+              issue(out, 'warn', `${title}に、イベント名が空の「自分で起こす」ブロックがあります`,
+                'OnBoot のようなイベント名を入れてください。', s, b);
+            }
+            break;
+          case 'open_browser':
+            if (isEmptyText(b.url)) {
+              issue(out, 'warn', `${title}に、ひらく先が空のブロックがあります`, '', s, b);
+            }
+            break;
+          case 'change_ghost':
+            if (isEmptyText(b.name)) {
+              issue(out, 'warn', `${title}に、交代する相手が空のブロックがあります`,
+                'ゴースト名か random を入れてください。', s, b);
+            }
+            break;
           case 'saori_call':
             if (isEmptyText(b.file)) {
               issue(out, 'error', `${title}に、よぶファイルが空の SAORI ブロックがあります`,
@@ -262,6 +299,7 @@
       walk(s, (b) => {
         if ((b.type === 'var' || b.type === 'set' || b.type === 'change') && b.name) used[b.name] = true;
         if (b.type === 'saori_call' && b.into) used[b.into] = true;
+        if (b.type === 'ask' && b.into) used[b.into] = true;
       });
     }
     for (const name of varNames) {

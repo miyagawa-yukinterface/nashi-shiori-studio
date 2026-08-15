@@ -384,6 +384,70 @@ static void RunBlock(const JValue& b, RunCtx& ctx) {
         return;
     }
 
+    // さくらスクリプトの中に置ける文字にする（1 行・カンマと括弧なし）
+    // \![…] は「,」で区切って「]」で終わるので、そのまま入れると命令が壊れます。
+    if (type == "ask" || type == "change_ghost" || type == "open_browser" || type == "raise") {
+        struct Safe {
+            static std::string One(const std::string& s) {
+                std::string t;
+                for (size_t i = 0; i < s.size(); i++) {
+                    char c = s[i];
+                    if (c == ',' || c == '[' || c == ']' || c == '\r' || c == '\n') continue;
+                    t += c;
+                }
+                return Trim(t);
+            }
+        };
+
+        // たずねて、答えを変数に入れる。
+        // ID を "nashi:変数名" にしておくと、返ってきた OnUserInput で栞が入れられる。
+        if (type == "ask") {
+            std::string into = Safe::One(b["into"].asStr());
+            if (into.empty()) return;
+            std::string initial = Safe::One(EvalStr(b["initial"], ctx));
+            Emit(ctx, "\\![open,inputbox,nashi:" + into + ",-1," + initial + "]");
+            return;
+        }
+        if (type == "change_ghost") {
+            std::string name = Safe::One(EvalStr(b["name"], ctx));
+            if (name.empty()) return;
+            Emit(ctx, "\\![change,ghost," + name + "]");
+            ctx.stopped = true;              // 交代したら、あとのブロックは動かない
+            return;
+        }
+        if (type == "open_browser") {
+            std::string url = Safe::One(EvalStr(b["url"], ctx));
+            if (url.empty()) return;
+            Emit(ctx, "\\![open,browser," + url + "]");
+            return;
+        }
+        if (type == "raise") {
+            std::string ev = Safe::One(EvalStr(b["event"], ctx));
+            if (ev.empty()) return;
+            std::string a = Safe::One(EvalStr(b["a"], ctx));
+            std::string line = "\\![raise," + ev;
+            if (!a.empty()) line += "," + a;
+            Emit(ctx, line + "]");
+            return;
+        }
+    }
+
+    // N 秒後に、名前を付けたトークをよぶ。
+    // ここでは覚えるだけで、動かすのは栞（つぎの「ずっとくりかえす」で時間を見る）。
+    if (type == "later") {
+        std::string name = Trim(EvalStr(b["name"], ctx));
+        if (name.empty()) return;
+        int sec = EvalInt(b["sec"], ctx, 10);
+        if (sec < 1) sec = 1;
+        if (sec > 86400) sec = 86400;               // 1 日より先は受けない
+        if (ctx.later.size() >= 32) return;         // ためすぎない
+        LaterCall one;
+        one.afterSec = sec;
+        one.name = name;
+        ctx.later.push_back(one);
+        return;
+    }
+
     // 外部モジュール（SAORI）を、答えを待たずに呼ぶ。
     // 時間のかかる SAORI をそのまま呼ぶと SSP ごと止まるので、こちらは別のスレッドで動かす。
     // 答えが届くと変数に入り、つぎの「ずっとくりかえす」で OnSaoriDone が起きる。
