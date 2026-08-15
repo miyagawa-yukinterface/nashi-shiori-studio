@@ -1,0 +1,9 @@
+== folder: fukidashi / 17 ファイル
+---- install.txt (138 バイト)
+charset,UTF-8
+type,ghost
+name,ふきだし
+directory,fukidashi
+balloon.directory,fukidashi-balloon
+balloon.source.directory,balloon
+

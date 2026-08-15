@@ -1,0 +1,21 @@
+== folder: fukidashi / 17 ファイル
+---- balloon/descript.txt (315 バイト)
+charset,UTF-8
+type,balloon
+name,ふきだし のバルーン
+craftman,ミヤガワ
+origin.x,18
+origin.y,16
+validrect.left,0
+validrect.top,0
+validrect.right,0
+validrect.bottom,-16
+wordwrappoint.x,-22
+font.color.r,43
+font.color.g,44
+font.color.b,46
+arrow0.x,300
+arrow0.y,8
+arrow1.x,300
+arrow1.y,-30
+

@@ -51,6 +51,7 @@
           defaultSurfaceKero: 10,
         },
         shell: {
+          balloonEnabled: false, balloonColor: '#fffdf5',
           sakuraColor: '#f08cae', sakuraCloth: '#6e82c8',
           keroColor: '#8fd18a', keroCloth: '#e8b45c',
           images: [],       // { id, path, name, w, h } 用意した立ち絵

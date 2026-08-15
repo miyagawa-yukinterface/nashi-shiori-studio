@@ -133,6 +133,11 @@ button, input, select, textarea { font-family: inherit; }
 }
 #canvas-hint b { display: block; font-size: 17px; color: #7d8ea3; }
 #canvas-hint i { font-style: normal; background: #fff; padding: 1px 7px; border-radius: 5px; }
+#canvas-hint .steps {
+  display: inline-block; margin: 10px 0; padding: 0 0 0 22px;
+  text-align: left; counter-reset: step;
+}
+#canvas-hint .steps li { margin: 4px 0; }
 #zoom-controls { position: absolute; right: 14px; bottom: 14px; display: flex; gap: 5px; }
 #zoom-controls .btn { background: #fff; box-shadow: 0 1px 4px rgba(40,60,90,.13); }
 #trash {
@@ -514,6 +519,11 @@ button, input, select, textarea { font-family: inherit; }
 .anim-pat { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .anim-pat .field.row { margin: 0; }
 .anim-pat .field.row input { width: 6em; }
+.ghost-log {
+  margin: 0 10px 10px; padding: 8px 10px; max-height: 180px; overflow: auto;
+  background: var(--panel-2, #f4f4f8); border-radius: 8px;
+  font: 12px/1.6 Consolas, monospace; white-space: pre-wrap; word-break: break-all;
+}
 .anim-pat .field.row select { width: 9em; }
 .anim-cols { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-left: 10px; }
 .anim-step { opacity: .6; min-width: 1.5em; }

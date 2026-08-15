@@ -92,6 +92,8 @@ const cases = [
   ['ghost.json', 'ghost/master/ghost.json', 'program.json'],
   ['ghost.json', 'install.txt', 'install.txt'],
   ['plain.json', 'ghost/master/descript.txt', 'descript-plain.txt'],
+  ['balloon.json', 'balloon/descript.txt', 'balloon-descript.txt'],
+  ['balloon.json', 'install.txt', 'balloon-install.txt'],
 ];
 
 console.log('  ---- 書き出したファイルの中身');

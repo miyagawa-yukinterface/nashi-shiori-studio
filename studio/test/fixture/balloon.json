@@ -1,0 +1,7 @@
+{
+  "format": "nashi/1",
+  "_comment": ["バルーン（吹き出し）も作るゴースト。install.txt に置き場所が入るはず。"],
+  "meta": { "name": "ふきだし", "folder": "fukidashi", "craftman": "ミヤガワ" },
+  "shell": { "balloonEnabled": true, "balloonColor": "#eef6ff" },
+  "scripts": []
+}

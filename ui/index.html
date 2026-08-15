@@ -45,7 +45,12 @@
       </div>
       <div id="canvas-hint">
         <b>ここにブロックを置いていきます</b>
-        左の「イベント」から <i>◯◯のとき</i> をドラッグしてはじめよう
+        <ol class="steps">
+          <li>左の「イベント」から <i>起動したとき</i> をここにドラッグ</li>
+          <li>「セリフ」の <i>◯が □ と話す</i> を、その下につなげる</li>
+          <li>右の <i>ためす</i> の ▶ で確かめて、<i>書き出し</i> で SSP に入れる</li>
+        </ol>
+        こまったら右の <i>ヘルプ</i> タブを見てください
       </div>
       <div id="zoom-controls">
         <button class="btn icon-btn" id="btn-zoom-out" title="縮小">−</button>
@@ -103,6 +108,14 @@
             <button id="btn-save-reset" class="btn small" title="書き出したゴーストが覚えている変数（nashi_save.json）を消します">ゴーストの記憶を消す</button>
           </div>
           <div id="run-vars" class="run-vars"></div>
+
+          <div class="ssp-bar">
+            <span class="run-vars-title">栞の記録</span>
+            <button id="btn-log-show" class="btn small" title="書き出したゴーストの nashi_debug.txt を読みます">読む</button>
+            <button id="btn-log-start" class="btn small" title="記録用の空ファイルを作ります。栞はこれがあるときだけ書きます">記録をはじめる</button>
+            <button id="btn-log-clear" class="btn small" title="記録を消して、止めます">やめる</button>
+          </div>
+          <pre id="ghost-log" class="ghost-log">（まだ読んでいません）</pre>
         </section>
 
         <!-- ---- ghost ---- -->
@@ -147,6 +160,10 @@
           <label class="field row"><span>さくらの服の色</span><input id="shell-sakura-cloth" type="color" value="#6e82c8"></label>
           <label class="field row"><span>うにゅうの髪の色</span><input id="shell-kero-color" type="color" value="#8fd18a"></label>
           <label class="field row"><span>うにゅうの服の色</span><input id="shell-kero-cloth" type="color" value="#e8b45c"></label>
+          <label class="field row"><span>バルーンも作る</span><input id="shell-balloon-on" type="checkbox"></label>
+          <label class="field row"><span>バルーンの色</span><input id="shell-balloon-color" type="color" value="#fffdf5"></label>
+          <p class="hint">「バルーンも作る」を入れると、この色のかんたんな吹き出しを同梱します。
+            入れないと、使う人が持っているバルーンで表示されます。</p>
           <div class="shell-preview">
             <figure><img id="shell-prev-0" alt="さくら 通常"><figcaption>通常</figcaption></figure>
             <figure><img id="shell-prev-1" alt="さくら 笑顔"><figcaption>笑顔</figcaption></figure>

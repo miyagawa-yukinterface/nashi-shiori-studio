@@ -331,6 +331,48 @@
     }
   }
 
+  /** 栞の記録（nashi_debug.txt）を読む・はじめる・やめる
+   *
+   * 栞は「ファイルがあるときだけ」書くので、記録をはじめる＝空ファイルを作る、です。
+   * SAORI が呼べなかった理由など、画面に出ない事情はここに残ります。
+   */
+  async function ghostLog(action) {
+    const box = $('#ghost-log');
+    try {
+      const r = await api('/api/ghost/log', {
+        method: 'POST',
+        body: {
+          project: Model.project,
+          outDir: $('#export-dir') ? $('#export-dir').value : '',
+          action: action || '',
+        },
+      });
+      if (!(r.places || []).length) {
+        box.textContent = 'まだ書き出していないようです。先に「SSP に入れて動かす」を押してください。';
+        return;
+      }
+      if (action === 'clear') {
+        box.textContent = '記録をやめました。';
+        App.toast('記録をやめました');
+        return;
+      }
+      if (!r.recording) {
+        box.textContent = 'いまは記録していません。「記録をはじめる」を押すと、'
+          + 'つぎに動かしたときから残ります。';
+        return;
+      }
+      box.textContent = r.text && r.text.trim()
+        ? r.text
+        : `記録中です（${r.path}）。まだ何も書かれていません。\n`
+          + 'ゴーストを動かしてから、もう一度「読む」を押してください。';
+      box.scrollTop = box.scrollHeight;
+      if (action === 'start') App.toast('記録をはじめました');
+    } catch (e) {
+      box.textContent = e.message;
+      App.toast(e.message, true);
+    }
+  }
+
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   function balloonOf(who) {
@@ -905,6 +947,8 @@
     setVal('#set-talk-interval', s.randomTalkInterval);
     setVal('#set-no-repeat', s.noRepeatCount == null ? 0 : s.noRepeatCount);
     $('#set-talk-enabled').checked = s.randomTalkEnabled !== false;
+    setVal('#shell-balloon-color', sh.balloonColor);
+    $('#shell-balloon-on').checked = !!sh.balloonEnabled;
     setVal('#shell-sakura-color', sh.sakuraColor);
     setVal('#shell-sakura-cloth', sh.sakuraCloth);
     setVal('#shell-kero-color', sh.keroColor);
@@ -951,6 +995,8 @@
     bind('#set-talk-interval', (v) => { Model.project.settings.randomTalkInterval = Number(v) || 0; });
     bind('#set-no-repeat', (v) => { Model.project.settings.noRepeatCount = Math.max(0, Number(v) || 0); });
     bind('#set-talk-enabled', (v) => { Model.project.settings.randomTalkEnabled = !!v; });
+    bind('#shell-balloon-on', (v) => { Model.project.shell.balloonEnabled = !!v; });
+    bind('#shell-balloon-color', (v) => { Model.project.shell.balloonColor = v; });
     bind('#shell-sakura-color', (v) => { Model.project.shell.sakuraColor = v; }, refreshShell);
     bind('#shell-sakura-cloth', (v) => { Model.project.shell.sakuraCloth = v; }, refreshShell);
     bind('#shell-kero-color', (v) => { Model.project.shell.keroColor = v; }, refreshShell);
@@ -1384,6 +1430,9 @@
     $('#btn-send-comm').addEventListener('click', sendCommToSsp);
     $('#btn-vars-reset').addEventListener('click', resetSessionVars);
     $('#btn-save-reset').addEventListener('click', resetGhostSave);
+    $('#btn-log-show').addEventListener('click', () => ghostLog(''));
+    $('#btn-log-start').addEventListener('click', () => ghostLog('start'));
+    $('#btn-log-clear').addEventListener('click', () => ghostLog('clear'));
     $('#btn-ssp-install').addEventListener('click', installToSsp);
     $('#btn-ssp-refresh').addEventListener('click', async () => {
       await refreshSsp();

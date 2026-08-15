@@ -43,6 +43,27 @@ int wmain(int argc, wchar_t** argv) {
         return 0;
     }
 
+    // export_host <project.json> --write <フォルダ>
+    //   書き出すファイルを、そのまま置く（PNG のように目で見たいとき用）
+    if (argc >= 4 && std::wstring(argv[2]) == L"--write") {
+        std::string src;
+        if (!ReadBinaryFile(argv[1], src)) { printf("読めません: %ls\n", argv[1]); return 2; }
+        JValue proj;
+        std::string perr;
+        if (!JsonParse(src, proj, perr)) { printf("JSON が壊れています: %s\n", perr.c_str()); return 3; }
+        std::wstring dir = argv[3];
+        std::vector<OutFile> out = BuildGhostFiles(proj, std::string(), true, NULL);
+        for (size_t i = 0; i < out.size(); i++) {
+            std::wstring rel = Utf8ToWide(out[i].name);
+            for (size_t k = 0; k < rel.size(); k++) if (rel[k] == L'/') rel[k] = L'\\';
+            std::wstring dest = PathJoin(dir, rel);
+            EnsureDir(ParentDir(dest));
+            if (!WriteBinaryFile(dest, out[i].data)) { printf("書けません: %s\n", out[i].name.c_str()); return 4; }
+            printf("%s (%u バイト)\n", out[i].name.c_str(), (unsigned)out[i].data.size());
+        }
+        return 0;
+    }
+
     std::string text;
     if (!ReadBinaryFile(argv[1], text)) {
         printf("読めません: %ls\n", argv[1]);

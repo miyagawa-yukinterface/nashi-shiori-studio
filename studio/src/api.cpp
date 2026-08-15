@@ -489,6 +489,67 @@ void Api::HandleApi(const HttpRequest& req, HttpResponse& res) {
         return;
     }
 
+    // 栞の記録（nashi_debug.txt）。栞は「そのファイルがあるときだけ」書きます。
+    //   action 無し … 読む   "start" … 空のファイルを作って記録を始める   "clear" … 消す
+    if (req.path == "/api/ghost/log" && req.method == "POST") {
+        JValue body;
+        if (!ParseBody(req, body)) { JsonError(res, 400, "JSON が壊れています"); return; }
+        const JValue& project = body["project"];
+        if (!project.isObj()) { JsonError(res, 400, "プロジェクトがありません"); return; }
+
+        std::string folder = project["meta"]["folder"].asStr();
+        if (folder.empty()) folder = project["meta"]["name"].asStr("nashi-ghost");
+        folder = SafeFolderName(folder, "nashi-ghost");
+        std::wstring wfolder = Utf8ToWide(folder);
+
+        // 「いま動いているゴースト」を先に見たいので、SSP の ghost フォルダから探す
+        std::vector<std::wstring> roots;
+        SspInfo ssp = Ssp();
+        if (!ssp.ghostDir.empty()) roots.push_back(ssp.ghostDir);
+        std::string outUtf8 = body["outDir"].asStr();
+        if (!outUtf8.empty()) roots.push_back(Utf8ToWide(outUtf8));
+        roots.push_back(DefaultOutDir());
+
+        std::string action = body["action"].asStr();
+        JValue o = JValue::makeObj();
+        JValue places = JValue::makeArr();
+        std::string text;
+        bool recording = false;
+        std::wstring shown;
+
+        for (size_t i = 0; i < roots.size(); i++) {
+            std::wstring dir = PathJoin(PathJoin(PathJoin(roots[i], wfolder), L"ghost"), L"master");
+            if (!PathExists(PathJoin(dir, L"nashi.dll"))) continue;   // 書き出していない場所
+            std::wstring p = PathJoin(dir, L"nashi_debug.txt");
+            places.arr.push_back(JValue::makeStr(WideToUtf8(p)));
+
+            if (action == "start") {
+                if (!PathExists(p)) WriteBinaryFile(p, std::string());
+            } else if (action == "clear") {
+                DeleteFileIfExists(p);
+            }
+            if (shown.empty() && PathExists(p)) {
+                shown = p;
+                recording = true;
+                std::string raw;
+                if (ReadBinaryFile(p, raw)) {
+                    // 長くなるので、うしろの方だけ見せる
+                    const size_t kMax = 24000;
+                    if (raw.size() > kMax) raw = "（古いところは省いています）\r\n" + raw.substr(raw.size() - kMax);
+                    text = raw;
+                }
+            }
+        }
+
+        o.set("ok", JValue::makeBool(true));
+        o.set("recording", JValue::makeBool(recording));
+        o.set("text", JValue::makeStr(text));
+        o.set("path", JValue::makeStr(WideToUtf8(shown)));
+        o.set("places", places);
+        Json(res, 200, o);
+        return;
+    }
+
     // 他のゴーストのふりをして、動いているゴーストに話しかける（OnCommunicate の確認）
     if (req.path == "/api/ssp/communicate" && req.method == "POST") {
         JValue body;
