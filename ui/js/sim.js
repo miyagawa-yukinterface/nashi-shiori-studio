@@ -241,6 +241,9 @@
         ctx.out += '\\q[' + escapeText(label) + ',' + toStr(ev(b.target)) + ']';
         return;
       }
+      // 答えを待たない SAORI。プレビューでは本物の DLL を読めないので、
+      // 何も起きない（変数にも入れない。答えは「あとで届く」ものなので）。
+      case 'saori_call': return;
       // ネットワーク更新。プレビューでは何も起きないが、出力は本番と同じにする。
       case 'update': ctx.out += '\\![updatebymyself]'; return;
       case 'end': ctx.out += '\\e'; ctx.stopped = true; return;

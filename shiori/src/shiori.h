@@ -42,12 +42,15 @@ private:
     int TalkInterval() const;
     int NoRepeatCount(size_t talkCount) const;
     void RememberTalk(const std::string& id);
+    void DrainSaori();          // 待たずに呼んだ SAORI の答えを受け取る
 
     std::wstring dir_;
     Program prog_;
     Vars vars_;
     SysInfo sys_;
     Saori saori_;              // 外部モジュール（読み込んだものを終了まで持つ）
+    // 待たずに呼んだ SAORI の、まだ知らせていない答え（OnSaoriDone のもと）
+    std::vector<SaoriDone> saoriDone_;
     bool ready_ = false;
     long secondsSinceTalk_ = 0;
     long lastSaveSec_ = 0;

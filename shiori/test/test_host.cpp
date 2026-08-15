@@ -103,6 +103,18 @@ int wmain(int argc, wchar_t** wargv) {
             spec = spec.substr(0, star);
             if (repeat < 1) repeat = 1;
         }
+        // "!sleep:300" waits instead of sending a request.
+        // Used to give background work (async SAORI) time to finish.
+        if (spec.compare(0, 7, "!sleep:") == 0) {
+            int ms = atoi(spec.c_str() + 7);
+            if (ms < 0) ms = 0;
+            if (ms > 10000) ms = 10000;
+            Sleep((DWORD)ms);
+            printf("---- %s\n", spec.c_str());
+            printf("(slept %d ms)\n", ms);
+            continue;
+        }
+
         for (int r = 0; r < repeat; r++) {
             std::string req = BuildRequest(spec);
             long rlen = 0;

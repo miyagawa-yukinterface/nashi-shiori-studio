@@ -264,6 +264,14 @@
       ]
     },
     {
+      "id": "p22", "kind": "event", "event": "OnP22",
+      "_": "答えを待たない SAORI。呼んだ時点では、どちらも何も出さない",
+      "blocks": [
+        { "type": "saori_call", "file": "nai.dll", "a": "1", "into": "" },
+        { "type": "say", "who": 0, "text": "よんだ", "nl": 1 }
+      ]
+    },
+    {
       "id": "p21", "kind": "event", "event": "OnP21",
       "_": "ネットワーク更新をはじめる",
       "blocks": [

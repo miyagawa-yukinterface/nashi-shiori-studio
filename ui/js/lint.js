@@ -177,6 +177,20 @@
                 '文章がないと、相手には届きません。', s, b);
             }
             break;
+          case 'saori_call':
+            if (isEmptyText(b.file)) {
+              issue(out, 'error', `${title}に、よぶファイルが空の SAORI ブロックがあります`,
+                'ゴーストのフォルダに置いた DLL の名前を入れてください。', s, b);
+            }
+            if (isEmptyText(b.into)) {
+              issue(out, 'warn', `${title}に、答えの入れ先が空の SAORI ブロックがあります`,
+                '答えを入れる変数を決めておかないと、届いた答えを使えません。'
+                + '（「SAORI の答えがとどいたとき」でも受け取れます）', s, b);
+            } else if (varNames.indexOf(b.into) < 0) {
+              issue(out, 'error', `変数「${b.into}」がありません（${title}）`,
+                '変数タブで作るか、別の変数にえらび直してください。', s, b);
+            }
+            break;
           case 'update':
             // 「更新のありか」が無いと、SSP は更新しようがない
             if (isEmptyText((project.meta || {}).homeUrl)) {
@@ -247,6 +261,7 @@
     for (const s of project.scripts || []) {
       walk(s, (b) => {
         if ((b.type === 'var' || b.type === 'set' || b.type === 'change') && b.name) used[b.name] = true;
+        if (b.type === 'saori_call' && b.into) used[b.into] = true;
       });
     }
     for (const name of varNames) {

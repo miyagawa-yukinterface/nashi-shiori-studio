@@ -424,6 +424,23 @@ void Shiori::RememberTalk(const std::string& id) {
     dirty_ = true;
 }
 
+// 待たずに呼んだ SAORI の答えを受け取る。
+// 変数への書き込みはここ（主スレッド）だけで行い、別スレッドからは触らせない。
+void Shiori::DrainSaori() {
+    std::vector<SaoriDone> got;
+    saori_.TakeDone(got);
+    const size_t kKeep = 32;
+    for (size_t i = 0; i < got.size(); i++) {
+        if (!got[i].into.empty()) {
+            vars_.set(got[i].into, Value::Str(got[i].value));
+            dirty_ = true;
+        }
+        saoriDone_.push_back(got[i]);
+        // 知らせきれないほど溜まったら、古いものから捨てる
+        if (saoriDone_.size() > kKeep) saoriDone_.erase(saoriDone_.begin());
+    }
+}
+
 std::string Shiori::BuiltinDefault(const std::string& id, const ShioriRequest& req) {
     const JValue& meta = prog_.meta();
     std::string name = meta["name"].asStr("ゴースト");
@@ -495,6 +512,24 @@ std::string Shiori::Dispatch(const ShioriRequest& req) {
     if (id == "OnSecondChange") {
         sys_.uptimeSec++;
         secondsSinceTalk_++;
+
+        // 待たずに呼んだ SAORI の答えが届いていたら、まずそれを知らせる。
+        // SSP は毎秒たたいてくるので、ここを受け取り口にしている。
+        while (!saoriDone_.empty()) {
+            SaoriDone d = saoriDone_.front();
+            saoriDone_.erase(saoriDone_.begin());
+            ShioriRequest ev = req;
+            ev.id = "OnSaoriDone";
+            ev.refs.clear();
+            ev.refs.push_back(d.file);
+            ev.refs.push_back(d.value);
+            bool sfound = false;
+            std::string sout = RunHandlers("OnSaoriDone", ev, &sfound);
+            if (!sout.empty()) { secondsSinceTalk_ = 0; return sout; }
+            // 受け取るブロックが無いなら、残りも同じ。変数には入っているので捨てる。
+            if (!sfound) { saoriDone_.clear(); break; }
+        }
+
         bool canTalk = true;
         if (req.refs.size() > 1 && !req.refs[1].empty()) canTalk = (req.refs[1] == "1");
 
@@ -577,6 +612,7 @@ std::string Shiori::Request(const std::string& rawRequest) {
     if (req.id == "name")     return BuildResponse(kShioriName);
 
     MaybeReload();
+    DrainSaori();
 
     std::string value;
     commTo_.clear();

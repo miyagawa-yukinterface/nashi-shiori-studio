@@ -384,6 +384,23 @@ static void RunBlock(const JValue& b, RunCtx& ctx) {
         return;
     }
 
+    // 外部モジュール（SAORI）を、答えを待たずに呼ぶ。
+    // 時間のかかる SAORI をそのまま呼ぶと SSP ごと止まるので、こちらは別のスレッドで動かす。
+    // 答えが届くと変数に入り、つぎの「ずっとくりかえす」で OnSaoriDone が起きる。
+    if (type == "saori_call") {
+        if (!ctx.saori) return;
+        std::string file = Trim(EvalStr(b["file"], ctx));
+        if (file.empty()) return;
+        std::vector<std::string> args;
+        const char* keys[] = { "a", "b", "c" };
+        for (int i = 0; i < 3; i++) {
+            if (!b.has(keys[i]) || b[keys[i]].isNull()) continue;
+            args.push_back(EvalStr(b[keys[i]], ctx));
+        }
+        ctx.saori->ExecuteAsync(file, args, Trim(b["into"].asStr()), b["value"].asInt(-1));
+        return;
+    }
+
     // ネットワーク更新をはじめる。あとは SSP がやって、
     // 結果は OnUpdateComplete / OnUpdateFailure で返ってくる。
     if (type == "update") { Emit(ctx, "\\![updatebymyself]"); return; }

@@ -8,7 +8,7 @@
   ],
   "meta": { "name": "ふるまいテスト", "sakuraName": "さくら", "keroName": "うにゅう" },
   "settings": { "randomTalkEnabled": false },
-  "variables": [{ "name": "かず", "value": 0 }],
+  "variables": [{ "name": "かず", "value": 0 }, { "name": "こたえ", "value": "" }],
   "scripts": [
     {
       "id": "b_boot", "kind": "event", "event": "OnBoot",
@@ -65,6 +65,22 @@
       "id": "b_empty_out", "kind": "event", "event": "OnEmptyOut",
       "_": "何も出力しない。204 が返るはず",
       "blocks": [{ "type": "set", "name": "かず", "value": { "type": "var", "name": "かず" } }]
+    },
+
+    {
+      "id": "b_saori_call", "kind": "event", "event": "OnSaoriTest",
+      "_": "答えを待たずに SAORI をよぶ。本物の DLL は無いので、答えは空で届くはず",
+      "blocks": [
+        { "type": "saori_call", "file": "nai.dll", "a": "ひとつめ", "into": "こたえ" }
+      ]
+    },
+    {
+      "id": "b_saori_done", "kind": "event", "event": "OnSaoriDone",
+      "_": "答えが届いたら、つぎの「ずっとくりかえす」で呼ばれるはず",
+      "blocks": [
+        { "type": "say", "who": 0, "nl": 0,
+          "text": { "type": "join", "a": "とどいた:", "b": { "type": "ref", "index": 0 } } }
+      ]
     },
 
     {

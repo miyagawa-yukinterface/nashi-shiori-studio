@@ -36,7 +36,8 @@
 `OnMinuteChange` / `OnSecondChange` / `OnChoiceSelect` / `OnCommunicate` /
 `OnGhostChanged` / `OnGhostChanging` / `OnKeyPress` / `OnSurfaceRestore` /
 `OnWindowStateMinimize` / `OnWindowStateRestore` /
-`OnUpdateBegin` / `OnUpdateReady` / `OnUpdateComplete` / `OnUpdateFailure`。
+`OnUpdateBegin` / `OnUpdateReady` / `OnUpdateComplete` / `OnUpdateFailure` /
+`OnSaoriDone`。
 一覧にないイベントは「その他（自分で書く）」で直接入力できます
 （`OnUpdate.OnDownloadBegin` のような細かい途中経過もここから書けます）。
 
@@ -117,6 +118,7 @@ SSP の通信ボックスから話しかけられた場合、相手の名前は 
 | ◯をよぶ | `{"type":"call","name":"トーク名"}` |
 | ランダムトークの間隔を N 秒にする | `{"type":"talk_interval","sec":180}` |
 | ネットワーク更新をする | `{"type":"update"}` → `\![updatebymyself]` |
+| F を A B でよぶ（答えを待たずに V に入れる） | `{"type":"saori_call","file":"F","a":A,"b":B,"into":"V","value":-1}` |
 | ここでトークをおわる | `{"type":"end"}` → `\e` |
 | ゴーストを終了する | `{"type":"close"}` → `\-` |
 
@@ -166,6 +168,17 @@ SSP の通信ボックスから話しかけられた場合、相手の名前は 
 読み込んだ DLL はゴーストが終わるまで保ちます。
 プレビューでは本物の DLL を読めないので、**いつも空**が返ります。SSP に入れて確かめてください。
 
+このブロックは**答えが返るまで待つ**ので、時間のかかる SAORI（通信するものなど）を呼ぶと、
+その間 SSP ごと止まります。そういうときは制御カテゴリの
+「**F を A B でよぶ（答えを待たずに V に入れる）**」（`saori_call`）を使います。
+別のスレッドで呼んで、**答えが届いたら変数 V に入り**、つぎの「ずっとくりかえす」で
+`OnSaoriDone` が起きます（`Reference0` によんだファイル名、`Reference1` に答え）。
+
+* 同時に走らせられるのは 4 つまでです。あふれたぶんは呼ばれません。
+* SAORI の DLL は同時によばれることを想定していないものが多いので、
+  呼び出しじたいは（待つほうも待たないほうも）**ひとつずつ順番に**行います。
+* プレビューでは何も起きません（変数にも入りません）。
+
 ## 情報
 
 | ブロック | JSON | 意味 |
@@ -191,6 +204,7 @@ SSP の通信ボックスから話しかけられた場合、相手の名前は 
 | OnUpdateReady | ファイル数−1 | ファイル名(カンマ区切り) | 種類 | | |
 | OnUpdateComplete | none / changed | 更新したファイル名 | | 種類 | |
 | OnUpdateFailure | 失敗したわけ | できなかったファイル名 | | 種類 | |
+| OnSaoriDone | よんだファイル名 | 届いた答え | | | |
 
 `OnUpdateComplete` の 0 番は、`none`（新しいものは無かった）か `changed`（更新した）です。
 `OnUpdateFailure` の 0 番は `timeout` / `md5 miss` / `artificial`（自分でやめた）/ `404` などです。

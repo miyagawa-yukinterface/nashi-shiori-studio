@@ -120,6 +120,20 @@ const scenarios = [
     })(),
   },
   {
+    name: '待たない SAORI — 答えが届くと変数に入り、つぎの秒に知らせる',
+    dir: MAIN,
+    steps: [
+      // 呼んだ時点では何も出ない（別のスレッドで動いている）
+      ['OnSaoriTest', { status: '204 No Content' }],
+      ['!sleep:400', null],
+      // 届いた答えは OnSaoriDone として、つぎの「ずっとくりかえす」で知らせる
+      ['OnSecondChange:0,1,1', '\\0とどいた:nai.dll\\e'],
+      // 一度きり。つぎの秒は、いつもの「3 秒ごと」に戻る
+      ['OnSecondChange:0,1,2', { status: '204 No Content' }],
+      ['OnSecondChange:0,1,3', { value: '\\01\\e' }],
+    ],
+  },
+  {
     name: 'ネットワーク更新 — 結果だけ知らせ、途中経過と「変わりなし」は黙る',
     dir: EMPTY,
     steps: [

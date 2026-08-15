@@ -41,6 +41,7 @@ window.NASHI = window.NASHI || {};
     ['更新するものが見つかったとき', 'OnUpdateReady'],
     ['更新がおわったとき', 'OnUpdateComplete'],
     ['更新に失敗したとき', 'OnUpdateFailure'],
+    ['SAORI の答えがとどいたとき', 'OnSaoriDone'],
     ['その他（自分で書く）', '__custom__'],
   ];
 
@@ -77,6 +78,7 @@ window.NASHI = window.NASHI || {};
     OnUpdateFailure: ['失敗したわけ(timeout など)', 'できなかったファイル名', '', '種類'],
     'OnUpdate.OnDownloadBegin': ['落としているファイル名', '何個目(0から)', '全部の数−1'],
     'OnUpdate.OnMD5CompareFailure': ['ファイル名', '正しいMD5', '落ちてきたMD5'],
+    OnSaoriDone: ['よんだファイル名', '届いた答え'],
   };
 
   const WHO = [['さくら', 0], ['うにゅう', 1]];
@@ -323,6 +325,24 @@ window.NASHI = window.NASHI || {};
     spec: 'ランダムトークの間隔を %sec 秒にする',
     args: { sec: { kind: 'input', mode: 'number', def: 180 } },
   });
+  // 外部モジュール（SAORI）を、答えを待たずに呼ぶ。
+  // 時間のかかる SAORI を「◯◯でよんだ答え」で呼ぶと、その間 SSP が止まります。
+  // こちらは別のスレッドで動いて、答えが届いたら変数に入り、OnSaoriDone が起きます。
+  def({
+    type: 'saori_call', cat: 'control', shape: 'stack',
+    spec: '%file を %a %b でよぶ（答えを待たずに %into に入れる）%value',
+    args: {
+      file: { kind: 'input', mode: 'text', def: 'saori.dll', long: true },
+      a: { kind: 'input', mode: 'text', def: '', long: true },
+      b: { kind: 'input', mode: 'text', def: '', long: true },
+      into: { kind: 'varname', def: '' },
+      value: {
+        kind: 'dropdown', def: -1,
+        options: [['（答え）', -1], ['0番目の値', 0], ['1番目の値', 1], ['2番目の値', 2]],
+      },
+    },
+  });
+
   // ネットワーク更新をはじめる（\![updatebymyself]）。
   // ゴーストの設定の「更新のありか」が空だと、SSP は何もできません。
   def({ type: 'update', cat: 'control', shape: 'stack', spec: 'ネットワーク更新をする' });
@@ -488,7 +508,7 @@ window.NASHI = window.NASHI || {};
     talk: ['say', 'newline', 'click_wait', 'clear', 'choice', 'link', 'communicate', 'raw'],
     looks: ['surface', 'chara', 'anim', 'balloon', 'sound'],
     control: ['wait', 'if', 'if_else', 'repeat', 'while', 'random_one', 'call',
-      'talk_interval', 'update', 'end', 'close'],
+      'talk_interval', 'update', 'saori_call', 'end', 'close'],
     variables: [{ button: 'add-var', label: '＋ 変数をつくる' }, '@vars', 'set', 'change'],
     operators: ['arith#+', 'arith#-', 'arith#*', 'arith#/', 'arith#%',
       'compare#<', 'compare#=', 'compare#>', 'compare#!=',

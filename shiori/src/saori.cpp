@@ -111,7 +111,25 @@ Saori::Module* Saori::Get(const std::string& file, std::string& err) {
     return slot;
 }
 
+Saori::Saori() : running_(0) {
+    InitializeCriticalSection(&execCs_);
+    InitializeCriticalSection(&doneCs_);
+}
+
+Saori::~Saori() {
+    UnloadAll();
+    DeleteCriticalSection(&doneCs_);
+    DeleteCriticalSection(&execCs_);
+}
+
 SaoriResult Saori::Execute(const std::string& file, const std::vector<std::string>& args) {
+    // 待たない呼び出しと同じ DLL をつつくことがあるので、ここで並びを作る
+    EnterCriticalSection(&execCs_);
+    struct Unlock {                       // 途中で return しても必ず出る
+        CRITICAL_SECTION* cs;
+        ~Unlock() { LeaveCriticalSection(cs); }
+    } unlock = { &execCs_ };
+
     SaoriResult r;
     std::string err;
     Module* m = Get(file, err);
@@ -188,7 +206,124 @@ SaoriResult Saori::Execute(const std::string& file, const std::vector<std::strin
     return r;
 }
 
+// ---------------------------------------------------- 答えを待たない呼び出し
+
+DWORD WINAPI Saori::ThreadMain(void* param) {
+    Job* job = (Job*)param;
+    Saori* self = job->self;
+
+    SaoriDone d;
+    d.file = job->file;
+    d.into = job->into;
+
+    SaoriResult r = self->Execute(job->file, job->args);   // 中で順番待ちをする
+    if (!r.ok) {
+        Log(r.error);
+    } else if (job->valueIndex < 0) {
+        d.value = r.result;
+    } else if ((size_t)job->valueIndex < r.values.size()) {
+        d.value = r.values[(size_t)job->valueIndex];
+    }
+
+    EnterCriticalSection(&self->doneCs_);
+    self->done_.push_back(d);
+    self->running_--;
+    LeaveCriticalSection(&self->doneCs_);
+
+    delete job;
+    return 0;
+}
+
+bool Saori::ExecuteAsync(const std::string& file, const std::vector<std::string>& args,
+                         const std::string& into, int valueIndex) {
+    if (Trim(file).empty()) return false;
+
+    EnterCriticalSection(&doneCs_);
+    bool tooMany = (running_ >= kMaxJobs);
+    if (!tooMany) running_++;
+    // 終わったスレッドの後始末をここでしておく（たまるのを防ぐ）
+    for (size_t i = 0; i < threads_.size(); ) {
+        if (WaitForSingleObject(threads_[i], 0) == WAIT_OBJECT_0) {
+            CloseHandle(threads_[i]);
+            threads_.erase(threads_.begin() + (long)i);
+        } else {
+            i++;
+        }
+    }
+    LeaveCriticalSection(&doneCs_);
+
+    if (tooMany) {
+        Log("saori async: 同時に呼びすぎです（" + file + "）");
+        return false;
+    }
+
+    Job* job = new Job();
+    job->self = this;
+    job->file = file;
+    job->args = args;
+    job->into = into;
+    job->valueIndex = valueIndex;
+
+    HANDLE th = CreateThread(NULL, 0, &Saori::ThreadMain, job, 0, NULL);
+    if (!th) {
+        delete job;
+        EnterCriticalSection(&doneCs_);
+        running_--;
+        LeaveCriticalSection(&doneCs_);
+        Log("saori async: スレッドを作れませんでした（" + file + "）");
+        return false;
+    }
+
+    EnterCriticalSection(&doneCs_);
+    threads_.push_back(th);
+    LeaveCriticalSection(&doneCs_);
+    return true;
+}
+
+void Saori::TakeDone(std::vector<SaoriDone>& out) {
+    EnterCriticalSection(&doneCs_);
+    for (size_t i = 0; i < done_.size(); i++) out.push_back(done_[i]);
+    done_.clear();
+    LeaveCriticalSection(&doneCs_);
+}
+
+int Saori::Running() {
+    EnterCriticalSection(&doneCs_);
+    int n = running_;
+    LeaveCriticalSection(&doneCs_);
+    return n;
+}
+
+bool Saori::WaitAll(DWORD ms) {
+    std::vector<HANDLE> hs;
+    EnterCriticalSection(&doneCs_);
+    hs = threads_;
+    threads_.clear();
+    LeaveCriticalSection(&doneCs_);
+
+    bool allDone = true;
+    DWORD start = GetTickCount();
+    for (size_t i = 0; i < hs.size(); i++) {
+        DWORD spent = GetTickCount() - start;
+        DWORD left = (spent >= ms) ? 0 : (ms - spent);
+        if (WaitForSingleObject(hs[i], left) != WAIT_OBJECT_0) allDone = false;
+        CloseHandle(hs[i]);
+    }
+    return allDone;
+}
+
 void Saori::UnloadAll() {
+    // 走っている呼び出しが終わるのを待つ。終わらないものがあるときは、
+    // DLL を解放すると落ちるので、解放せずに置いていく（終了間際なので害は小さい）。
+    if (!WaitAll(5000)) {
+        Log("saori: 終わらない呼び出しがあるので、DLL を解放せずに終わります");
+        EnterCriticalSection(&execCs_);
+        mods_.clear();
+        LeaveCriticalSection(&execCs_);
+        return;
+    }
+
+    EnterCriticalSection(&execCs_);
     for (std::map<std::string, Module>::iterator it = mods_.begin(); it != mods_.end(); ++it) {
         if (!it->second.ready) continue;
         try {
@@ -200,6 +335,7 @@ void Saori::UnloadAll() {
         it->second.ready = false;
     }
     mods_.clear();
+    LeaveCriticalSection(&execCs_);
 }
 
 } // namespace nashi
