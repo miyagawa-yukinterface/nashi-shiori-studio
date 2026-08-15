@@ -134,6 +134,24 @@
         return wrap;
       }
 
+      // 当たり判定の名前。仮シェルのものに、うごきで足したものを継ぎ足す。
+      case 'areaname': {
+        const opts = N.AREAS.slice();
+        const seen = {};
+        for (const [, v] of opts) seen[v] = 1;
+        for (const a of (Model.project.animations || [])) {
+          for (const c of (a.collisions || [])) {
+            if (!c.name || seen[c.name]) continue;
+            seen[c.name] = 1;
+            opts.push([c.name + '（うごき ' + a.id + '）', c.name]);
+          }
+        }
+        if (owner[name] && !seen[owner[name]]) opts.push([owner[name], owner[name]]);
+        return buildSelect(opts, owner[name], (v) => {
+          Model.act(() => { owner[name] = v; });
+        });
+      }
+
       case 'varname': {
         const opts = Model.variableNames().map((n) => [n, n]);
         if (!opts.length) opts.push(['（変数がありません）', '']);

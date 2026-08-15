@@ -147,8 +147,17 @@ static std::string AnimationLines(const JValue& project, int surfaceId) {
         for (size_t k = 0; k < pats.size(); k++) {
             const JValue& p = pats.at(k);
             if (!p.isObj()) continue;
+            // 重ねかた（SERIKO の描画メソッド）。知らない名前は base に倒す。
+            static const char* kMethods[] = {
+                "overlay", "overlayfast", "base", "replace",
+                "interpolate", "asis", "reduce", "move",
+            };
             std::string method = p["method"].asStr("base");
-            if (method != "overlay" && method != "base" && method != "replace") method = "base";
+            bool known = false;
+            for (size_t mi = 0; mi < sizeof(kMethods) / sizeof(kMethods[0]); mi++) {
+                if (method == kMethods[mi]) { known = true; break; }
+            }
+            if (!known) method = "base";
             int surf = p["surface"].asInt(0);
             int wait = p["wait"].asInt(200);
             if (wait < 0) wait = 0;
@@ -163,6 +172,24 @@ static std::string AnimationLines(const JValue& project, int surfaceId) {
         }
         // 絵の指定が 1 つも無ければ、動かしようがないので何も書かない
         if (m == 0) continue;
+
+        // このうごきが動いている間だけ有効な当たり判定
+        const JValue& cols = a["collisions"];
+        int c = 0;
+        for (size_t k = 0; k < cols.size(); k++) {
+            const JValue& one = cols.at(k);
+            if (!one.isObj()) continue;
+            std::string name = Trim(one["name"].asStr());
+            if (name.empty()) continue;
+            for (size_t n = 0; n < name.size(); n++) {         // 1 行に収める
+                if (name[n] == ',' || name[n] == '\r' || name[n] == '\n') name[n] = ' ';
+            }
+            char cbuf[192];
+            sprintf_s(cbuf, "animation%d.collision%d,%d,%d,%d,%d,%s\r\n",
+                      id, c++, one["x1"].asInt(0), one["y1"].asInt(0),
+                      one["x2"].asInt(0), one["y2"].asInt(0), name.c_str());
+            body += cbuf;
+        }
 
         char head2[96];
         sprintf_s(head2, "animation%d.interval,", id);

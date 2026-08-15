@@ -158,7 +158,7 @@ window.NASHI = window.NASHI || {};
     spec: '%who の %area が %event',
     args: {
       who: { kind: 'dropdown', options: WHO_ANY, def: -1 },
-      area: { kind: 'dropdown', options: AREAS, def: '' },
+      area: { kind: 'areaname', options: AREAS, def: '' },
       event: { kind: 'eventname', def: 'OnNadeNade' },
     },
     hat: true, kind: 'event',

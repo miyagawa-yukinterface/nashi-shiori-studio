@@ -4,6 +4,11 @@
 (function (N) {
 
   const clone = (v) => JSON.parse(JSON.stringify(v));
+
+  // こまの重ねかた（SERIKO の描画メソッド）。書き出しでもこの名前だけ通します。
+  const ANIM_METHODS = ['overlay', 'overlayfast', 'base', 'replace',
+    'interpolate', 'asis', 'reduce', 'move'];
+
   let seq = 0;
   function uid(prefix) {
     seq++;
@@ -80,9 +85,17 @@
             .map((p) => ({
               surface: Number(p && p.surface) || 0,
               wait: Number.isFinite(Number(p && p.wait)) ? Number(p.wait) : 200,
-              method: (p && p.method) === 'overlay' ? 'overlay' : 'base',
+              method: ANIM_METHODS.indexOf(p && p.method) >= 0 ? p.method : 'base',
               x: Number(p && p.x) || 0,
               y: Number(p && p.y) || 0,
+            })),
+          // このうごきの間だけ有効な当たり判定
+          collisions: (Array.isArray(a && a.collisions) ? a.collisions : [])
+            .filter((c) => c && String(c.name || '').trim())
+            .map((c) => ({
+              name: String(c.name).trim(),
+              x1: Number(c.x1) || 0, y1: Number(c.y1) || 0,
+              x2: Number(c.x2) || 0, y2: Number(c.y2) || 0,
             })),
         }));
 
@@ -221,7 +234,8 @@
           return n > 1 ? `${n}秒ごとにくりかえす` : label;
         }
         if (N.MOUSE_EVENTS[s.event]) {
-          const area = (N.AREAS.find((a) => a[1] === (s.area || '')) || [])[0];
+          // 仮シェルの名前に無いもの（うごきで足した当たり判定）は、そのまま出す
+          const area = (N.AREAS.find((a) => a[1] === (s.area || '')) || [])[0] || s.area;
           const who = (N.WHO_ANY.find((w) => w[1] === (s.who == null ? -1 : s.who)) || [])[0];
           if (s.area || (s.who != null && s.who >= 0)) label = who + 'の' + area + 'が' + label;
         }

@@ -408,6 +408,18 @@
     ['起動時に一度だけ', 'runonce'],
   ];
 
+  // こまの重ねかた（SERIKO の描画メソッド）。名前は surfaces.txt にそのまま出ます。
+  const ANIM_METHODS = [
+    ['かさねる', 'overlay'],
+    ['かさねる（速い）', 'overlayfast'],
+    ['土台をとりかえる', 'base'],
+    ['すきとおりごと上書き', 'replace'],
+    ['すきまだけ重ねる', 'interpolate'],
+    ['すきとおりを無視する', 'asis'],
+    ['すきとおりをけずる', 'reduce'],
+    ['位置だけ動かす', 'move'],
+  ];
+
   function renderAnimList() {
     const box = $('#anim-list');
     if (!box) return;
@@ -478,9 +490,32 @@
 
       // パラパラの中身（どの絵を何ミリ秒）
       const pats = Render.div('anim-pats');
+      // えらんだものを owner[key] に入れる小さなドロップダウン
+      const pick = (label, list, value, onPick) => {
+        const f = Render.el('label', 'field row');
+        f.appendChild(Render.el('span', null, label));
+        const s = Render.el('select');
+        for (const [text, v] of list) {
+          const o = Render.el('option', null, text);
+          o.value = v;
+          s.appendChild(o);
+        }
+        s.value = value;
+        s.addEventListener('change', () => {
+          const snap = Model.clone(Model.project);
+          onPick(s.value);
+          Model.pushUndo(snap);
+          renderAnimList();
+        });
+        f.appendChild(s);
+        return f;
+      };
+
       a.patterns.forEach((p, k) => {
         const pr = Render.div('anim-pat');
         pr.appendChild(Render.el('span', 'anim-step', `${k + 1}`));
+        pr.appendChild(pick('重ねかた', ANIM_METHODS, p.method || 'base',
+          (v) => { p.method = v; }));
         pr.appendChild(mk('立ち絵', p.surface, (v) => { p.surface = Number(v) || 0; }, { min: 0 }));
         pr.appendChild(mk('ミリ秒', p.wait, (v) => { p.wait = Math.max(0, Number(v) || 0); }, { min: 0 }));
         // 位置ずらし。0 のままなら基準の絵とぴったり重なります。
@@ -502,6 +537,37 @@
       });
       pats.appendChild(addPat);
       row.appendChild(pats);
+
+      // このうごきの間だけ有効な当たり判定（animationN.collisionM）
+      const cols = Render.div('anim-cols');
+      (a.collisions || []).forEach((c, k) => {
+        const cr = Render.div('anim-pat');
+        cr.appendChild(Render.el('span', 'anim-step', 'あたり'));
+        cr.appendChild(mk('名前', c.name, (v) => { c.name = String(v).trim(); }, { type: 'text' }));
+        cr.appendChild(mk('左', c.x1, (v) => { c.x1 = Number(v) || 0; }));
+        cr.appendChild(mk('上', c.y1, (v) => { c.y1 = Number(v) || 0; }));
+        cr.appendChild(mk('右', c.x2, (v) => { c.x2 = Number(v) || 0; }));
+        cr.appendChild(mk('下', c.y2, (v) => { c.y2 = Number(v) || 0; }));
+        const rm = Render.el('button', 'btn tiny', '−');
+        rm.title = 'この当たり判定を消す';
+        rm.addEventListener('click', () => {
+          Model.act(() => { a.collisions.splice(k, 1); });
+          renderAnimList();
+        });
+        cr.appendChild(rm);
+        cols.appendChild(cr);
+      });
+      const addCol = Render.el('button', 'btn tiny', '＋ 当たり判定を足す');
+      addCol.title = 'このうごきが動いている間だけ、ここを触れるようにします';
+      addCol.addEventListener('click', () => {
+        Model.act(() => {
+          if (!Array.isArray(a.collisions)) a.collisions = [];
+          a.collisions.push({ name: 'Anim' + a.id, x1: 0, y1: 0, x2: 60, y2: 60 });
+        });
+        renderAnimList();
+      });
+      cols.appendChild(addCol);
+      row.appendChild(cols);
 
       if (!a.patterns.length) {
         row.appendChild(Render.div('hint', 'こまが無いので、書き出しても動きません。'));

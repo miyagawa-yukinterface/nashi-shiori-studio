@@ -514,4 +514,6 @@ button, input, select, textarea { font-family: inherit; }
 .anim-pat { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .anim-pat .field.row { margin: 0; }
 .anim-pat .field.row input { width: 6em; }
+.anim-pat .field.row select { width: 9em; }
+.anim-cols { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-left: 10px; }
 .anim-step { opacity: .6; min-width: 1.5em; }
