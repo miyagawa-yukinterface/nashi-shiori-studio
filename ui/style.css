@@ -519,6 +519,11 @@ button, input, select, textarea { font-family: inherit; }
 .anim-pat { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .anim-pat .field.row { margin: 0; }
 .anim-pat .field.row input { width: 6em; }
+.help-keys { margin: 0 10px 12px; padding-left: 20px; line-height: 1.9; font-size: 12px; }
+.help-keys b {
+  display: inline-block; min-width: 92px; font-weight: 600;
+  font-family: Consolas, monospace;
+}
 .ghost-log {
   margin: 0 10px 10px; padding: 8px 10px; max-height: 180px; overflow: auto;
   background: var(--panel-2, #f4f4f8); border-radius: 8px;

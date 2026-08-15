@@ -70,6 +70,9 @@
     if (!project) return out;
 
     const varNames = (project.variables || []).map((v) => v.name);
+    const groups = (project.scripts || [])
+      .filter((s) => s.kind === 'talk' && !s.disabled && String(s.group || '').trim())
+      .map((s) => String(s.group).trim());
     const callable = (project.scripts || [])
       .filter((s) => s.kind === 'function' || s.kind === 'talk')
       .map((s) => s.name);
@@ -187,6 +190,15 @@
             } else if (/[,[\]]/.test(b.into)) {
               issue(out, 'error', `変数「${b.into}」の名前は「たずねる」には使えません`,
                 'カンマや角かっこが入っていると、SSP への命令が壊れます。名前を変えてください。', s, b);
+            }
+            break;
+          case 'call_group':
+            if (isEmptyText(b.group)) {
+              issue(out, 'error', `${title}の「どれかよぶ」で、まとまりの名前が空です`,
+                'ランダムトークの帽子ブロックで付けた「まとまり」の名前を入れてください。', s, b);
+            } else if (typeof b.group === 'string' && groups.indexOf(b.group.trim()) < 0) {
+              issue(out, 'error', `「${b.group}」というまとまりのトークがありません（${title}）`,
+                'ランダムトークの帽子ブロックの「まとまり」に、同じ名前を入れてください。', s, b);
             }
             break;
           case 'later':

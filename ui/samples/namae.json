@@ -1,0 +1,225 @@
+{
+  "format": "nashi/1",
+  "meta": {
+    "name": "名前をきくゴースト",
+    "sakuraName": "なしこ",
+    "keroName": "つぶ",
+    "version": "1.0.0",
+    "description": "入力ボックスで名前をたずねて、覚えて呼びかけます。"
+  },
+  "settings": {
+    "randomTalkEnabled": true,
+    "randomTalkInterval": 120
+  },
+  "variables": [
+    {
+      "name": "あなたの名前",
+      "value": ""
+    }
+  ],
+  "scripts": [
+    {
+      "id": "n_first",
+      "kind": "event",
+      "event": "OnFirstBoot",
+      "x": 60,
+      "y": 40,
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "はじめまして。",
+          "nl": 1
+        },
+        {
+          "type": "say",
+          "who": 0,
+          "text": "あなたの名前を おしえてくれる？",
+          "nl": 1
+        },
+        {
+          "type": "ask",
+          "into": "あなたの名前",
+          "initial": ""
+        }
+      ]
+    },
+    {
+      "id": "n_got",
+      "kind": "event",
+      "event": "OnUserInput",
+      "x": 60,
+      "y": 280,
+      "_": "答えは栞が変数に入れてくれるので、ここではお礼を言うだけ",
+      "blocks": [
+        {
+          "type": "surface",
+          "who": 0,
+          "id": 1
+        },
+        {
+          "type": "say",
+          "who": 0,
+          "nl": 1,
+          "text": {
+            "type": "join",
+            "a": {
+              "type": "var",
+              "name": "あなたの名前"
+            },
+            "b": " さんだね。おぼえた。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "n_boot",
+      "kind": "event",
+      "event": "OnBoot",
+      "x": 560,
+      "y": 40,
+      "blocks": [
+        {
+          "type": "if_else",
+          "cond": {
+            "type": "compare",
+            "op": "=",
+            "a": {
+              "type": "var",
+              "name": "あなたの名前"
+            },
+            "b": ""
+          },
+          "then": [
+            {
+              "type": "say",
+              "who": 0,
+              "text": "こんにちは。",
+              "nl": 1
+            }
+          ],
+          "else": [
+            {
+              "type": "say",
+              "who": 0,
+              "nl": 1,
+              "text": {
+                "type": "join",
+                "a": {
+                  "type": "var",
+                  "name": "あなたの名前"
+                },
+                "b": " さん、おかえりなさい。"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "n_again",
+      "kind": "event",
+      "event": "OnMouseDoubleClick",
+      "x": 560,
+      "y": 360,
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "名前を いれなおす？",
+          "nl": 1
+        },
+        {
+          "type": "choice",
+          "label": "いれなおす",
+          "target": "きく"
+        },
+        {
+          "type": "choice",
+          "label": "そのままでいい",
+          "target": "やめる"
+        }
+      ]
+    },
+    {
+      "id": "n_ask",
+      "kind": "function",
+      "name": "きく",
+      "x": 560,
+      "y": 560,
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "なんて呼べばいい？",
+          "nl": 1
+        },
+        {
+          "type": "ask",
+          "into": "あなたの名前",
+          "initial": ""
+        }
+      ]
+    },
+    {
+      "id": "n_no",
+      "kind": "function",
+      "name": "やめる",
+      "x": 560,
+      "y": 740,
+      "blocks": [
+        {
+          "type": "say",
+          "who": 0,
+          "text": "わかった。",
+          "nl": 1
+        }
+      ]
+    },
+    {
+      "id": "n_talk",
+      "kind": "talk",
+      "name": "よびかけ",
+      "weight": 1,
+      "x": 60,
+      "y": 560,
+      "blocks": [
+        {
+          "type": "if_else",
+          "cond": {
+            "type": "compare",
+            "op": "=",
+            "a": {
+              "type": "var",
+              "name": "あなたの名前"
+            },
+            "b": ""
+          },
+          "then": [
+            {
+              "type": "say",
+              "who": 0,
+              "text": "ひまだなあ。",
+              "nl": 1
+            }
+          ],
+          "else": [
+            {
+              "type": "say",
+              "who": 0,
+              "nl": 1,
+              "text": {
+                "type": "join",
+                "a": {
+                  "type": "var",
+                  "name": "あなたの名前"
+                },
+                "b": " さん、なにしてるの？"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

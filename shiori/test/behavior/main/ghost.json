@@ -84,6 +84,20 @@
     },
 
     {
+      "id": "b_group", "kind": "event", "event": "OnGroupTest",
+      "_": "まとまりからよぶ。中身が 1 つなら、それが出るはず",
+      "blocks": [{ "type": "call_group", "group": "よる" }]
+    },
+    {
+      "id": "t_yoru", "kind": "talk", "name": "よるのトーク", "weight": 1, "group": "よる",
+      "blocks": [{ "type": "say", "who": 0, "text": "おやすみ", "nl": 0 }]
+    },
+    {
+      "id": "t_nogroup", "kind": "talk", "name": "まとまり無し", "weight": 1,
+      "blocks": [{ "type": "say", "who": 0, "text": "でない", "nl": 0 }]
+    },
+
+    {
       "id": "b_ask", "kind": "event", "event": "OnAskTest",
       "_": "たずねる。答えは OnUserInput で返ってきて、栞が変数に入れるはず",
       "blocks": [{ "type": "ask", "into": "こたえ", "initial": "" }]

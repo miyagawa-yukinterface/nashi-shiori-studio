@@ -32,7 +32,10 @@ if (Test-Path $assetsDir) { Remove-Item -Recurse -Force $assetsDir }
 New-Item -ItemType Directory -Force -Path $assetsDir | Out-Null
 
 # ---- UI ファイルを ASCII 名で並べ直す（rc.exe に日本語パスを渡さないため）----
-$files = Get-ChildItem -Path $PublicDir -Recurse -File | Sort-Object FullName
+# ui\test\ は画面では使わない（node で動かすテスト）ので、exe には入れません
+$files = Get-ChildItem -Path $PublicDir -Recurse -File |
+    Where-Object { $_.FullName -notmatch '\\test\\' } |
+    Sort-Object FullName
 $entries = @()
 $id = 1000
 foreach ($f in $files) {

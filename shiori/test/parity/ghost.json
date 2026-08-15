@@ -264,6 +264,29 @@
       ]
     },
     {
+      "id": "p25", "kind": "event", "event": "OnP25",
+      "_": "いまごろ・季節・曜日の名前（どちらも同じ時計を見るので、同じ答えになるはず）",
+      "blocks": [
+        { "type": "say", "who": 0, "nl": 1,
+          "text": { "type": "join",
+                    "a": { "type": "sys", "key": "daypart" },
+                    "b": { "type": "sys", "key": "season" } } },
+        { "type": "say", "who": 0, "text": { "type": "sys", "key": "weekdayname" }, "nl": 1 }
+      ]
+    },
+    {
+      "id": "p26", "kind": "event", "event": "OnP26",
+      "_": "まとまりからトークをよぶ（1 つしか入れていないので、結果は決まる）",
+      "blocks": [
+        { "type": "call_group", "group": "あさ" },
+        { "type": "call_group", "group": "ないまとまり" }
+      ]
+    },
+    {
+      "id": "t_asa", "kind": "talk", "name": "あさのあいさつ", "weight": 1, "group": "あさ",
+      "blocks": [{ "type": "say", "who": 0, "text": "おはよう", "nl": 1 }]
+    },
+    {
       "id": "p23", "kind": "event", "event": "OnP23",
       "_": "たずねる・ブラウザ・イベントを自分で起こす（カンマや角かっこは落とす）",
       "blocks": [

@@ -120,6 +120,14 @@ const scenarios = [
     })(),
   },
   {
+    name: 'まとまりからトークをよぶ — まとまりに入っているものだけが出る',
+    dir: MAIN,
+    steps: [
+      ['OnGroupTest', { value: '\\0おやすみ\\e' }],
+      ['OnGroupTest', { value: '\\0おやすみ\\e' }],
+    ],
+  },
+  {
     name: 'たずねる — 返ってきた答えを、栞が変数に入れる',
     dir: MAIN,
     steps: [

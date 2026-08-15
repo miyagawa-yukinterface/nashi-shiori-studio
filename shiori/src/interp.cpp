@@ -86,6 +86,28 @@ static Value SysValue(const std::string& key, RunCtx& ctx) {
     if (key == "month")   return Value::Num(st.wMonth);
     if (key == "day")     return Value::Num(st.wDay);
     if (key == "weekday") return Value::Num(st.wDayOfWeek);   // 0=Sunday
+    // 話のとっかかりに使う「いまごろ」。ui/js/sim.js と同じ区切りにしてください。
+    if (key == "daypart") {
+        int h = st.wHour;
+        if (h < 5)  return Value::Str("夜");
+        if (h < 11) return Value::Str("朝");
+        if (h < 17) return Value::Str("昼");
+        if (h < 22) return Value::Str("夕方");
+        return Value::Str("夜");
+    }
+    if (key == "season") {
+        int m = st.wMonth;
+        if (m >= 3 && m <= 5)  return Value::Str("春");
+        if (m >= 6 && m <= 8)  return Value::Str("夏");
+        if (m >= 9 && m <= 11) return Value::Str("秋");
+        return Value::Str("冬");
+    }
+    if (key == "weekdayname") {
+        static const char* kDays[] = { "日", "月", "火", "水", "木", "金", "土" };
+        int d = st.wDayOfWeek;
+        if (d < 0 || d > 6) d = 0;
+        return Value::Str(kDays[d]);
+    }
     // ゴースト間通信。OnCommunicate の Reference0 が相手の名前、Reference1 が言われたこと。
     if (key == "commfrom") return Value::Str(ctx.refs.size() > 0 ? ctx.refs[0] : std::string());
     if (key == "commtext") return Value::Str(ctx.refs.size() > 1 ? ctx.refs[1] : std::string());
@@ -535,6 +557,53 @@ static void RunBlock(const JValue& b, RunCtx& ctx) {
         if (!branches.isArr() || branches.size() == 0) return;
         size_t pick = (size_t)RandInt(0, (int)branches.size() - 1);
         RunBlocks(branches.at(pick), ctx);
+        return;
+    }
+
+    // 同じ「まとまり」に入れたランダムトークから、1 つえらんでよぶ。
+    // 「朝のトーク」「季節のトーク」のように分けておけるようにするためのものです。
+    if (type == "call_group") {
+        if (!ctx.prog) return;
+        std::string group = Trim(EvalStr(b["group"], ctx));
+        std::vector<const JValue*> list = ctx.prog->talksInGroup(group);
+        if (list.empty()) return;
+
+        // 直前に出したものは、ほかに候補があるなら避ける
+        if (list.size() > 1 && ctx.sys && !ctx.sys->lastTalk.empty()) {
+            for (size_t i = 0; i < list.size(); i++) {
+                if ((*list[i])["id"].asStr() == ctx.sys->lastTalk) {
+                    list.erase(list.begin() + (long)i);
+                    break;
+                }
+            }
+        }
+        // えらばれやすさ（weight）ぶんのくじを引く
+        double total = 0;
+        for (size_t i = 0; i < list.size(); i++) {
+            double w = (*list[i])["weight"].asNum(1);
+            if (w > 0) total += w;
+        }
+        const JValue* pick = NULL;
+        if (total <= 0) {
+            pick = list[(size_t)RandInt(0, (int)list.size() - 1)];
+        } else {
+            double r = RandUnit() * total;
+            for (size_t i = 0; i < list.size(); i++) {
+                double w = (*list[i])["weight"].asNum(1);
+                if (w <= 0) continue;
+                r -= w;
+                if (r <= 0) { pick = list[i]; break; }
+            }
+            if (!pick) pick = list[list.size() - 1];
+        }
+
+        for (size_t i = 0; i < ctx.stack.size(); i++) {
+            if (ctx.stack[i] == pick) return;            // すでに動いている
+        }
+        if (ctx.stack.size() > 16) return;
+        ctx.stack.push_back(pick);
+        RunBlocks((*pick)["blocks"], ctx);
+        ctx.stack.pop_back();
         return;
     }
 

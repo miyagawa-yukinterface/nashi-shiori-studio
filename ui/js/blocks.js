@@ -190,10 +190,11 @@ window.NASHI = window.NASHI || {};
   });
   def({
     type: '@talk', cat: 'events', shape: 'hat',
-    spec: 'ランダムトーク「%name」 えらばれやすさ %weight',
+    spec: 'ランダムトーク「%name」 えらばれやすさ %weight まとまり %group',
     args: {
       name: { kind: 'input', mode: 'text', def: 'トーク', long: true },
       weight: { kind: 'input', mode: 'number', def: 1 },
+      group: { kind: 'input', mode: 'text', def: '', long: true },
     },
     hat: true, kind: 'talk',
   });
@@ -323,6 +324,12 @@ window.NASHI = window.NASHI || {};
     type: 'call', cat: 'control', shape: 'stack',
     spec: '%name をよぶ',
     args: { name: { kind: 'funcname', def: '' } },
+  });
+  // 同じ「まとまり」に入れたランダムトークから、1 つえらんでよぶ
+  def({
+    type: 'call_group', cat: 'control', shape: 'stack',
+    spec: '%group のトークをどれかよぶ',
+    args: { group: { kind: 'input', mode: 'text', def: '', long: true } },
   });
   def({
     type: 'talk_interval', cat: 'control', shape: 'stack',
@@ -520,7 +527,8 @@ window.NASHI = window.NASHI || {};
         options: [
           ['いまの時', 'hour'], ['いまの分', 'minute'], ['いまの秒', 'second'],
           ['いまの年', 'year'], ['いまの月', 'month'], ['いまの日', 'day'],
-          ['いまの曜日(0=日)', 'weekday'],
+          ['いまの曜日(0=日)', 'weekday'], ['いまの曜日(名前)', 'weekdayname'],
+          ['いまごろ(朝/昼/夕方/夜)', 'daypart'], ['いまの季節', 'season'],
           ['起動してからの秒数', 'uptime'], ['起動してからの分数', 'uptimemin'],
           ['起動した回数', 'boots'], ['今回のトーク回数', 'talks'],
           ['ゴースト名', 'ghostname'], ['シェル名', 'shellname'],
@@ -549,7 +557,7 @@ window.NASHI = window.NASHI || {};
     talk: ['say', 'newline', 'click_wait', 'clear', 'choice', 'link', 'communicate', 'raw'],
     looks: ['surface', 'chara', 'anim', 'balloon', 'sound'],
     control: ['wait', 'if', 'if_else', 'repeat', 'while', 'random_one', 'call',
-      'talk_interval', 'ask', 'later', 'raise', 'update', 'saori_call',
+      'call_group', 'talk_interval', 'ask', 'later', 'raise', 'update', 'saori_call',
       'open_browser', 'end', 'close', 'change_ghost'],
     variables: [{ button: 'add-var', label: '＋ 変数をつくる' }, '@vars', 'set', 'change'],
     operators: ['arith#+', 'arith#-', 'arith#*', 'arith#/', 'arith#%',

@@ -59,6 +59,8 @@ public:
     // scripts
     std::vector<const JValue*> eventScripts(const std::string& eventName) const;
     std::vector<const JValue*> talkScripts() const;
+    // 同じ「まとまり」に入れたランダムトークだけを集める（朝のトーク、など）
+    std::vector<const JValue*> talksInGroup(const std::string& group) const;
     const JValue* functionByName(const std::string& name) const;
     const JValue* scriptById(const std::string& id) const;
     bool hasEvent(const std::string& eventName) const;

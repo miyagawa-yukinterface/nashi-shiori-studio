@@ -476,7 +476,12 @@ std::string RuntimeProgramJson(const JValue& project) {
             }
         }
         if (kind == "talk" || kind == "function") one.set("name", JValue::makeStr(src["name"].asStr()));
-        if (kind == "talk") one.set("weight", JValue::makeNum(src["weight"].asNum(1)));
+        if (kind == "talk") {
+            one.set("weight", JValue::makeNum(src["weight"].asNum(1)));
+            // 「まとまり」（朝のトーク、など）。空なら書かない
+            std::string group = Trim(src["group"].asStr());
+            if (!group.empty()) one.set("group", JValue::makeStr(group));
+        }
         if (src["disabled"].asBool(false)) one.set("disabled", JValue::makeBool(true));
         one.set("blocks", src["blocks"].isArr() ? src["blocks"] : JValue::makeArr());
         scripts.arr.push_back(one);

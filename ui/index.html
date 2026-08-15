@@ -67,6 +67,7 @@
         <button class="side-tab is-active" data-tab="run">ためす</button>
         <button class="side-tab" data-tab="ghost">ゴースト</button>
         <button class="side-tab" data-tab="vars">変数</button>
+        <button class="side-tab" data-tab="search">さがす</button>
         <button class="side-tab" data-tab="check">チェック<span id="check-badge" class="tab-badge"></span></button>
         <button class="side-tab" data-tab="export">書き出し</button>
         <button class="side-tab" data-tab="help">ヘルプ</button>
@@ -183,6 +184,19 @@
         </section>
 
         <!-- ---- check ---- -->
+        <!-- ---- search ---- -->
+        <section class="side-panel" data-panel="search">
+          <div class="panel-head">
+            <h2>さがす</h2>
+            <p class="hint">セリフ・変数・トーク名などから探します（Ctrl+F）。
+              クリックすると、そのブロックまで移動します。</p>
+          </div>
+          <div class="run-picker">
+            <input id="search-input" type="text" placeholder="さがす言葉" spellcheck="false">
+          </div>
+          <div id="search-list" class="check-list"></div>
+        </section>
+
         <section class="side-panel" data-panel="check">
           <div class="panel-head">
             <h2>チェック</h2>
@@ -252,6 +266,16 @@
           </table>
           <div class="panel-head"><h2>ブロックの色</h2></div>
           <div id="help-cats" class="help-cats"></div>
+          <div class="panel-head"><h2>キーボード</h2></div>
+          <ul class="help-keys">
+            <li><b>Ctrl+S</b> 保存</li>
+            <li><b>Ctrl+Z</b> / <b>Ctrl+Y</b> もどす / やりなおす</li>
+            <li><b>Ctrl+F</b> さがす</li>
+            <li><b>Ctrl+C</b> / <b>Ctrl+X</b> / <b>Ctrl+V</b> ブロックのコピー / 切り取り / はりつけ</li>
+            <li><b>Ctrl+D</b> えらんだブロックを複製</li>
+            <li><b>Delete</b> えらんだブロックを消す</li>
+            <li><b>Ctrl+ホイール</b> 拡大・縮小</li>
+          </ul>
           <div class="panel-head"><h2>栞について</h2></div>
           <p class="hint">
             書き出したゴーストは <b>nashi.dll</b>（なし栞）で動きます。会話データは

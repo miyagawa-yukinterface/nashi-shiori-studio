@@ -60,12 +60,30 @@
       case 'month': return now.getMonth() + 1;
       case 'day': return now.getDate();
       case 'weekday': return now.getDay();
+      // 話のとっかかりに使う「いまごろ」。shiori/src/interp.cpp と同じ区切りにすること。
+      case 'daypart': {
+        const h = now.getHours();
+        if (h < 5) return '夜';
+        if (h < 11) return '朝';
+        if (h < 17) return '昼';
+        if (h < 22) return '夕方';
+        return '夜';
+      }
+      case 'season': {
+        const m = now.getMonth() + 1;
+        if (m >= 3 && m <= 5) return '春';
+        if (m >= 6 && m <= 8) return '夏';
+        if (m >= 9 && m <= 11) return '秋';
+        return '冬';
+      }
+      case 'weekdayname': return ['日', '月', '火', '水', '木', '金', '土'][now.getDay()] || '日';
       case 'uptime': return ctx.sys.uptime;
       case 'uptimemin': return Math.floor(ctx.sys.uptime / 60);
       case 'boots': return ctx.sys.boots;
       case 'talks': return ctx.sys.talks;
       case 'ghostname': return ctx.sys.ghostName;
       case 'shellname': return ctx.sys.shellName;
+      case 'lasttalk': return ctx.sys.lastTalk || '';
       // ゴースト間通信。OnCommunicate の Reference0 / Reference1。
       case 'commfrom': return ctx.refs[0] == null ? '' : ctx.refs[0];
       case 'commtext': return ctx.refs[1] == null ? '' : ctx.refs[1];
@@ -316,6 +334,38 @@
         runBlocks(branches[Math.floor(Math.random() * branches.length)], ctx);
         return;
       }
+      // 同じ「まとまり」のランダムトークから 1 つえらぶ（栞と同じ規則）
+      case 'call_group': {
+        const group = toStr(ev(b.group)).trim();
+        if (!group) return;
+        let list = ctx.project.scripts.filter(
+          (s) => s.kind === 'talk' && !s.disabled && (s.group || '') === group
+        );
+        if (!list.length) return;
+        if (list.length > 1 && ctx.sys.lastTalk) {
+          list = list.filter((s) => s.id !== ctx.sys.lastTalk);
+        }
+        let total = 0;
+        for (const s of list) { const w = Number(s.weight); if (w > 0) total += w; }
+        let pick = null;
+        if (total <= 0) {
+          pick = list[Math.floor(Math.random() * list.length)];
+        } else {
+          let r = Math.random() * total;
+          for (const s of list) {
+            const w = Number(s.weight);
+            if (!(w > 0)) continue;
+            r -= w;
+            if (r <= 0) { pick = s; break; }
+          }
+          if (!pick) pick = list[list.length - 1];
+        }
+        if (!pick || ctx.callStack.includes(pick) || ctx.callStack.length > 16) return;
+        ctx.callStack.push(pick);
+        runBlocks(pick.blocks, ctx);
+        ctx.callStack.pop();
+        return;
+      }
       case 'call': {
         const name = b.name || '';
         const fn = ctx.project.scripts.find(
@@ -340,7 +390,7 @@
       vars: opt.vars || {},
       refs: opt.refs || [],
       sys: Object.assign({
-        uptime: 0, boots: 1, talks: 0,
+        uptime: 0, boots: 1, talks: 0, lastTalk: '',
         ghostName: (project.meta && project.meta.name) || '',
         shellName: 'master',
       }, opt.sys || {}),

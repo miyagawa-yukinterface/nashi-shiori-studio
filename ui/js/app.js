@@ -14,6 +14,7 @@
     zoom: 1,
     category: 'events',
     sessionVars: {},
+    clipboard: null,          // コピーしたブロック（Ctrl+C / Ctrl+V）
     playToken: 0,
     renderQueued: false,
   };
@@ -63,6 +64,7 @@
     renderVarList();
     renderRunTargets();
     renderCheck();
+    renderSearch();
     syncMetaFields();
     $('#btn-undo').disabled = !Model.undoStack.length;
     $('#btn-redo').disabled = !Model.redoStack.length;
@@ -1036,6 +1038,95 @@
     }
   }
 
+  // --------------------------------------------------------------- さがす
+  /** ブロック 1 つを、画面に出ているのと同じ言葉にする（検索と一覧の見出し用） */
+  function blockSummary(b, depth) {
+    if (!b || typeof b !== 'object') return '';
+    if ((depth || 0) > 6) return '…';
+    const d = N.getDef(b);
+    if (!d) return String(b.type || '');
+    let s = '';
+    for (const part of d.parts) {
+      if (part.lbl != null) { s += part.lbl; continue; }
+      const v = b[part.arg];
+      if (v == null || v === '') { s += '◯'; continue; }
+      if (typeof v === 'object') {
+        s += v.type ? '（' + blockSummary(v, (depth || 0) + 1) + '）' : '…';
+        continue;
+      }
+      const a = (d.args || {})[part.arg];
+      if (a && a.kind === 'dropdown' && Array.isArray(a.options)) {
+        const hit = a.options.find((o) => String(o[1]) === String(v));
+        s += hit ? hit[0] : String(v);
+      } else {
+        s += String(v);
+      }
+    }
+    return s.replace(/\s+/g, ' ').trim();
+  }
+  App.blockSummary = blockSummary;
+
+  /** かたまりの中のブロックを、入れ子もふくめて順に見る */
+  function walkBlocks(script, visit) {
+    const stack = (arr) => {
+      if (!Array.isArray(arr)) return;
+      for (const b of arr) {
+        if (!b || typeof b !== 'object') continue;
+        visit(b);
+        inner(b);
+      }
+    };
+    const inner = (b) => {
+      const d = N.getDef(b);
+      if (!d) return;
+      for (const s of d.subs || []) stack(b[s.key]);
+      if (d.dynamic && Array.isArray(b[d.dynamic])) b[d.dynamic].forEach(stack);
+      for (const name in (d.args || {})) {
+        const v = b[name];
+        if (v && typeof v === 'object' && v.type) { visit(v); inner(v); }
+      }
+    };
+    stack(script.blocks);
+  }
+
+  function renderSearch() {
+    const list = $('#search-list');
+    if (!list) return;
+    const q = ($('#search-input').value || '').trim().toLowerCase();
+    list.textContent = '';
+    if (!q) {
+      list.appendChild(Render.div('hint', 'さがす言葉を入れてください。'));
+      return;
+    }
+
+    const hits = [];
+    for (const s of Model.project.scripts) {
+      const title = Model.scriptTitle(s);
+      if (title.toLowerCase().includes(q)) hits.push({ script: s, block: null, text: title });
+      walkBlocks(s, (b) => {
+        if (hits.length > 200) return;
+        const text = blockSummary(b);
+        if (text.toLowerCase().includes(q)) hits.push({ script: s, block: b, text, title });
+      });
+    }
+
+    if (!hits.length) {
+      list.appendChild(Render.div('check-ok', '見つかりませんでした'));
+      return;
+    }
+    for (const h of hits) {
+      const item = Render.el('button', 'check-item');
+      item.appendChild(Render.el('span', 'mark', h.block ? '🔎' : '📄'));
+      const msg = Render.div('msg');
+      msg.appendChild(document.createTextNode(h.text));
+      if (h.block) msg.appendChild(Render.el('span', 'why', h.title));
+      item.appendChild(msg);
+      item.title = 'クリックでその場所へ移動します';
+      item.addEventListener('click', () => jumpTo(h));
+      list.appendChild(item);
+    }
+  }
+
   /** チェックで見つけた場所までキャンバスを動かして、光らせる */
   function jumpTo(it) {
     if (!it.script) return;
@@ -1147,7 +1238,42 @@
       });
       list.appendChild(row);
     }
-    modal('プロジェクトを開く', list, [{ label: '閉じる' }]);
+    modal('プロジェクトを開く', list, [
+      { label: 'お手本から始める', run: () => setTimeout(openSampleDialog, 0) },
+      { label: '閉じる' },
+    ]);
+  }
+
+  /** お手本ゴースト（exe に入っている見本）をひらく */
+  async function openSampleDialog() {
+    let index;
+    try {
+      index = await (await fetch('samples/index.json')).json();
+    } catch (e) {
+      App.toast('お手本を読めませんでした', true);
+      return;
+    }
+    const list = Render.div('');
+    list.appendChild(Render.div('hint',
+      'えらぶと、いまのプロジェクトを置きかえて開きます（保存していないものは消えます）。'));
+    for (const s of index) {
+      const row = Render.div('proj-row');
+      row.appendChild(Render.div('t', s.title));
+      row.appendChild(Render.div('d', s.desc));
+      row.addEventListener('click', async () => {
+        if (Model.dirty && !confirm('保存していない変更があります。お手本を開きますか？')) return;
+        try {
+          const data = await (await fetch('samples/' + s.file)).json();
+          Model.init(data);
+          App.projectName = '';          // 上書き保存ではなく、名前を付けて保存させる
+          App.sessionVars = {};
+          closeModal();
+          App.toast(`お手本「${s.title}」を開きました。保存すると自分のものになります`);
+        } catch (e) { App.toast('お手本を読めませんでした', true); }
+      });
+      list.appendChild(row);
+    }
+    modal('お手本からはじめる', list, [{ label: '閉じる' }]);
   }
 
   // ------------------------------------------------------------- 書き出し
@@ -1463,17 +1589,63 @@
     refreshSsp();
     setInterval(refreshSsp, 30000);
 
+    const searchInput = $('#search-input');
+    if (searchInput) {
+      searchInput.addEventListener('input', renderSearch);
+      searchInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') searchInput.blur(); });
+    }
+
     // ---- キーボード
     document.addEventListener('keydown', (e) => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
       if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); saveProject(false); return; }
+      if (e.ctrlKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        switchTab('search');
+        if (searchInput) { searchInput.focus(); searchInput.select(); }
+        return;
+      }
       if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); Model.undo(); return; }
       if (e.ctrlKey && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
         e.preventDefault(); Model.redo(); return;
       }
       if (typing) return;
+
+      // ---- ブロックのコピー＆はりつけ
+      //   コピーしたものは Model.clone で切り離して持つので、あとから元を消しても平気です。
+      const sel = N.Drag.getSelected();
+      const key = e.key.toLowerCase();
+      if (e.ctrlKey && (key === 'c' || key === 'x')) {
+        if (!sel || !sel.block) return;
+        e.preventDefault();
+        App.clipboard = Model.clone(sel.block);
+        if (key === 'x' && Array.isArray(sel.stack)) {
+          Model.act(() => { sel.stack.splice(sel.index, 1); });
+          N.Drag.select(null);
+        }
+        App.toast(key === 'x' ? 'ブロックを切り取りました' : 'ブロックをコピーしました');
+        return;
+      }
+      if (e.ctrlKey && key === 'v') {
+        if (!App.clipboard) { App.toast('コピーしたブロックがありません', true); return; }
+        if (!sel || !Array.isArray(sel.stack)) {
+          App.toast('はりつける場所のブロックを、先にクリックしてください', true);
+          return;
+        }
+        e.preventDefault();
+        Model.act(() => { sel.stack.splice(sel.index + 1, 0, Model.clone(App.clipboard)); });
+        App.toast('はりつけました');
+        return;
+      }
+      if (e.ctrlKey && key === 'd') {
+        if (!sel || !sel.block || !Array.isArray(sel.stack)) return;
+        e.preventDefault();
+        Model.act(() => { sel.stack.splice(sel.index + 1, 0, Model.clone(sel.block)); });
+        App.toast('ブロックを複製しました');
+        return;
+      }
+
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const sel = N.Drag.getSelected();
         if (sel && Array.isArray(sel.stack)) {
           e.preventDefault();
           Model.act(() => { sel.stack.splice(sel.index, 1); });

@@ -211,6 +211,22 @@ check('どこでも使われていない変数は言う',
   issuesOf(withScript([{ type: 'say', who: 0, text: 'やあ' }]), 'どこでも使われていません'),
   ['warn']);
 
+// ============================================== お手本ゴースト（ui/samples）
+section('お手本ゴースト');
+{
+  const dir = path.join(root, 'ui', 'samples');
+  const index = JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8'));
+  check('お手本の数', index.length > 0, true);
+  for (const s of index) {
+    const raw = fs.readFileSync(path.join(dir, s.file), 'utf8');
+    const project = Model.normalize(JSON.parse(raw));
+    Model.project = project;
+    const issues = Lint.run(project);
+    // お手本がチェックタブに引っかかっていたら、お手本になりません
+    check(`${s.file} は問題なし`, issues.map((i) => `${i.level}: ${i.message}`), []);
+  }
+}
+
 // ------------------------------------------------------------------ おしまい
 if (failed) {
   console.log(`${red}[editor] ${failed} か所ちがいます（${checked} か所中）。${off}`);

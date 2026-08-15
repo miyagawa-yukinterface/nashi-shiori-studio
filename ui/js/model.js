@@ -116,6 +116,7 @@
         if (typeof script.x !== 'number') script.x = 60;
         if (typeof script.y !== 'number') { script.y = y; y += 180; }
         if (script.kind === 'talk' && script.weight == null) script.weight = 1;
+        if (script.kind === 'talk' && typeof script.group !== 'string') script.group = '';
         if ((script.kind === 'talk' || script.kind === 'function') && !script.name) {
           script.name = script.kind === 'talk' ? 'トーク' : 'なまえのないトーク';
         }
@@ -253,7 +254,10 @@
         }
         return label;
       }
-      if (s.kind === 'talk') return 'ランダムトーク「' + (s.name || '') + '」';
+      if (s.kind === 'talk') {
+        const g = String(s.group || '').trim();
+        return 'ランダムトーク「' + (s.name || '') + '」' + (g ? `（${g}）` : '');
+      }
       if (s.kind === 'function') return '「' + (s.name || '') + '」';
       return 'ブロックのかたまり';
     },

@@ -127,6 +127,20 @@ std::vector<const JValue*> Program::talkScripts() const {
     return out;
 }
 
+std::vector<const JValue*> Program::talksInGroup(const std::string& group) const {
+    std::vector<const JValue*> out;
+    if (group.empty()) return out;
+    const JValue& scripts = root_["scripts"];
+    for (size_t i = 0; i < scripts.size(); i++) {
+        const JValue& s = scripts.at(i);
+        if (s["kind"].asStr() != "talk") continue;
+        if (s["disabled"].asBool(false)) continue;
+        if (s["group"].asStr() != group) continue;
+        out.push_back(&scripts.arr[i]);
+    }
+    return out;
+}
+
 const JValue* Program::functionByName(const std::string& name) const {
     if (name.empty()) return NULL;
     const JValue& scripts = root_["scripts"];

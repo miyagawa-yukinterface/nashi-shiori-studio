@@ -22,7 +22,7 @@
 | 帽子 | ghost.json |
 |---|---|
 | ◯◯のとき | `{ "kind": "event", "event": "OnBoot", "blocks": [...] }` |
-| ランダムトーク「名前」えらばれやすさ N | `{ "kind": "talk", "name": "...", "weight": 1, "blocks": [...] }` |
+| ランダムトーク「名前」えらばれやすさ N まとまり G | `{ "kind": "talk", "name": "...", "weight": 1, "group": "G", "blocks": [...] }` |
 | 「名前」がよばれたとき | `{ "kind": "function", "name": "...", "blocks": [...] }` |
 | ◯の△が◯◯のとき（マウス系） | `{ "kind": "event", "event": "OnNadeNade", "filter": { "area": "Head", "who": 0 }, "blocks": [...] }` |
 | ずっとくりかえす ◯秒ごと | `{ "kind": "event", "event": "OnSecondChange", "everySec": 5, "blocks": [...] }` |
@@ -30,6 +30,10 @@
 
 `function` は選択肢の行き先や「◯◯をよぶ」ブロックから実行されます。
 `talk` も名前で呼び出せます。
+
+ランダムトークには「**まとまり**」を付けられます（朝のトーク、季節のトーク、など）。
+同じ名前を付けたトークは、「**◯ のトークをどれかよぶ**」ブロックで、その中から
+えらばれやすさに応じて 1 つだけ呼ばれます。空なら、どのまとまりにも入りません。
 
 主なイベント名: `OnFirstBoot` / `OnBoot` / `OnClose` / `OnMouseDoubleClick` /
 `OnMouseClick` / `OnNadeNade` / `OnMouseMove` / `OnMouseWheel` / `OnHourChange` /
@@ -149,6 +153,7 @@ SSP の通信ボックスから話しかけられた場合、相手の名前は 
 | ◇ の間くりかえす | `{"type":"while","cond":◇,"body":[...]}` |
 | つぎのどれかをランダムに | `{"type":"random_one","branches":[[...],[...]]}` |
 | ◯をよぶ | `{"type":"call","name":"トーク名"}` |
+| ◯ のトークをどれかよぶ | `{"type":"call_group","group":"まとまりの名前"}` |
 | ランダムトークの間隔を N 秒にする | `{"type":"talk_interval","sec":180}` |
 | たずねて、答えを V に入れる | `{"type":"ask","into":"V","initial":""}` → `\![open,inputbox,nashi:V,-1,…]` |
 | N 秒後に ◯ をよぶ | `{"type":"later","sec":30,"name":"トーク名"}` |
@@ -245,6 +250,10 @@ SSP の通信ボックスから話しかけられた場合、相手の名前は 
 | 今回のトーク回数 | `{"type":"sys","key":"talks"}` | |
 | ゴースト名 / シェル名 | `{"type":"sys","key":"ghostname"}` / `shellname` | |
 | 話しかけてきた相手 / 言われたこと | `{"type":"sys","key":"commfrom"}` / `commtext` | `OnCommunicate` の `Reference0` / `Reference1` |
+| いまごろ | `{"type":"sys","key":"daypart"}` | `朝`(5-11) / `昼`(11-17) / `夕方`(17-22) / `夜`(22-5) |
+| いまの季節 | `{"type":"sys","key":"season"}` | `春`(3-5) / `夏`(6-8) / `秋`(9-11) / `冬`(12-2) |
+| いまの曜日（名前） | `{"type":"sys","key":"weekdayname"}` | `日` 〜 `土` |
+| 前に出したトーク | `{"type":"sys","key":"lasttalk"}` | そのトークの id |
 | イベントの情報 N | `{"type":"ref","index":0}` | SSP の `ReferenceN` |
 
 `ReferenceN` の内容はイベントごとに違います。よく使うもの:
