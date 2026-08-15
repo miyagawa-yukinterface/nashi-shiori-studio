@@ -63,8 +63,12 @@ if ($needVcVars) {
 $dll = Join-Path $repo 'shiori\dist\nashi.dll'
 $sample = Join-Path $root 'res\sample-project.json'
 
-Write-Host '[studio] リソースを準備中...' -ForegroundColor Cyan
+$versionFile = Join-Path $repo 'VERSION'
+$version = if (Test-Path $versionFile) { (Get-Content $versionFile -Raw).Trim() } else { '0.0.0' }
+
+Write-Host "[studio] リソースを準備中... (v$version)" -ForegroundColor Cyan
 & (Join-Path $root 'tools\embed.ps1') `
+    -Version $version `
     -PublicDir (Join-Path $repo 'ui') `
     -StageDir $obj `
     -DllPath $dll `
@@ -73,7 +77,8 @@ Write-Host '[studio] リソースを準備中...' -ForegroundColor Cyan
 
 Push-Location $obj
 try {
-    & rc /nologo /fo assets.res assets.rc
+    # /c65001 … assets.rc を UTF-8 として読ませる（日本語のバージョン情報のため）
+    & rc /nologo /c65001 /fo assets.res assets.rc
     if ($LASTEXITCODE -ne 0) { throw 'リソースのコンパイルに失敗しました。' }
 } finally {
     Pop-Location

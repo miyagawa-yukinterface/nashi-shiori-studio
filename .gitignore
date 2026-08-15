@@ -19,3 +19,7 @@ shiori/test/fixture/nashi.dll
 shiori/test/*/nashi.dll
 shiori/test/*/*/nashi.dll
 studio/test/export_host.exe
+
+# 配布用のまとめ（-Release で作る）
+/dist/
+obj/

@@ -140,8 +140,14 @@ Visual Studio の「C++ によるデスクトップ開発」が入っていれ�
 
 ```powershell
 .\build.ps1            # 栞(32bit DLL) → スタジオ(64bit EXE)
-.\build.ps1 -Test      # 栞のテストホストも作り、一致テストも走らせる
+.\build.ps1 -Test      # 栞のテストホストも作り、テストも走らせる
+.\build.ps1 -Release   # きれいに作り直してテストし、配布用の zip を作る
 ```
+
+`-Release` は `dist\nashi-studio-<版>.zip` を作ります（中身は exe と読みもの）。
+版の数字は **ルートの `VERSION` ファイル**の 1 行だけです。ここを直すと、
+zip の名前と exe のプロパティ（右クリック→プロパティ→詳細）の両方に入ります。
+変わったことは `CHANGELOG.md` に足してください。
 
 `-Test` を付けると、最後に 4 つのテストが走ります。
 

@@ -1,19 +1,27 @@
 # なし栞 + なしスタジオ をまとめてビルドする
 #
 #   .\build.ps1            栞(32bit DLL) → スタジオ(64bit EXE) の順にビルド
-#   .\build.ps1 -Test      栞のテストホストも作る
+#   .\build.ps1 -Test      栞のテストホストも作り、テストも走らせる
 #   .\build.ps1 -Clean     中間ファイルを消してから
+#   .\build.ps1 -Release   きれいに作り直してテストし、配布用の zip を作る
 #
 [CmdletBinding()]
 param(
     [switch]$Test,
     [switch]$Clean,
+    [switch]$Release,
     [ValidateSet('x86', 'x64')]
     [string]$StudioArch = 'x64'
 )
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# 配るときは、途中の作りかけが混ざらないように作り直して、テストも必ず通す
+if ($Release) { $Clean = $true; $Test = $true }
+
+$versionFile = Join-Path $root 'VERSION'
+$version = if (Test-Path $versionFile) { (Get-Content $versionFile -Raw).Trim() } else { '0.0.0' }
 
 # それぞれ別プロセスで動かす（32bit と 64bit の環境変数が混ざらないように）
 $host_exe = (Get-Process -Id $PID).Path
@@ -59,5 +67,32 @@ if ($Test) {
     }
 }
 
+# 配布用の zip。exe 1 つで動くので、読みものを添えるだけです。
+if ($Release) {
+    Write-Host ''
+    Write-Host '=== 配布用のまとめ ===' -ForegroundColor Yellow
+    $stage = Join-Path $root "obj\release\nashi-studio-$version"
+    if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+    New-Item -ItemType Directory -Force $stage | Out-Null
+    New-Item -ItemType Directory -Force (Join-Path $stage 'docs') | Out-Null
+
+    Copy-Item (Join-Path $root 'nashi-studio.exe') $stage
+    foreach ($f in @('README.md', 'CHANGELOG.md', 'LICENSE')) {
+        $p = Join-Path $root $f
+        if (Test-Path $p) { Copy-Item $p $stage }
+    }
+    Get-ChildItem (Join-Path $root 'docs') -Filter '*.md' -ErrorAction SilentlyContinue |
+        ForEach-Object { Copy-Item $_.FullName (Join-Path $stage 'docs') }
+
+    $dist = Join-Path $root 'dist'
+    New-Item -ItemType Directory -Force $dist | Out-Null
+    $zip = Join-Path $dist "nashi-studio-$version.zip"
+    if (Test-Path $zip) { Remove-Item -Force $zip }
+    Compress-Archive -Path $stage -DestinationPath $zip
+    $kb = [math]::Round((Get-Item $zip).Length / 1KB, 1)
+    Write-Host "  できました -> $zip ($kb KB)" -ForegroundColor Green
+    Write-Host '  中身: nashi-studio.exe / README.md / CHANGELOG.md / docs' -ForegroundColor DarkGray
+}
+
 Write-Host ''
-Write-Host 'できあがりました。nashi-studio.exe をダブルクリックしてください。' -ForegroundColor Green
+Write-Host "できあがりました（v$version）。nashi-studio.exe をダブルクリックしてください。" -ForegroundColor Green

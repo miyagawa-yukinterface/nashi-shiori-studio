@@ -9,7 +9,8 @@ param(
     [Parameter(Mandatory = $true)][string]$StageDir,
     [string]$DllPath,
     [string]$SamplePath,
-    [string]$IconPath
+    [string]$IconPath,
+    [string]$Version = '0.0.0'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -66,6 +67,34 @@ if ($SamplePath -and (Test-Path $SamplePath)) {
 foreach ($e in $entries) {
     [void]$rc.AppendLine(('{0} RCDATA "assets\\{1}"' -f $e.Id, $e.File))
 }
+
+# ---- exe のプロパティに出るバージョン情報 ----------------------------------
+$nums = @($Version -split '[.\-+]' | Where-Object { $_ -match '^\d+$' })
+while ($nums.Count -lt 4) { $nums += '0' }
+$v4 = ($nums[0..3]) -join ','
+[void]$rc.AppendLine('')
+[void]$rc.AppendLine('1 VERSIONINFO')
+[void]$rc.AppendLine("FILEVERSION $v4")
+[void]$rc.AppendLine("PRODUCTVERSION $v4")
+[void]$rc.AppendLine('FILEOS 0x4L')
+[void]$rc.AppendLine('FILETYPE 0x1L')
+[void]$rc.AppendLine('{')
+[void]$rc.AppendLine(' BLOCK "StringFileInfo"')
+[void]$rc.AppendLine(' {')
+[void]$rc.AppendLine('  BLOCK "041104b0"')          # 日本語 + Unicode
+[void]$rc.AppendLine('  {')
+[void]$rc.AppendLine('   VALUE "ProductName", "なしスタジオ"')
+[void]$rc.AppendLine('   VALUE "FileDescription", "なしスタジオ - 伺かゴーストをブロックで作る"')
+[void]$rc.AppendLine('   VALUE "FileVersion", "' + $Version + '"')
+[void]$rc.AppendLine('   VALUE "ProductVersion", "' + $Version + '"')
+[void]$rc.AppendLine('   VALUE "OriginalFilename", "nashi-studio.exe"')
+[void]$rc.AppendLine('  }')
+[void]$rc.AppendLine(' }')
+[void]$rc.AppendLine(' BLOCK "VarFileInfo"')
+[void]$rc.AppendLine(' {')
+[void]$rc.AppendLine('  VALUE "Translation", 0x411, 1200')
+[void]$rc.AppendLine(' }')
+[void]$rc.AppendLine('}')
 
 $rcPath = Join-Path $StageDir 'assets.rc'
 [System.IO.File]::WriteAllText($rcPath, $rc.ToString(), (New-Object System.Text.UTF8Encoding($false)))
