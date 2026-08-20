@@ -292,6 +292,24 @@ static SaoriResult ExecuteOn(Saori::Core* core, const std::string& file,
 
 // ---------------------------------------------------- 答えを待たない呼び出し
 
+// 栞じしん（この DLL）の参照カウントを 1 つ増やして、その HMODULE を返します。
+// 走っているスレッドが、SSP に FreeLibrary されてコードごと消えるのを防ぎます。
+//
+// GetModuleHandleEx（FROM_ADDRESS）が同じことをしてくれますが、あれは Windows XP
+// からです。SSP は Windows 2000 から動くので、栞もそこに合わせて古いやりかたにします。
+// VirtualQuery は自分のアドレスが載っている割り当ての先頭＝HMODULE を教えてくれるので、
+// そこから名前を引いて LoadLibrary で数を増やします（同じ物なので読み直しは起きません）。
+static HMODULE PinSelf() {
+    MEMORY_BASIC_INFORMATION mbi;
+    if (!VirtualQuery((LPCVOID)&PinSelf, &mbi, sizeof(mbi))) return NULL;
+    HMODULE self = (HMODULE)mbi.AllocationBase;
+    if (!self) return NULL;
+    wchar_t path[MAX_PATH];
+    DWORD n = GetModuleFileNameW(self, path, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH) return NULL;
+    return LoadLibraryW(path);
+}
+
 static DWORD WINAPI SaoriThreadMain(void* param) {
     Job* job = (Job*)param;
     Saori::Core* core = job->core;
@@ -366,9 +384,7 @@ bool Saori::ExecuteAsync(const std::string& file, const std::vector<std::string>
 
     // 栞じしんを 1 つ押さえる（スレッドが終わるときに返します）。
     // これが無いと、走っている最中に SSP が FreeLibrary してコードが消えます。
-    job->self = NULL;
-    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-                       (LPCWSTR)&SaoriThreadMain, &job->self);
+    job->self = PinSelf();
 
     HANDLE th = CreateThread(NULL, 0, &SaoriThreadMain, job, 0, NULL);
     if (!th) {
