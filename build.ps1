@@ -33,6 +33,16 @@ function Invoke-Sub([string]$script, [string[]]$scriptArgs) {
     if ($LASTEXITCODE -ne 0) { throw "$([System.IO.Path]::GetFileName($script)) が失敗しました。" }
 }
 
+# ブロックの「そろい」だけは、ビルドが要りません。先に見ておくと、
+# 書き忘れが 2 分待たずに分かります（くわしくは docs\maintenance.md）。
+$node = Get-Command node -ErrorAction SilentlyContinue
+if ($Test -and $node) {
+    Write-Host '=== ブロックのそろい ===' -ForegroundColor Yellow
+    & node (Join-Path $root 'tools\check-blocks.js')
+    if ($LASTEXITCODE -ne 0) { throw 'check-blocks.js が失敗しました。' }
+    Write-Host ''
+}
+
 $shioriArgs = @('-Arch', 'x86')
 if ($Test) { $shioriArgs += '-Test' }
 if ($Clean) { $shioriArgs += '-Clean' }
@@ -47,6 +57,7 @@ Write-Host '=== なしスタジオ (nashi-studio.exe) ===' -ForegroundColor Yell
 Invoke-Sub (Join-Path $root 'studio\build.ps1') $studioArgs
 
 # テスト。Node.js を使うのはここだけで、アプリの動作には要りません。
+#   そろい   … ブロックが、プレビュー・栞・説明・テストにそろっているか（上で先に走ります）
 #   parity   … プレビュー(ui\js\sim.js) と 栞(interp.cpp) の出力が一致するか
 #              （同じ規則を二重に実装しているので、片方だけ直す事故を防ぐ）
 #   behavior … 栞だけが持っている判断（どれを選ぶか・既定の反応・間引き）が期待どおりか
@@ -55,7 +66,6 @@ Invoke-Sub (Join-Path $root 'studio\build.ps1') $studioArgs
 if ($Test) {
     Write-Host ''
     Write-Host '=== テスト ===' -ForegroundColor Yellow
-    $node = Get-Command node -ErrorAction SilentlyContinue
     if (-not $node) {
         Write-Host '  Node.js が無いので飛ばします（https://nodejs.org/ で入れると走ります）' -ForegroundColor DarkYellow
     } else {

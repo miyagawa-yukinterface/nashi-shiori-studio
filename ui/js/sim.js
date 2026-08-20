@@ -8,6 +8,7 @@
   const MAX_STEPS = 40000;
   const MAX_VALUE = 32000;   // 変数 1 つぶんの長さの上限（バイト）
   const MAX_LOOP = 5000;
+  const MAX_OUT = 32000;     // 1 回に出すさくらスクリプトの長さの上限（バイト）
 
   // 長すぎる文字は切る（UTF-8 の途中では切らない）。
   // shiori/src/interp.cpp の CapText と同じ規則にすること（一致テストが見ています）。
@@ -189,10 +190,35 @@
     return String(text == null ? '' : text).replace(re, '');
   }
 
+  // UTF-8 にしたときの長さ。栞は std::string（＝バイト数）で数えているので、
+  // こちらも文字数ではなくバイト数で数えないと、上限の位置がズレます。
+  function byteLen(s) {
+    let n = 0;
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      if (c < 0x80) n += 1;
+      else if (c < 0x800) n += 2;
+      else if (c >= 0xD800 && c < 0xDC00) { n += 4; i++; }   // サロゲートペア（絵文字など）
+      else n += 3;
+    }
+    return n;
+  }
+
+  // 出す文字はここを通す。上限をこえるかたまりは、まるごと落とします（途中では切りません）。
+  // shiori/src/interp.cpp の Emit と同じ規則にすること（一致テストが見ています）。
+  function emit(ctx, s) {
+    s = String(s);
+    const add = byteLen(s);
+    if (ctx.outBytes + add > MAX_OUT) return;
+    ctx.out += s;
+    ctx.outBytes += add;
+  }
+
   function emitScope(ctx, who) {
     who = Math.floor(toNum(who));
+    if (!(who >= 0)) return;               // 栞の EmitScope と同じで、負の番号は出さない
     if (ctx.scope === who) return;
-    ctx.out += who === 0 ? '\\0' : who === 1 ? '\\1' : '\\p[' + who + ']';
+    emit(ctx, who === 0 ? '\\0' : who === 1 ? '\\1' : '\\p[' + who + ']');
     ctx.scope = who;
   }
 
@@ -214,14 +240,14 @@
     switch (b.type) {
       case 'say': {
         emitScope(ctx, ev(b.who));
-        if (b.surface != null && b.surface !== '') ctx.out += '\\s[' + Math.floor(toNum(ev(b.surface))) + ']';
-        ctx.out += escapeText(toStr(ev(b.text)));
-        if (b.nl == null || toBool(b.nl)) ctx.out += '\\n';
+        if (b.surface != null && b.surface !== '') emit(ctx, '\\s[' + Math.floor(toNum(ev(b.surface))) + ']');
+        emit(ctx, escapeText(toStr(ev(b.text))));
+        if (b.nl == null || toBool(b.nl)) emit(ctx, '\\n');
         return;
       }
       case 'surface':
         emitScope(ctx, ev(b.who));
-        ctx.out += '\\s[' + Math.floor(toNum(ev(b.id))) + ']';
+        emit(ctx, '\\s[' + Math.floor(toNum(ev(b.id))) + ']');
         return;
       // 3 人目以降のキャラに切りかえる（\p[n]）。0 と 1 は \0 \1 になる。
       case 'chara': {
@@ -234,37 +260,37 @@
         let n = Math.floor(toNum(ev(b.count)));
         if (!(n >= 1)) n = 1;
         if (n > 32) n = 32;
-        ctx.out += '\\n'.repeat(n);
+        for (let i = 0; i < n; i++) emit(ctx, '\\n');
         return;
       }
       case 'wait': {
         let ms = Math.floor(toNum(ev(b.ms)));
         ms = Math.max(0, Math.min(60000, ms));
-        ctx.out += '\\_w[' + ms + ']';
+        emit(ctx, '\\_w[' + ms + ']');
         return;
       }
-      case 'click_wait': ctx.out += '\\x'; return;
-      case 'clear': ctx.out += '\\c'; return;
-      case 'raw': ctx.out += toStr(ev(b.text)); return;
+      case 'click_wait': emit(ctx, '\\x'); return;
+      case 'clear': emit(ctx, '\\c'); return;
+      case 'raw': emit(ctx, toStr(ev(b.text))); return;
       // SERIKO のアニメーションを再生する（\i[n]）。
       // プレビューでは動かないが、さくらスクリプトには出す。
       case 'anim': {
         let id = Math.floor(toNum(ev(b.id)));
         if (!(id >= 0)) id = 0;
-        ctx.out += '\\i[' + id + ']';
+        emit(ctx, '\\i[' + id + ']');
         return;
       }
-      case 'balloon': ctx.out += '\\b[' + Math.floor(toNum(ev(b.id))) + ']'; return;
+      case 'balloon': emit(ctx, '\\b[' + Math.floor(toNum(ev(b.id))) + ']'); return;
       case 'sound': {
         const f = safeTag(toStr(ev(b.file)), false);
-        if (f) ctx.out += '\\_v[' + f + ']';
+        if (f) emit(ctx, '\\_v[' + f + ']');
         return;
       }
       // 他のゴーストに話しかける。プレビューでは普通のセリフとして出す
       // （相手に届くところは、SSP に入れてから確かめてください）。
       case 'communicate': {
         emitScope(ctx, ev(b.who));
-        ctx.out += escapeText(toStr(ev(b.text)));
+        emit(ctx, escapeText(toStr(ev(b.text))));
         const to = toStr(ev(b.to)).trim();
         if (to) ctx.commTo = to;
         return;
@@ -272,13 +298,13 @@
       case 'link': {
         const url = safeTag(toStr(ev(b.url)), false);
         const label = toStr(ev(b.label)) || url;
-        if (url) ctx.out += '\\_a[' + url + ']' + safeTag(escapeText(label), false) + '\\_a';
+        if (url) emit(ctx, '\\_a[' + url + ']' + safeTag(escapeText(label), false) + '\\_a');
         return;
       }
       case 'choice': {
         const label = safeTag(escapeText(toStr(ev(b.label))), false);
         if (!label) return;
-        ctx.out += '\\q[' + label + ',' + safeTag(toStr(ev(b.target)), true) + ']';
+        emit(ctx, '\\q[' + label + ',' + safeTag(toStr(ev(b.target)), true) + ']');
         return;
       }
       // \![…] でお願いする系。プレビューでは何も起きないが、出力は本番と同じにする。
@@ -287,23 +313,23 @@
         const one = (v) => safeTag(toStr(v), true).trim();
         if (b.type === 'ask') {
           const into = one(b.into);
-          if (into) ctx.out += '\\![open,inputbox,nashi:' + into + ',-1,' + one(ev(b.initial)) + ']';
+          if (into) emit(ctx, '\\![open,inputbox,nashi:' + into + ',-1,' + one(ev(b.initial)) + ']');
           return;
         }
         if (b.type === 'change_ghost') {
           const name = one(ev(b.name));
-          if (name) { ctx.out += '\\![change,ghost,' + name + ']'; ctx.stopped = true; }
+          if (name) { emit(ctx, '\\![change,ghost,' + name + ']'); ctx.stopped = true; }
           return;
         }
         if (b.type === 'open_browser') {
           const url = one(ev(b.url));
-          if (url) ctx.out += '\\![open,browser,' + url + ']';
+          if (url) emit(ctx, '\\![open,browser,' + url + ']');
           return;
         }
         const evName = one(ev(b.event));
         if (!evName) return;
         const a = one(ev(b.a));
-        ctx.out += '\\![raise,' + evName + (a ? ',' + a : '') + ']';
+        emit(ctx, '\\![raise,' + evName + (a ? ',' + a : '') + ']');
         return;
       }
       // 「N 秒後によぶ」。プレビューでは待てないので、何も起きない。
@@ -312,10 +338,10 @@
       // 何も起きない（変数にも入れない。答えは「あとで届く」ものなので）。
       case 'saori_call': return;
       // ネットワーク更新。プレビューでは何も起きないが、出力は本番と同じにする。
-      case 'update': ctx.out += '\\![updatebymyself]'; return;
-      case 'end': ctx.out += '\\e'; ctx.stopped = true; return;
+      case 'update': emit(ctx, '\\![updatebymyself]'); return;
+      case 'end': emit(ctx, '\\e'); ctx.stopped = true; return;
       case 'stop': ctx.stopped = true; return;
-      case 'close': ctx.out += '\\-'; ctx.stopped = true; return;
+      case 'close': emit(ctx, '\\-'); ctx.stopped = true; return;
       case 'set': {
         if (!b.name) return;
         const v = ev(b.value);
@@ -420,6 +446,7 @@
         shellName: 'master',
       }, opt.sys || {}),
       out: '',
+      outBytes: 0,
       commTo: '',
       scope: -1,
       steps: 0,

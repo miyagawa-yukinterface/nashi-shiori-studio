@@ -531,6 +531,7 @@ window.NASHI = window.NASHI || {};
           ['いまごろ(朝/昼/夕方/夜)', 'daypart'], ['いまの季節', 'season'],
           ['起動してからの秒数', 'uptime'], ['起動してからの分数', 'uptimemin'],
           ['起動した回数', 'boots'], ['今回のトーク回数', 'talks'],
+          ['前に出したトーク', 'lasttalk'],
           ['ゴースト名', 'ghostname'], ['シェル名', 'shellname'],
           ['話しかけてきた相手', 'commfrom'], ['言われたこと', 'commtext'],
         ],

@@ -63,6 +63,15 @@ const sim = cases.map((s) => {
 });
 
 // ---------------------------------------------------------------------- 見くらべ
+
+/** 長い出力は、ちがいはじめたところの前後だけ見せる（画面が流れてしまわないように） */
+function around(s, k) {
+  const from = Math.max(0, k - 24);
+  const to = Math.min(s.length, k + 40);
+  return (from > 0 ? '…' : '') + s.slice(from, to)
+    + (to < s.length ? `…（ぜんぶで ${s.length} 文字）` : '');
+}
+
 let bad = 0;
 cases.forEach((s, i) => {
   const a = sim[i], b = shiori[i];
@@ -74,12 +83,11 @@ cases.forEach((s, i) => {
   bad++;
   console.log(`${red}  ちがう ${s.event}${off}  ${dim}${note}${off}`);
   if (a.value !== b.value) {
-    console.log(`        プレビュー: ${a.value}`);
-    console.log(`        栞        : ${b.value}`);
     let k = 0;
     while (k < a.value.length && k < b.value.length && a.value[k] === b.value[k]) k++;
-    console.log(`        ${dim}${k} 文字目から違います`
-      + ` (プレビュー "${a.value.slice(k, k + 12)}" / 栞 "${b.value.slice(k, k + 12)}")${off}`);
+    console.log(`        ${dim}${k} 文字目から違います${off}`);
+    console.log(`        プレビュー: ${around(a.value, k)}`);
+    console.log(`        栞        : ${around(b.value, k)}`);
   }
   if (a.commTo !== b.commTo) {
     console.log(`        話しかけ先  プレビュー: "${a.commTo}" / 栞: "${b.commTo}"`);

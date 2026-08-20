@@ -370,6 +370,17 @@
         { "type": "talk_interval", "sec": 90 },
         { "type": "say", "who": 0, "text": "かえた", "nl": 1 }
       ]
+    },
+    {
+      "id": "p29", "kind": "event", "event": "OnP29",
+      "_": "出すさくらスクリプトの長さの上限。こえたかたまりは、どちらも丸ごと落ちるはず",
+      "blocks": [
+        { "type": "repeat", "count": 400, "body": [
+          { "type": "say", "who": 0, "nl": 1,
+            "text": "あいうえおかきくけこあいうえおかきくけこあいうえおかきくけこ" }
+        ] },
+        { "type": "say", "who": 0, "text": "しっぽ", "nl": 0 }
+      ]
     }
   ]
 }
