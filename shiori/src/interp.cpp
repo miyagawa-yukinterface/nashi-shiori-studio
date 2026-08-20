@@ -333,6 +333,17 @@ void RunScript(const JValue& script, RunCtx& ctx) {
     RunBlocks(script["blocks"], ctx);
 }
 
+std::string CloseScript(const std::string& out, bool isCloseEvent) {
+    if (out.empty()) return out;
+    std::string s = out;
+    if (isCloseEvent) {
+        if (s.find("\\-") == std::string::npos) s += "\\-";
+        return s;
+    }
+    if (s.find("\\e") == std::string::npos && s.find("\\-") == std::string::npos) s += "\\e";
+    return s;
+}
+
 static void RunBlock(const JValue& b, RunCtx& ctx) {
     if (!b.isObj()) return;
     if (ctx.steps++ > kMaxSteps) { ctx.stopped = true; return; }

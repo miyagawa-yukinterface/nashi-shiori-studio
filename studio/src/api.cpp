@@ -4,6 +4,7 @@
 #include "fsutil.h"
 #include "image.h"
 #include "json.h"
+#include "preview.h"
 #include "sstp.h"
 #include "util.h"
 
@@ -300,6 +301,43 @@ void Api::HandleApi(const HttpRequest& req, HttpResponse& res) {
         }
         JValue o = JValue::makeObj();
         o.set("deleted", JValue::makeStr(name));
+        Json(res, 200, o);
+        return;
+    }
+
+    // ---- ためす（プレビュー）--------------------------------------------
+    // ブロックを動かすのは、栞そのもの（shiori/src/interp.cpp）です。
+    // 同じ規則を画面側にもう一度書くと、片方だけ直したときに静かにズレます。
+    if (req.path == "/api/preview" && req.method == "POST") {
+        JValue body;
+        if (!ParseBody(req, body)) { JsonError(res, 400, "JSON が壊れています"); return; }
+
+        PreviewRequest pr;
+        pr.project = body["project"];
+        if (!pr.project.isObj()) { JsonError(res, 400, "プロジェクトがありません"); return; }
+        pr.scriptId = body["scriptId"].asStr();
+        pr.vars = body["vars"];
+
+        const JValue& refs = body["refs"];
+        for (size_t i = 0; i < refs.size(); i++) pr.refs.push_back(refs.at(i).asStr());
+
+        const JValue& sys = body["sys"];
+        pr.uptime = sys["uptime"].asInt(0);
+        pr.boots = sys["boots"].asInt(1);
+        pr.talks = sys["talks"].asInt(0);
+        pr.lastTalk = sys["lastTalk"].asStr();
+        // 名前は画面から来たものを使い、無ければゴーストの設定から取る
+        pr.ghostName = sys.has("ghostName") ? sys["ghostName"].asStr()
+                                            : pr.project["meta"]["name"].asStr();
+        pr.shellName = sys.has("shellName") ? sys["shellName"].asStr() : "master";
+
+        PreviewResult r = RunPreview(pr);
+        if (!r.ok) { JsonError(res, 400, r.error); return; }
+
+        JValue o = JValue::makeObj();
+        o.set("script", JValue::makeStr(r.script));
+        o.set("commTo", JValue::makeStr(r.commTo));
+        o.set("vars", r.vars);
         Json(res, 200, o);
         return;
     }

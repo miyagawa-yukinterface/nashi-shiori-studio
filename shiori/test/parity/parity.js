@@ -1,13 +1,20 @@
-/* プレビュー(ui/js/sim.js) と 栞(shiori/src/interp.cpp) の出力を突き合わせる
+/* 同じブロックを 3 つのやりかたで動かして、出てきたさくらスクリプトを突き合わせる
  *
  *   node shiori\test\parity\parity.js
  *
- * 同じ ghost.json を両方に流して、出てきたさくらスクリプトを見くらべます。
- * ズレていたら、どのイベントのどこが違うかを出して、終了コード 1 で終わります。
+ *   プレビュー … ui/js/sim.js（JavaScript）              ← いずれ消します
+ *   32bit の栞 … shiori/dist/test_host.exe               ← SSP に入るもの
+ *   64bit の栞 … studio/test/preview_host.exe            ← スタジオの「ためす」が使うもの
  *
- * この 2 つは同じ規則を二重に実装しているので、ブロックを足すと片方だけ直して
- * もう片方を忘れる、ということが起きます。それを見つけるためのものです。
- * 新しいブロックを足したら、ghost.json にも「毎回おなじ結果になる形」で足してください。
+ * 「プレビュー」は同じ規則を JavaScript でもう一度書いたものなので、片方だけ直すと
+ * 静かにズレます。それを見つけるのが、このテストのもともとの役目でした。
+ *
+ * いまはスタジオも栞そのものでブロックを動かせるので、ここが緑であることは
+ * **JavaScript 版を消してよい**という証明にもなっています。消したあとは
+ * 32bit と 64bit の見くらべだけが残り、ビット幅で結果が変わる類のズレを見つけます。
+ *
+ * 新しいブロックを足したら、ghost.json にも「毎回おなじ結果になる形」で足してください
+ * （足し忘れは node tools\check-blocks.js が止めます）。
  */
 'use strict';
 
@@ -16,9 +23,10 @@ const path = require('path');
 const host = require('../lib/host');
 
 const here = __dirname;
+const projectPath = path.join(here, 'ghost.json');
 const { red, green, dim, off } = host.COLOR;
 
-const project = JSON.parse(fs.readFileSync(path.join(here, 'ghost.json'), 'utf8'));
+const project = JSON.parse(fs.readFileSync(projectPath, 'utf8'));
 const cases = (project.scripts || []).filter(
   (s) => s.kind === 'event' && /^OnP\d+$/.test(s.event || '')
 );
@@ -26,8 +34,19 @@ if (!cases.length) {
   console.error(`${red}[parity] ghost.json に OnP** のかたまりがありません。${off}`);
   process.exit(2);
 }
+const noId = cases.filter((s) => !s.id);
+if (noId.length) {
+  console.error(`${red}[parity] id の無いかたまりがあります: `
+    + `${noId.map((s) => s.event).join(', ')}（64bit 側は id で選びます）${off}`);
+  process.exit(2);
+}
 
-// ------------------------------------------------------------------ 栞 を動かす
+function fail(msg) {
+  console.error(`${red}[parity] ${msg}${off}`);
+  process.exit(2);
+}
+
+// ------------------------------------------------------------ 32bit の栞 を動かす
 let shiori;
 try {
   shiori = host.run(here, cases.map((s) => {
@@ -35,13 +54,24 @@ try {
     return refs.length ? `${s.event}:${refs.join(',')}` : s.event;
   }));
 } catch (e) {
-  console.error(`${red}[parity] ${e.message}${off}`);
-  process.exit(2);
+  fail(e.message);
 }
 if (shiori.length !== cases.length) {
-  console.error(`${red}[parity] 栞の応答が ${shiori.length} 件で、`
-    + `かたまりの数 ${cases.length} と合いません。${off}`);
-  process.exit(2);
+  fail(`32bit の栞の応答が ${shiori.length} 件で、かたまりの数 ${cases.length} と合いません。`);
+}
+
+// ------------------------------------------------------------ 64bit の栞 を動かす
+let studio;
+try {
+  studio = host.runPreview(projectPath, cases.map((s) => {
+    const refs = s.refs || [];
+    return refs.length ? `${s.id}:${refs.join(',')}` : s.id;
+  }));
+} catch (e) {
+  fail(e.message);
+}
+if (studio.length !== cases.length) {
+  fail(`64bit の栞の応答が ${studio.length} 件で、かたまりの数 ${cases.length} と合いません。`);
 }
 
 // ------------------------------------------------------------ プレビュー を動かす
@@ -72,32 +102,49 @@ function around(s, k) {
     + (to < s.length ? `…（ぜんぶで ${s.length} 文字）` : '');
 }
 
+/** 最初にちがう位置 */
+function firstDiff(a, b) {
+  let k = 0;
+  while (k < a.length && k < b.length && a[k] === b[k]) k++;
+  return k;
+}
+
+const WAYS = [
+  ['プレビュー', (i) => sim[i]],
+  ['32bit の栞', (i) => shiori[i]],
+  ['64bit の栞', (i) => studio[i]],
+];
+
 let bad = 0;
 cases.forEach((s, i) => {
-  const a = sim[i], b = shiori[i];
+  const got = WAYS.map(([name, pick]) => [name, pick(i)]);
+  const [, base] = got[0];
   const note = (s._ || '').trim();
-  if (a.value === b.value && a.commTo === b.commTo) {
+
+  const off1 = got.filter(([, r]) => r.value !== base.value || r.commTo !== base.commTo);
+  if (!off1.length) {
     console.log(`${green}  OK  ${off}${s.event}  ${dim}${note}${off}`);
     return;
   }
+
   bad++;
   console.log(`${red}  ちがう ${s.event}${off}  ${dim}${note}${off}`);
-  if (a.value !== b.value) {
-    let k = 0;
-    while (k < a.value.length && k < b.value.length && a.value[k] === b.value[k]) k++;
-    console.log(`        ${dim}${k} 文字目から違います${off}`);
-    console.log(`        プレビュー: ${around(a.value, k)}`);
-    console.log(`        栞        : ${around(b.value, k)}`);
+  const k = Math.min(...off1.map(([, r]) => firstDiff(base.value, r.value)));
+  console.log(`        ${dim}${k} 文字目から違います${off}`);
+  for (const [name, r] of got) {
+    console.log(`        ${name}: ${around(r.value, k)}`);
   }
-  if (a.commTo !== b.commTo) {
-    console.log(`        話しかけ先  プレビュー: "${a.commTo}" / 栞: "${b.commTo}"`);
+  const tos = got.map(([, r]) => r.commTo);
+  if (tos.some((t) => t !== tos[0])) {
+    console.log(`        話しかけ先  ${got.map(([n, r]) => `${n}:"${r.commTo}"`).join(' / ')}`);
   }
 });
 
 console.log('');
 if (bad) {
-  console.log(`${red}[parity] ${cases.length} 件中 ${bad} 件がズレています。`
-    + ` ui\\js\\sim.js と shiori\\src\\interp.cpp を見くらべてください。${off}`);
+  console.log(`${red}[parity] ${cases.length} 件中 ${bad} 件がズレています。${off}`);
+  console.log(`${dim}        プレビューだけ違う → ui\\js\\sim.js を interp.cpp に合わせる${off}`);
+  console.log(`${dim}        32bit と 64bit で違う → interp.cpp に、ビット幅に頼った書きかたがある${off}`);
   process.exit(1);
 }
-console.log(`${green}[parity] ${cases.length} 件すべて一致しました。${off}`);
+console.log(`${green}[parity] ${cases.length} 件が、3 つのやりかたで一致しました。${off}`);

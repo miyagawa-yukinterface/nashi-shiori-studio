@@ -43,6 +43,14 @@ SSP では違う、という形で、あとから分かります。
 （`Emit` / `emit`、`CapText` / `capText`、`TagArg` / `safeTag`、`EmitScope` / `emitScope`）。
 片方を直すときは、相方のコメントも探してください。
 
+### いま、この二重を無くしている最中です
+
+なしスタジオは **栞そのもの**（`interp.cpp` を 64bit で組んだもの）を積んでいて、
+`POST /api/preview`（`studio/src/preview.cpp`）でブロックを動かせます。
+一致テストが「JavaScript 版・32bit の栞・64bit の栞の 3 つが同じ結果」を見ているので、
+**ここが緑であることが、JavaScript 版を消してよい証明**になっています。
+消したあとは、`sim.js` にはさくらスクリプトの再生部だけが残ります。
+
 ---
 
 ## ブロックを 1 つ足す
@@ -82,13 +90,14 @@ SSP では違う、という形で、あとから分かります。
 | 走らせかた | 守っているもの |
 |---|---|
 | `node tools\check-blocks.js` | ブロックが 6 か所にそろっているか。上限の数が 2 つの実装で同じか |
-| `node shiori\test\parity\parity.js` | プレビューと栞の**出力が同じ**か |
+| `node shiori\test\parity\parity.js` | 同じブロックを**3 つのやりかた**（プレビュー / 32bit の栞 / 64bit の栞）で動かして、出力が同じか |
 | `node shiori\test\behavior\behavior.js` | 栞**だけ**が持っている判断（どれを選ぶか・既定の反応・間引き・通信・SAORI） |
 | `node studio\test\export.js` | 書き出したファイルの中身（バイトで見くらべ） |
 | `node ui\test\editor.js` | 読みこみの整形（`model.js`）とチェックタブ（`lint.js`） |
 
-`parity` と `behavior` は `shiori\dist\test_host.exe` を使うので、**先にビルドが要ります**
-（`.\build.ps1 -Test`）。`check-blocks` と `editor` はビルド無しで走ります。
+`parity` と `behavior` は `shiori\dist\test_host.exe` を、`parity` はさらに
+`studio\test\preview_host.exe` を使うので、**先にビルドが要ります**（`.\build.ps1 -Test`）。
+`check-blocks` と `editor` はビルド無しで走ります。
 
 書き出しかたをわざと変えたときは、出てきたものを**目で確かめてから**
 `node studio\test\export.js --update` で期待値を作りなおします。

@@ -27,6 +27,19 @@ struct SaoriDone {
     std::string value;    // 答え（呼べなかったときは空）
 };
 
+// ブロックを動かすところ（interp.cpp）から見た「SAORI の呼び出し口」。
+//
+// ここで一枚はさんであるので、interp.cpp は DLL の読み込みかたを知りません。
+// おかげで、なしスタジオは saori.cpp をリンクせずに栞の解釈部だけを取りこめます
+// （「ためす」は SAORI を呼ばないので、この口に NULL を渡します）。
+class SaoriHost {
+public:
+    virtual ~SaoriHost() {}
+    virtual SaoriResult Execute(const std::string& file, const std::vector<std::string>& args) = 0;
+    virtual bool ExecuteAsync(const std::string& file, const std::vector<std::string>& args,
+                              const std::string& into, int valueIndex) = 0;
+};
+
 // 読み込んだ SAORI を覚えておき、終了時にまとめて解放する。
 // 同じ DLL を何度呼んでも、読み込みは 1 回だけ。
 //
@@ -37,7 +50,7 @@ struct SaoriDone {
 // ゴーストが終わるとき、まだ終わらない呼び出しがあったら、この Saori は自分の分だけ
 // 手放して消えます。置き場は**最後のスレッドが片づける**ので、遅い SAORI が
 // あとから答えを書きにきても、消えたメモリを触ることがありません。
-class Saori {
+class Saori : public SaoriHost {
 public:
     Saori();
     ~Saori();
@@ -46,13 +59,13 @@ public:
     void SetBaseDir(const std::wstring& dir);
 
     // file は "kawari.dll" のような相対パス（.. は使えません）
-    SaoriResult Execute(const std::string& file, const std::vector<std::string>& args);
+    SaoriResult Execute(const std::string& file, const std::vector<std::string>& args) override;
 
     // 答えを待たずに呼ぶ。別のスレッドで動くので、SSP は止まりません。
     // valueIndex は -1 なら Result、0 以降なら ValueN を取り出します。
     // 走らせられなかった（同時に走りすぎ・名前が空）ときは false。
     bool ExecuteAsync(const std::string& file, const std::vector<std::string>& args,
-                      const std::string& into, int valueIndex);
+                      const std::string& into, int valueIndex) override;
 
     // 届いた答えを取り出す（主スレッドから。取り出したぶんは消えます）
     void TakeDone(std::vector<SaoriDone>& out);

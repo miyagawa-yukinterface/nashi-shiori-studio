@@ -627,7 +627,7 @@ std::string Shiori::Dispatch(const ShioriRequest& req) {
 
     if (id == "OnClose" || id == "OnCloseAll") {
         if (out.empty()) out = "\\0\\s[0]またね。";
-        if (out.find("\\-") == std::string::npos) out += "\\-";
+        out = CloseScript(out, true);
         SaveSave();
     }
     return out;
@@ -669,13 +669,7 @@ std::string Shiori::Request(const std::string& rawRequest) {
         commChain_ = 0;
     }
 
-    if (!value.empty()) {
-        bool isClose = (req.id == "OnClose" || req.id == "OnCloseAll");
-        if (!isClose && value.find("\\e") == std::string::npos &&
-            value.find("\\-") == std::string::npos) {
-            value += "\\e";
-        }
-    }
+    value = CloseScript(value, req.id == "OnClose" || req.id == "OnCloseAll");
     if (req.method == "NOTIFY") return BuildResponse("");
     // commChain_ は「何回目のやりとりか」なので、世代数はその 1 つ手前
     return BuildResponse(value, commTo_, commChain_ > 0 ? commChain_ - 1 : 0);

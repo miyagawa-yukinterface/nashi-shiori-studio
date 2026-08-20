@@ -91,6 +91,13 @@ bool Program::Load(const std::wstring& dir) {
         error_ = "ghost.json parse error: " + err;
         return false;
     }
+    return Adopt(root_);
+}
+
+bool Program::Adopt(const JValue& root) {
+    loaded_ = false;
+    error_.clear();
+    if (&root != &root_) root_ = root;
     if (!root_.isObj()) {
         error_ = "ghost.json must contain an object";
         return false;

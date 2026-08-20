@@ -48,6 +48,9 @@ class Program {
 public:
     // Loads <dir>ghost.json (falls back to nashi.json). Returns false when absent/broken.
     bool Load(const std::wstring& dir);
+    // すでに読みこんである JSON を、そのままプログラムとして使います。
+    // （スタジオのプレビューが、ファイルを介さずに渡してきます）
+    bool Adopt(const JValue& root);
     bool loaded() const { return loaded_; }
     const std::string& error() const { return error_; }
 

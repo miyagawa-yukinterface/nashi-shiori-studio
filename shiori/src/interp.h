@@ -29,7 +29,7 @@ struct RunCtx {
     Program* prog = NULL;
     Vars* vars = NULL;
     SysInfo* sys = NULL;
-    Saori* saori = NULL;               // 外部モジュールの呼び出し口
+    SaoriHost* saori = NULL;         // 外部モジュールの呼び出し口（プレビューでは NULL）
     std::vector<std::string> refs;   // Reference0..N of the current event
 
     std::string out;
@@ -51,6 +51,11 @@ void RunBlocks(const JValue& blocks, RunCtx& ctx);
 
 // Runs one whole script object ({..., "blocks":[...]}).
 void RunScript(const JValue& script, RunCtx& ctx);
+
+// トークの終わりに付ける印。ふつうは \e で閉じ、終了イベントは \- で閉じます。
+// 栞（shiori.cpp）と、スタジオのプレビュー（preview.cpp）の両方から呼びます。
+// 両方で同じ結果にならないと困るので、ここに 1 つだけ置いてあります。
+std::string CloseScript(const std::string& out, bool isCloseEvent);
 
 // Evaluates an expression node (literal or reporter block).
 Value EvalExpr(const JValue& node, RunCtx& ctx);

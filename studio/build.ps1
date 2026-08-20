@@ -97,6 +97,10 @@ $sources = @(
     (Join-Path $src 'zip.cpp'),
     (Join-Path $src 'deflate.cpp'),
     (Join-Path $src 'fsutil.cpp'),
+    (Join-Path $src 'preview.cpp'),
+    # 「ためす」は栞そのものでブロックを動かします（同じ規則を二重に書かないため）
+    (Join-Path $repo 'shiori\src\interp.cpp'),
+    (Join-Path $repo 'shiori\src\program.cpp'),
     (Join-Path $repo 'shiori\src\json.cpp'),
     (Join-Path $repo 'shiori\src\util.cpp')
 )
@@ -129,12 +133,15 @@ Write-Host '[studio] リンク中...' -ForegroundColor Cyan
 & link @linkArgs
 if ($LASTEXITCODE -ne 0) { throw 'リンクに失敗しました。' }
 
-# ---- 書き出しテスト用コンソール --------------------------------------------
-# 画面を出さずに、書き出されるファイルの中身（surfaces.txt など）を見るためのもの。
+# ---- テスト用コンソール ----------------------------------------------------
+# 画面を出さずに中身を見るためのもの。
+#   export_host  … 書き出されるファイル（surfaces.txt など）
+#   preview_host … 「ためす」の結果（一致テストが 32bit の栞と見くらべます）
 if ($Test) {
-    Write-Host '[studio] 書き出しテスト用コンソールをビルド中...' -ForegroundColor Cyan
     $testObj = Join-Path $obj 'test'
     New-Item -ItemType Directory -Force -Path $testObj | Out-Null
+
+    Write-Host '[studio] 書き出しテスト用コンソールをビルド中...' -ForegroundColor Cyan
     $testSources = @(
         (Join-Path $root 'test\export_host.cpp'),
         (Join-Path $src 'exporter.cpp'),
@@ -162,6 +169,34 @@ if ($Test) {
     & link @testLink
     if ($LASTEXITCODE -ne 0) { throw '書き出しテスト用コンソールのリンクに失敗しました。' }
     Write-Host "[studio] OK -> $testExe" -ForegroundColor Green
+
+    Write-Host '[studio] プレビューテスト用コンソールをビルド中...' -ForegroundColor Cyan
+    $prevObj = Join-Path $obj 'preview'
+    New-Item -ItemType Directory -Force -Path $prevObj | Out-Null
+    $prevSources = @(
+        (Join-Path $root 'test\preview_host.cpp'),
+        (Join-Path $src 'preview.cpp'),
+        (Join-Path $repo 'shiori\src\interp.cpp'),
+        (Join-Path $repo 'shiori\src\program.cpp'),
+        (Join-Path $repo 'shiori\src\json.cpp'),
+        (Join-Path $repo 'shiori\src\util.cpp')
+    )
+    $prevCl = @(
+        '/nologo', '/c', '/O2', '/MT', '/EHsc', '/W3', '/std:c++17', '/utf-8',
+        '/DNDEBUG', '/DWIN32', '/DUNICODE', '/D_UNICODE', '/D_CRT_SECURE_NO_WARNINGS',
+        "/I$src", "/I$repo\shiori\src", "/Fo:$prevObj\"
+    ) + $prevSources
+    & cl @prevCl
+    if ($LASTEXITCODE -ne 0) { throw 'プレビューテスト用コンソールのコンパイルに失敗しました。' }
+    $prevObjs = $prevSources | ForEach-Object {
+        Join-Path $prevObj ([System.IO.Path]::GetFileNameWithoutExtension($_) + '.obj')
+    }
+    $prevExe = Join-Path $root 'test\preview_host.exe'
+    $prevLink = @('/nologo', "/OUT:$prevExe", '/SUBSYSTEM:CONSOLE') + $prevObjs +
+        @('kernel32.lib', 'user32.lib', 'shell32.lib', 'shlwapi.lib', 'advapi32.lib', 'ole32.lib')
+    & link @prevLink
+    if ($LASTEXITCODE -ne 0) { throw 'プレビューテスト用コンソールのリンクに失敗しました。' }
+    Write-Host "[studio] OK -> $prevExe" -ForegroundColor Green
 }
 
 if ($SignThumbprint) {
