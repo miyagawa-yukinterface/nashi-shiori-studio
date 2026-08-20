@@ -7,7 +7,8 @@
  *   model.js … 読みこんだプロジェクトの整形（normalize）と、かたまりの名前
  *   lint.js  … チェックタブが出す注意
  *
- * sim.js（プレビュー）は shiori/test/parity で栞と突き合わせているので、ここでは見ません。
+ * ブロックを動かすところは栞（shiori/src/interp.cpp）にしかないので、ここでは見ません
+ * （そちらは shiori/test/parity と shiori/test/behavior が見ています）。
  */
 'use strict';
 

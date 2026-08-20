@@ -9,6 +9,10 @@
  * この道具は ui\js\blocks.js を「正」として、ほかのファイルがついてきているかを
  * 機械的に見ます。ビルドは要らないので、ブロックを足したら、まずこれを走らせてください。
  * くわしい手順は docs\maintenance.md にあります。
+ *
+ * ブロックを動かす規則は shiori/src/interp.cpp の 1 か所だけです
+ * （画面のプレビューも、そこを呼んでいます）。ここで見るのは「書き忘れ」だけで、
+ * 中身が合っているかは一致テストとふるまいテストが見ます。
  */
 'use strict';
 
@@ -18,7 +22,6 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 const C = { red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', dim: '\x1b[2m', off: '\x1b[0m' };
 
-const SIM = 'ui\\js\\sim.js';
 const CPP = 'shiori\\src\\interp.cpp';
 const DOC = 'docs\\blocks.md';
 const DEFS = 'ui\\js\\blocks.js';
@@ -58,7 +61,7 @@ function read(rel) {
   return fs.readFileSync(path.join(root, rel.replace(/\\/g, path.sep)), 'utf8');
 }
 
-const src = { sim: read(SIM), cpp: read(CPP), doc: read(DOC) };
+const src = { cpp: read(CPP), doc: read(DOC) };
 
 global.window = {};
 (0, eval)(read(DEFS));
@@ -72,7 +75,6 @@ if (!N || !N.BLOCKS) {
 // どのファイルでも「名前を書いた 1 行」を探すだけにしています。
 // 中身の書きかたを変えても壊れないように、関数の場所は当てにしません。
 const has = {
-  simCase: (name) => src.sim.includes(`case '${name}'`),
   cppType: (name) => src.cpp.includes(`type == "${name}"`),
   cppKey: (name) => src.cpp.includes(`key == "${name}"`),
   cppOp: (name) => src.cpp.includes(`op == "${name}"`),
@@ -131,8 +133,7 @@ const blockTypes = [...new Set(
 
 for (const t of blockTypes) {
   const miss = [];
-  if (!has.simCase(t)) miss.push(`${SIM} に  case '${t}':  がありません（プレビューが動きません）`);
-  if (!has.cppType(t)) miss.push(`${CPP} に  type == "${t}"  がありません（SSP で動きません）`);
+  if (!has.cppType(t)) miss.push(`${CPP} に  type == "${t}"  がありません（動きません）`);
   if (!has.doc(t)) miss.push(`${DOC} に  "type":"${t}"  の行がありません`);
   if (!tested.types.has(t)) {
     miss.push(`どのテストのゴーストにも出てきません`
@@ -142,11 +143,8 @@ for (const t of blockTypes) {
 }
 
 // 逆むき: 実装にあって、ブロック定義に無いもの。
-// sim.js は「さくらスクリプトをほどく」ところでも case を使っていますが、そちらの名前は
-// タグの 1 文字（\s \n \q など）なので、2 文字以上のものだけを見ます。
 // 演算の名前（min など）と情報の key は、それぞれ別の見出しで見ているので外します。
 const implTypes = new Set();
-for (const m of src.sim.matchAll(/case '([a-z_][a-z0-9_]+)'/g)) implTypes.add(m[1]);
 for (const m of src.cpp.matchAll(/type == "([a-z_][a-z0-9_]+)"/g)) implTypes.add(m[1]);
 const implKeys = new Set();
 for (const m of src.cpp.matchAll(/key == "([a-z_][a-z0-9_]*)"/g)) implKeys.add(m[1]);
@@ -165,10 +163,10 @@ if (strays.length) {
 // ==================================================== 2. 情報ブロックの key
 const sysKeys = options('sys', 'key').map((o) => o[1]);
 for (const k of sysKeys) {
-  const miss = [];
-  if (!has.simCase(k)) miss.push(`${SIM} の sysValue に  case '${k}':  がありません`);
-  if (!has.cppKey(k)) miss.push(`${CPP} の SysValue に  key == "${k}"  がありません`);
-  if (miss.length) bad(`情報ブロックの「${k}」がそろっていません`, miss);
+  if (!has.cppKey(k)) {
+    bad(`情報ブロックの「${k}」がそろっていません`,
+      [`${CPP} の SysValue に  key == "${k}"  がありません`]);
+  }
 }
 
 // 逆むき: 両方が知っているのに、えらべない key
@@ -184,22 +182,18 @@ const opKeys = Object.keys(defs).filter((k) => k.includes('#'));
 for (const key of opKeys) {
   const [type, op] = key.split('#');
   if (KNOWN.implicit[key]) continue;
-  const miss = [];
-  if (!src.sim.includes(`case '${op}'`) && !src.sim.includes(`=== '${op}'`)) {
-    miss.push(`${SIM} の ${type} に「${op}」の分岐がありません`);
+  if (!has.cppOp(op)) {
+    bad(`演算「${key}」がそろっていません`, [`${CPP} の ${type} に  op == "${op}"  がありません`]);
   }
-  if (!has.cppOp(op)) miss.push(`${CPP} の ${type} に  op == "${op}"  がありません`);
-  if (miss.length) bad(`演算「${key}」がそろっていません`, miss);
 }
 // dropdown で選ぶ op（round）も同じように見る
 for (const o of options('round', 'op')) {
   const op = o[1];
   const key = 'round#' + op;
   if (KNOWN.implicit[key]) continue;
-  const miss = [];
-  if (!src.sim.includes(`'${op}'`)) miss.push(`${SIM} の round に「${op}」がありません`);
-  if (!has.cppOp(op)) miss.push(`${CPP} の round に  op == "${op}"  がありません`);
-  if (miss.length) bad(`演算「${key}」がそろっていません`, miss);
+  if (!has.cppOp(op)) {
+    bad(`演算「${key}」がそろっていません`, [`${CPP} の round に  op == "${op}"  がありません`]);
+  }
 }
 
 // ============================================================== 4. パレット
@@ -226,33 +220,7 @@ if (notInPalette.length) {
   ));
 }
 
-// ======================================================== 5. 上限の数がおなじか
-// プレビューと栞で数がちがうと、長い話や重いループで結果がズレます。
-const LIMITS = [
-  ['MAX_STEPS', 'kMaxSteps', 'ブロックを動かす回数の上限'],
-  ['MAX_VALUE', 'kMaxValue', '変数 1 つぶんの長さの上限'],
-  ['MAX_LOOP', 'kMaxLoop', 'くりかえしの回数の上限'],
-  ['MAX_OUT', 'kMaxOut', '出すさくらスクリプトの長さの上限'],
-];
-function numAfter(text, name) {
-  const m = text.match(new RegExp(name + '\\s*=\\s*(\\d+)'));
-  return m ? m[1] : null;
-}
-for (const [js, cpp, what] of LIMITS) {
-  const a = numAfter(src.sim, js);
-  const b = numAfter(src.cpp, cpp);
-  if (a === null) { bad(`上限「${what}」`, [`${SIM} に ${js} がありません`]); continue; }
-  if (b === null) { bad(`上限「${what}」`, [`${CPP} に ${cpp} がありません`]); continue; }
-  if (a !== b) {
-    bad(`上限「${what}」が食いちがっています`, [
-      `${SIM} の ${js} は ${a}`,
-      `${CPP} の ${cpp} は ${b}`,
-      `どちらかに合わせてください（ちがうと、長い話でプレビューと本番がズレます）`,
-    ]);
-  }
-}
-
-// ==================================================== 6. イベント名のつじつま
+// ==================================================== 5. イベント名のつじつま
 const eventNames = new Set(N.EVENTS.map((e) => e[1]).filter((e) => e !== '__custom__'));
 const refOnly = Object.keys(N.EVENT_REFS).filter(
   (e) => !eventNames.has(e) && !e.includes('.')
@@ -292,5 +260,5 @@ if (problems.length) {
 
 console.log(`${C.green}  OK  ${C.off}ブロック ${blockTypes.length} 種・`
   + `情報 ${sysKeys.length} 種・演算 ${opKeys.length} 種が、`
-  + `プレビュー・栞・説明・テストにそろっています`);
+  + `栞・説明・テストにそろっています`);
 console.log(`${C.green}[そろい] ぜんぶそろっています。${C.off}`);

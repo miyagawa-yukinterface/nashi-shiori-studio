@@ -5,7 +5,7 @@
 
   const Model = N.Model;
   const Render = N.Render;
-  const Sim = N.Sim;
+  const Player = N.Player;
   const $ = (sel) => document.querySelector(sel);
 
   const App = {
@@ -279,12 +279,38 @@
     return ['0', '0', '0', String(who), script.area || 'Head'];
   }
 
-  App.runScript = function (script) {
+  /**
+   * ブロックを動かして、さくらスクリプトをもらう。
+   * 動かすのは栞そのもの（studio/src/preview.cpp → shiori/src/interp.cpp）です。
+   * 画面側で同じ規則をもう一度書くと、片方だけ直したときに静かにズレるためです。
+   */
+  async function runPreview(script) {
+    const meta = Model.project.meta || {};
+    return api('/api/preview', {
+      method: 'POST',
+      body: {
+        project: Model.project,
+        scriptId: script.id,
+        refs: refsFor(script),
+        vars: App.sessionVars,
+        sys: { ghostName: meta.name || '', shellName: 'master' },
+      },
+    });
+  }
+
+  App.runScript = async function (script) {
     if (!script) return;
     $('#run-target').value = script.id;
     switchTab('run');
-    const res = Sim.runScript(Model.project, script, { vars: App.sessionVars, refs: refsFor(script) });
-    App.sessionVars = res.vars;
+    let res;
+    try {
+      res = await runPreview(script);
+    } catch (e) {
+      $('#script-preview').textContent = '（ためせませんでした: ' + e.message + '）';
+      App.toast(e.message, true);
+      return;
+    }
+    App.sessionVars = res.vars || {};
     let preview = res.script || '（なにも出力されませんでした）';
     // 話しかけ先はさくらスクリプトに出ないので、ここで見せる
     if (res.commTo) preview += `\n\n（「${res.commTo}」に届きます）`;
@@ -306,7 +332,7 @@
       return;
     }
     for (const k of names) {
-      box.appendChild(Render.div('run-var', `${k}: ${Sim.toStr(shown[k])}`));
+      box.appendChild(Render.div('run-var', `${k}: ${Player.toStr(shown[k])}`));
     }
   }
 
@@ -783,7 +809,7 @@
     const token = ++App.playToken;
     resetStage();
     if (!script) return;
-    const ops = Sim.parseSakura(script);
+    const ops = Player.parseSakura(script);
     let who = 0;
     let target = balloonOf(0);
 
@@ -1374,8 +1400,11 @@
   async function sendScriptToSsp() {
     const script = currentScript();
     if (!script) { App.toast('実行するかたまりがありません', true); return; }
-    const res = Sim.runScript(Model.project, script, { vars: App.sessionVars, refs: refsFor(script) });
-    App.sessionVars = res.vars;
+    let res;
+    try {
+      res = await runPreview(script);
+    } catch (e) { App.toast(e.message, true); return; }
+    App.sessionVars = res.vars || {};
     $('#script-preview').textContent = res.script || '（なにも出力されませんでした）';
     renderRunVars();
     if (!res.script) { App.toast('出力がありませんでした', true); return; }

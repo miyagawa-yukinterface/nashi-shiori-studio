@@ -18,7 +18,6 @@ static const size_t kMaxValue = 32000;   // 変数 1 つぶんの長さの上限
 // 長すぎる文字は切ります（UTF-8 の途中では切りません）。
 // 上限が無いと「V を『V と V をつなげる』にする」を 30 回まわすだけで 1GB になり、
 // 32bit の栞はメモリを使いきって、SSP ごと落ちてしまいます。
-// ui/js/sim.js の capText と同じ規則にしてください。
 std::string CapText(const std::string& s) {
     if (s.size() <= kMaxValue) return s;
     size_t n = kMaxValue;
@@ -100,8 +99,6 @@ static std::string BlockType(const JValue& b) {
 // （OnCommunicate の Reference）や、使う人が入力ボックスに書いたものかも
 // しれないので、必ず通してから出します。
 // dropComma を立てると、区切りに使う , も落とします（\q の行き先など）。
-//
-// ui/js/sim.js の safeTag と同じ規則にしてください（一致テストが見ています）。
 static std::string TagArg(const std::string& s, bool dropComma) {
     std::string out;
     for (size_t i = 0; i < s.size(); i++) {
@@ -123,7 +120,7 @@ static Value SysValue(const std::string& key, RunCtx& ctx) {
     if (key == "month")   return Value::Num(st.wMonth);
     if (key == "day")     return Value::Num(st.wDay);
     if (key == "weekday") return Value::Num(st.wDayOfWeek);   // 0=Sunday
-    // 話のとっかかりに使う「いまごろ」。ui/js/sim.js と同じ区切りにしてください。
+    // 話のとっかかりに使う「いまごろ」
     if (key == "daypart") {
         int h = st.wHour;
         if (h < 5)  return Value::Str("夜");
