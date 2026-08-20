@@ -10,7 +10,7 @@
 
 ```powershell
 node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろっているか
-.\build.ps1 -Test              # 3 分ほど。ビルドしてテスト 6 本
+.\build.ps1 -Test              # 3 分ほど。ビルドしてテスト 7 本
 ```
 
 `check-blocks.js` はビルドが要らないので、**手を入れたら、まずこれ**です。
@@ -78,7 +78,7 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 
 ---
 
-## テスト 6 本と、それぞれが守っているもの
+## テスト 7 本と、それぞれが守っているもの
 
 | 走らせかた | 守っているもの |
 |---|---|
@@ -88,9 +88,11 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 | `node studio\test\export.js` | 書き出したファイルの中身（バイトで見くらべ） |
 | `node ui\test\editor.js` | 読みこみの整形（`model.js`）とチェックタブ（`lint.js`） |
 | `node ui\test\modules.js` | `ui\js\*.js` が読みこめて、`N.Xxx.yyy()` の呼び先がそろっているか |
+| `node tools\check-imports.js` | `nashi.dll` が Windows 2000 から読みこめるか（輸入表を直に読む） |
 
 `parity` と `behavior` は `shiori\dist\test_host.exe` を、`parity` はさらに
 `studio\test\preview_host.exe` を使うので、**先にビルドが要ります**（`.\build.ps1 -Test`）。
+`check-imports` も出来あがった `nashi.dll` を見るので、ビルドが要ります。
 `check-blocks` と `editor` と `modules` はビルド無しで走ります。
 
 書き出しかたをわざと変えたときは、出てきたものを**目で確かめてから**
@@ -133,6 +135,44 @@ blocks → model → player → lint → render → drag → app → shell / sea
 
 ---
 
+## 栞は、C ランタイムを使わずに組んでいます
+
+SSP は **Windows 2000 以降**で動きます。栞は SSP に読みこまれる DLL なので、そこに合わせます。
+
+ところが Visual Studio の C ランタイムをふつうに静的リンク（`/MT`）すると、**自分では
+一度も呼んでいないのに** `FlsAlloc` や `InitializeCriticalSectionEx`（どちらも Vista から）
+といった API が輸入表に載ります。輸入表は**読みこみのときに全部そろっている必要がある**ので、
+古い Windows では **DLL を開くことすらできません**。手元が Windows 11 だと当然動くので、
+ソースを読んでも気づけません。
+
+そこで栞は、
+
+* `/NODEFAULTLIB` で CRT を丸ごと外し、
+* **Windows に最初から入っている `msvcrt.dll`** につなぎ（`shiori/src/msvcrt.def`）、
+* それでも足りない Visual Studio 独自のものだけを `shiori/src/tinycrt.cpp` で用意する
+
+という組みかたにしてあります。`strtod` や `sprintf` のような「自分で書くと間違えるもの」は
+借りものの本物です。`nashi.dll` は 268KB から 134KB になりました。
+
+**ねらいどおりかは `node tools\check-imports.js` が見ます。** 出来あがった PE の輸入表を
+直に読んで、Windows 2000 に無い API が混ざっていたら名指しで止めます。
+`.\build.ps1 -Test` にも入っています。
+
+### ここを触るときの注意
+
+* **`shiori/src/msvcrt.def` は ASCII だけで書いてください。** `lib.exe` は `.def` を
+  ANSI コードページで読むので、日本語のコメントを入れると**次の行を巻きこんで消します**
+  （実際に `memcpy` と `strlen` が黙って落ちました）。
+* 借りる関数を足すときは、**Windows 2000 の `msvcrt.dll` にもあるか**確かめてください。
+* 例外は投げません。投げるはずの場面（メモリ不足・長さ超過）は、その場で終わります。
+  栞は 32KB で頭打ちにしてあるので、ふつうは起きません。
+* `<random>` や 64bit 整数と小数の行き来は、CRT にしか無い関数を呼びます。
+  避けかたは `util.cpp` の `NumToStr` と乱数のところにコメントで書いてあります。
+* **なしスタジオ（64bit）はふつうの CRT のままです。** 同じ `.cpp` を両方で組んでいますが、
+  `tinycrt.cpp` をリンクするのは栞だけです。一致テストが、両方で同じ答えになることを見ています。
+
+---
+
 ## つまずきやすいところ
 
 **スマートアプリコントロールが、作りたてのファイルを止める。**
@@ -168,8 +208,8 @@ Defender のほうを疑うなら `Get-MpThreatDetection`（何も出なけれ�
 **`nashi-studio.exe` は画面つきです。** スクリプトから `& .\nashi-studio.exe` と書くと
 戻ってきません。動きを確かめたいときは自分の手で起動してください。
 
-**`ui/` を直したら exe を作りなおす。** ブラウザで `ui\index.html` を直接開いても
-プレビューは動きますが、保存や書き出しは exe の中の API を呼ぶので動きません。
+**`ui/` を直したら exe を作りなおす。** ブラウザで `ui\index.html` を直接開くと
+見た目は出ますが、保存・書き出し・「ためす」は動きません（どれも exe の中を呼んでいます）。
 
 ---
 
@@ -177,7 +217,7 @@ Defender のほうを疑うなら `Get-MpThreatDetection`（何も出なけれ�
 
 1. `VERSION`（ルートの 1 行）を直す。zip の名前と exe のプロパティは、ここだけを見ています。
 2. `CHANGELOG.md` に、変わったことを足す。
-3. `.\build.ps1 -Release` — きれいに作り直し、テスト 6 本を通し、`dist\nashi-studio-<版>.zip` を作ります。
+3. `.\build.ps1 -Release` — きれいに作り直し、テスト 7 本を通し、`dist\nashi-studio-<版>.zip` を作ります。
 4. `git tag -a v<版> -m "…"` して `git push origin v<版>`。
 5. GitHub の Releases で、そのタグからリリースを作り、zip を添える
    （`gh` があれば `gh release create v<版> dist\nashi-studio-<版>.zip -F CHANGELOG.md`）。

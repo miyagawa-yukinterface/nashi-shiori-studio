@@ -1,6 +1,5 @@
 #include "util.h"
 
-#include <random>
 #include <cstdio>
 #include <cmath>
 #include <cstring>
@@ -119,9 +118,14 @@ bool StartsWith(const std::string& s, const std::string& prefix) {
 
 std::string NumToStr(double v) {
     if (!(v == v)) return "0";                       // NaN
-    if (v == (double)(long long)v && std::fabs(v) < 1e15) {
+    if (v == 0) return "0";                          // -0 も「0」と書く
+    // 整数なら小数点を出さない。
+    // ここで long long を通さないのは、小数と 64bit 整数の行き来だけは
+    // Windows に入っている msvcrt.dll に無く、自前で書くはめになるためです
+    // （shiori/src/tinycrt.cpp のコメントを見てください）。%.0f なら同じ字が出ます。
+    if (v == std::floor(v) && std::fabs(v) < 1e15) {
         char buf[32];
-        sprintf_s(buf, "%lld", (long long)v);
+        sprintf_s(buf, "%.0f", v);
         return buf;
     }
     char buf[64];
@@ -139,28 +143,53 @@ double StrToNum(const std::string& s) {
 }
 
 // ------------------------------------------------------------------ random
+//
+// std::mt19937 は使いません。<random> は 64bit 整数と小数の行き来を含んでいて、
+// そこが Visual Studio の CRT にしか無い関数を呼ぶためです。栞は古い Windows でも
+// 読みこめるように CRT を外しているので（shiori/src/tinycrt.cpp）、
+// 小さな乱数を自分で持ちます。トークの抽選に使うだけなので、これで十分です。
+// xorshift128 — 種が同じなら同じ並びが出ます。
 
-static std::mt19937& Rng() {
-    static std::mt19937 rng((unsigned)GetTickCount());
-    return rng;
+static unsigned g_rng[4] = { 0x9e3779b9u, 0x243f6a88u, 0xb7e15162u, 0xdeadbeefu };
+
+static unsigned NextRand() {
+    unsigned t = g_rng[3];
+    unsigned s = g_rng[0];
+    g_rng[3] = g_rng[2];
+    g_rng[2] = g_rng[1];
+    g_rng[1] = s;
+    t ^= t << 11;
+    t ^= t >> 8;
+    return g_rng[0] = t ^ s ^ (s >> 19);
 }
 
 void SeedRandom() {
     LARGE_INTEGER li;
     QueryPerformanceCounter(&li);
-    Rng().seed((unsigned)(li.LowPart ^ GetCurrentProcessId() ^ GetTickCount()));
+    unsigned seed = (unsigned)(li.LowPart ^ GetCurrentProcessId() ^ GetTickCount());
+    if (!seed) seed = 1;
+    g_rng[0] = seed;
+    g_rng[1] = seed ^ 0x9e3779b9u;
+    g_rng[2] = seed * 1664525u + 1013904223u;
+    g_rng[3] = seed ^ 0x85ebca6bu;
+    for (int i = 0; i < 16; i++) NextRand();      // 立ちあがりのかたよりをならす
 }
 
 int RandInt(int lo, int hi) {
     if (hi < lo) { int t = lo; lo = hi; hi = t; }
     if (lo == hi) return lo;
-    std::uniform_int_distribution<int> d(lo, hi);
-    return d(Rng());
+    unsigned span = (unsigned)(hi - lo) + 1u;
+    if (span == 0) return (int)NextRand();        // lo..hi が int の全域のとき
+    // 端数のぶんだけ引き直して、どの目も同じ出やすさにする
+    unsigned reject = (0xFFFFFFFFu / span) * span;
+    unsigned r;
+    do { r = NextRand(); } while (r >= reject);
+    return lo + (int)(r % span);
 }
 
 double RandUnit() {
-    std::uniform_real_distribution<double> d(0.0, 1.0);
-    return d(Rng());
+    // 上位 24 ビットだけ使う（int を経由して、64bit 整数の変換を通さない）
+    return (double)(int)(NextRand() >> 8) / 16777216.0;   // 0.0 以上 1.0 未満
 }
 
 // ----------------------------------------------------------------- logging

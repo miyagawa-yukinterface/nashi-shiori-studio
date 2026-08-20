@@ -57,14 +57,32 @@ if ($needVcVars) {
     Import-VcVars $Arch
 }
 
+# ---- Windows 2000 でも読みこめるようにする ---------------------------------
+# SSP は Windows 2000 以降で動きます。栞は SSP に読みこまれる DLL なので、そこに
+# 合わせます。ところが Visual Studio の C ランタイムを静的リンク（/MT）すると、
+# 自分では呼んでいない Vista からの API（FlsAlloc など）が輸入表に載ってしまい、
+# 古い Windows では **DLL の読みこみ自体が失敗**します。
+# そこで CRT を外し（/NODEFAULTLIB）、Windows に最初から入っている msvcrt.dll に
+# つなぎます。足りないぶんは src\tinycrt.cpp が持っています。
+#   ねらいどおりか  ->  node tools\check-imports.js
+$msvcrtLib = Join-Path $obj 'msvcrt.lib'
+Write-Host '[nashi] msvcrt.dll の輸入ライブラリを作ります...' -ForegroundColor DarkGray
+& lib /nologo "/DEF:$src\msvcrt.def" "/OUT:$msvcrtLib" /MACHINE:X86 | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'msvcrt.lib を作れませんでした。' }
+
 # ---- compile ---------------------------------------------------------------
-$sources = @('dllmain.cpp', 'shiori.cpp', 'program.cpp', 'interp.cpp', 'saori.cpp', 'json.cpp', 'util.cpp') |
+$sources = @('dllmain.cpp', 'shiori.cpp', 'program.cpp', 'interp.cpp', 'saori.cpp',
+             'json.cpp', 'util.cpp', 'tinycrt.cpp') |
            ForEach-Object { Join-Path $src $_ }
 $dllOut = Join-Path $dist 'nashi.dll'
 
+# /GS- /GR- /Zc:threadSafeInit-  … どれも CRT の助けが要る仕掛けなので切ります
+# /D_USE_STD_VECTOR_ALGORITHMS=0 … 新しい STL の SIMD 版も CRT を呼ぶので使いません
 $clArgs = @(
-    '/nologo', '/c', '/O2', '/MT', '/EHsc', '/W3', '/GS', '/std:c++17', '/utf-8',
+    '/nologo', '/c', '/O2', '/EHsc', '/W3', '/GS', '/GR-', '/std:c++17', '/utf-8',
+    '/Zc:threadSafeInit-', '/D_USE_STD_VECTOR_ALGORITHMS=0',
     '/DNDEBUG', '/D_CRT_SECURE_NO_WARNINGS', '/DWIN32', '/D_WINDOWS',
+    '/D_WIN32_WINNT=0x0500', '/DWINVER=0x0500',
     "/Fo:$obj\"
 ) + $sources
 
@@ -74,12 +92,27 @@ if ($LASTEXITCODE -ne 0) { throw 'コンパイルに失敗しました。' }
 
 $objs = Get-ChildItem $obj -Filter '*.obj' | ForEach-Object { $_.FullName }
 $linkArgs = @(
-    '/nologo', '/DLL', "/OUT:$dllOut", "/DEF:$src\nashi.def", '/OPT:REF', '/OPT:ICF'
-) + $objs + @('kernel32.lib', 'user32.lib', 'advapi32.lib')
+    '/nologo', '/DLL', "/OUT:$dllOut", "/DEF:$src\nashi.def", '/OPT:REF', '/OPT:ICF',
+    '/NODEFAULTLIB', '/ENTRY:DllMain', '/SAFESEH:NO'
+) + $objs + @($msvcrtLib, 'kernel32.lib', 'user32.lib', 'advapi32.lib')
 
 Write-Host "[nashi] リンク中..." -ForegroundColor Cyan
 & link @linkArgs
 if ($LASTEXITCODE -ne 0) { throw 'リンクに失敗しました。' }
+
+# ---- 名乗る最低 OS を Windows 2000 にする ----------------------------------
+# link.exe は 6.00（Vista）より下を受けつけないので、出来あがった PE の
+# 2 か所（OperatingSystemVersion と SubsystemVersion）を直に 5.00 に書きかえます。
+$bytes = [System.IO.File]::ReadAllBytes($dllOut)
+$pe = [System.BitConverter]::ToInt32($bytes, 0x3c)
+$opt = $pe + 24
+foreach ($off in @(0x28, 0x30)) {          # Major/Minor が 2 バイトずつ並んでいます
+    $bytes[$opt + $off]     = 5            # Major = 5
+    $bytes[$opt + $off + 1] = 0
+    $bytes[$opt + $off + 2] = 0            # Minor = 0
+    $bytes[$opt + $off + 3] = 0
+}
+[System.IO.File]::WriteAllBytes($dllOut, $bytes)
 
 $size = [math]::Round((Get-Item $dllOut).Length / 1KB, 1)
 Write-Host "[nashi] OK -> $dllOut ($size KB)" -ForegroundColor Green

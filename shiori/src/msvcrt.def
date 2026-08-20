@@ -1,0 +1,44 @@
+; Functions borrowed from msvcrt.dll, which ships with every Windows since 2000.
+; shiori/build.ps1 turns this into an import library; see shiori/src/tinycrt.cpp
+; for why the shiori does not link the Visual Studio CRT at all.
+;
+; NOTE: keep this file ASCII only. lib.exe reads .def in the ANSI code page, so
+; UTF-8 Japanese comments get mis-parsed and silently swallow the next line.
+;
+; Before adding a name here, make sure Windows 2000's msvcrt.dll also has it.
+LIBRARY msvcrt.dll
+EXPORTS
+; memory
+malloc
+free
+realloc
+; blocks of bytes
+memcpy
+memmove
+memset
+memcmp
+memchr
+; text
+strlen
+strcmp
+strncmp
+strchr
+strrchr
+strcpy
+strncpy
+strstr
+; formatting (used by our sprintf_s replacement)
+_vsnprintf
+_snprintf
+sprintf
+; numbers
+strtod
+strtol
+atoi
+; floating point
+floor
+ceil
+fabs
+fmod
+pow
+_CIfmod

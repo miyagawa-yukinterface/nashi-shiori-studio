@@ -45,9 +45,18 @@ const SINCE = {
     'LCMapStringW', 'LeaveCriticalSection', 'LoadLibraryExW', 'LoadLibraryW',
     'MultiByteToWideChar', 'QueryPerformanceCounter', 'RaiseException', 'ReadFile',
     'RtlUnwind', 'SetFilePointer', 'SetFilePointerEx', 'SetLastError',
+    'OutputDebugStringA', 'OutputDebugStringW',
     'SetStdHandle', 'SetUnhandledExceptionFilter', 'Sleep', 'TerminateProcess',
     'UnhandledExceptionFilter', 'VirtualProtect', 'VirtualQuery',
     'WaitForSingleObject', 'WideCharToMultiByte', 'WriteConsoleW', 'WriteFile',
+    // --- msvcrt.dll から借りているもの（shiori/src/msvcrt.def）---
+    // どれも Windows 2000 の msvcrt.dll に入っている、昔ながらの C の関数です。
+    'malloc', 'free', 'realloc',
+    'memcpy', 'memmove', 'memset', 'memcmp', 'memchr',
+    'strlen', 'strcmp', 'strncmp', 'strchr', 'strrchr', 'strcpy', 'strncpy', 'strstr',
+    '_vsnprintf', '_snprintf', 'sprintf',
+    'strtod', 'strtol', 'atoi',
+    'floor', 'ceil', 'fabs', 'fmod', 'pow', '_CIfmod',
   ],
   // --- Windows XP (5.1) から ---
   '5.1': [

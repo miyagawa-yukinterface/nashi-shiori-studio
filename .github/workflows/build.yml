@@ -38,7 +38,7 @@ jobs:
       - name: 画面のファイル（読みこみと呼び先）
         run: node ui\test\modules.js
 
-  # 栞（32bit DLL）とスタジオ（64bit EXE）を作って、テスト 6 本を通す。
+  # 栞（32bit DLL）とスタジオ（64bit EXE）を作って、テスト 7 本を通す。
   build:
     name: ビルドとテスト
     runs-on: windows-latest

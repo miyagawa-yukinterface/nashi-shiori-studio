@@ -63,13 +63,15 @@ Invoke-Sub (Join-Path $root 'studio\build.ps1') $studioArgs
 #   export   … 書き出したファイル（surfaces.txt など）の中身が期待どおりか
 #   editor   … エディタのデータ整形とチェックタブが期待どおりか
 #   modules  … 画面のファイルが読みこめて、呼び先がそろっているか（分けたときの移し忘れ）
+#   imports  … 栞が Windows 2000 以降で読みこめるか（新しい API が混ざっていないか）
 if ($Test) {
     Write-Host ''
     Write-Host '=== テスト ===' -ForegroundColor Yellow
     if (-not $node) {
         Write-Host '  Node.js が無いので飛ばします（https://nodejs.org/ で入れると走ります）' -ForegroundColor DarkYellow
     } else {
-        foreach ($t in @('shiori\test\parity\parity.js', 'shiori\test\behavior\behavior.js',
+        foreach ($t in @('tools\check-imports.js',
+                         'shiori\test\parity\parity.js', 'shiori\test\behavior\behavior.js',
                          'studio\test\export.js', 'ui\test\editor.js', 'ui\test\modules.js')) {
             & node (Join-Path $root $t)
             if ($LASTEXITCODE -ne 0) { throw "$([System.IO.Path]::GetFileName($t)) が失敗しました。" }

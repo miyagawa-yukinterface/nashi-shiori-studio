@@ -12,8 +12,26 @@ AIを思いっきり使ってます。
 
 | | |
 |---|---|
-| **なし栞 `nashi.dll`** | SHIORI/3.0 の DLL（32bit・静的CRT）。会話は C++ ではなく `ghost.json` に入ったブロックで書く。 |
+| **なし栞 `nashi.dll`** | SHIORI/3.0 の DLL（32bit）。**SSP と同じく Windows 2000 から**動きます。会話は C++ ではなく `ghost.json` に入ったブロックで書く。 |
 | **なしスタジオ `nashi-studio.exe`** | ブロックエディタ本体（64bit・単体で動く1ファイル）。自前のウィンドウに WebView2 を埋め込んだネイティブアプリ。UI も栞も exe の中。 |
+
+---
+
+## 動く環境
+
+|  | |
+|---|---|
+| **書き出したゴースト**（`nashi.dll` が入ります） | **Windows 2000 以降**。SSP の動作環境に合わせてあります |
+| **なしスタジオ**（`nashi-studio.exe`） | **Windows 10 / 11**（WebView2 が要ります） |
+
+ゴーストを**作る**のは新しい Windows で、**配ったゴーストが動く**のは古い Windows から、
+という形です。エディタは WebView2（Edge）の上に乗っているので、古い Windows では動きません。
+
+栞のほうは、そこに合わせるために **Visual Studio の C ランタイムを使わずに**組んでいます。
+ふつうに組むと、自分では呼んでいない Vista からの API が混ざってしまい、
+そこから下の Windows では**読みこみ自体が失敗する**ためです。
+ねらいどおりかは `node tools\check-imports.js` がいつでも確かめます
+（くわしくは [`docs/maintenance.md`](docs/maintenance.md)）。
 
 ---
 
@@ -155,7 +173,7 @@ Visual Studio の「C++ によるデスクトップ開発」が入っていれ�
 zip の名前と exe のプロパティ（右クリック→プロパティ→詳細）の両方に入ります。
 変わったことは `CHANGELOG.md` に足してください。
 
-`-Test` を付けると、6 つのテストが走ります。
+`-Test` を付けると、7 つのテストが走ります。
 
 | | |
 |---|---|
@@ -164,9 +182,10 @@ zip の名前と exe のプロパティ（右クリック→プロパティ→�
 | **ふるまいテスト**（`shiori\test\behavior\behavior.js`） | 栞だけが持っている判断 — 同じイベントに複数あるときどれを選ぶか、ブロックが無いときの既定の反応、`OnClose` の `\-`、「◯秒ごと」の間引き、なでなでの生成、通信の届け先、SAORI（テスト用のおそい DLL を実際に呼びます） — が期待どおりか |
 | **書き出しテスト**（`studio\test\export.js`） | 書き出したファイル（`surfaces.txt` / `descript.txt` / `ghost.json` / `install.txt`）の中身が期待どおりか。`updates2.dau` は MD5 を node の `crypto` と突き合わせます |
 | **エディタテスト**（`ui\test\editor.js`） | 読みこんだプロジェクトの整形（`model.js`）と、チェックタブが出す注意（`lint.js`）が期待どおりか |
+| **輸入の点検**（`tools\check-imports.js`） | 出来あがった `nashi.dll` の輸入表を直に読んで、**Windows 2000 に無い API** が混ざっていないか。混ざると、そこから下の Windows ではDLL の読みこみ自体が失敗します |
 | **画面ファイルの点検**（`ui\test\modules.js`） | `ui\js\*.js` を `index.html` と同じ順に読みこんで、落ちないか・`N.Xxx.yyy()` の呼び先がそろっているか。ファイルを分けたときの**移し忘れ**を捕まえます |
 
-この 6 つだけ **Node.js** を使います（入っていなければ飛ばします。アプリの動作には要りません）。
+この 7 つだけ **Node.js** を使います（入っていなければ飛ばします。アプリの動作には要りません）。
 ふるまいテストには、わざと待つ場面（おそい SAORI と終了が重なるところ）があるので、
 10 秒ほどかかります。
 ブロックやふるまいを足したら、`shiori\test\` `studio\test\` `ui\test\` の材料と期待値も
@@ -176,7 +195,7 @@ zip の名前と exe のプロパティ（右クリック→プロパティ→�
 **ブロックを 1 つ足すときの手順**（どのファイルに何を書くか）と、つまずきやすいところは
 [`docs/maintenance.md`](docs/maintenance.md) にまとめてあります。
 
-この 6 つは **GitHub でも自動で走ります**（`main` への push・`v*` タグ・プルリク）。
+この 7 つは **GitHub でも自動で走ります**（`main` への push・`v*` タグ・プルリク）。
 打ち忘れても止まるようにするためのものです。設定は `.github/workflows/build.yml`。
 
 個別に作るときは `shiori\build.ps1` / `studio\build.ps1`。
@@ -226,6 +245,8 @@ nashi-shiori/
 │   │   ├── program.cpp     ghost.json の読み込みと変数
 │   │   ├── json.cpp        小さな JSON パーサ（スタジオと共用）
 │   │   ├── util.cpp        文字コード・ファイル・乱数（スタジオと共用）
+│   │   ├── tinycrt.cpp     小さなランタイム（Windows 2000 で動かすため）
+│   │   ├── msvcrt.def      Windows の msvcrt.dll から借りる関数の一覧
 │   │   └── nashi.def       DLL が公開する名前（load / unload / request）
 │   ├── test/               SSP なしで動かせるテストホスト
 │   │   ├── lib/            テスト用の道具箱（32bit / 64bit の栞を動かして応答をほどく）
@@ -273,7 +294,8 @@ nashi-shiori/
 │       ├── dialog.js       保存 / 読込 と 書き出し
 │       └── ssp.js          動いている SSP との連携
 ├── tools/
-│   └── check-blocks.js     ブロックが全部のファイルにそろっているか見る（ビルド不要）
+│   ├── check-blocks.js     ブロックが全部のファイルにそろっているか見る（ビルド不要）
+│   └── check-imports.js    栞が Windows 2000 から読みこめるか見る
 └── docs/
     ├── blocks.md           ブロック一覧
     ├── ghost-json.md       ghost.json の仕様

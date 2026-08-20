@@ -12,10 +12,22 @@
 static nashi::Shiori* g_shiori = NULL;
 static HINSTANCE g_instance = NULL;
 
-BOOL APIENTRY DllMain(HINSTANCE hInst, DWORD reason, LPVOID) {
+// 栞は古い Windows でも読みこめるように、Visual Studio の C ランタイムを
+// 外して組んでいます（shiori/src/tinycrt.cpp）。ふだん CRT がやってくれる
+// 「外に置いた変数の組み立てと後片づけ」を、ここで自分で呼びます。
+namespace nashi {
+void TinyCrtStartup();
+void TinyCrtShutdown();
+}
+
+// safebuffers …「積み場所の帯」を配るのがこの中なので、ここだけは見張りません
+__declspec(safebuffers) BOOL APIENTRY DllMain(HINSTANCE hInst, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
         g_instance = hInst;
+        nashi::TinyCrtStartup();
         DisableThreadLibraryCalls(hInst);
+    } else if (reason == DLL_PROCESS_DETACH) {
+        nashi::TinyCrtShutdown();
     }
     return TRUE;
 }
