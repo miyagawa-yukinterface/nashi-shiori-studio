@@ -146,7 +146,7 @@ Visual Studio の「C++ によるデスクトップ開発」が入っていれ�
 
 ```powershell
 .\build.ps1            # 栞(32bit DLL) → スタジオ(64bit EXE)
-.\build.ps1 -Test      # 栞のテストホストも作り、テストも走らせる
+.\build.ps1 -Test      # 画面を出さずに動かすコンソールも作り、テストも走らせる
 .\build.ps1 -Release   # きれいに作り直してテストし、配布用の zip を作る
 ```
 
@@ -159,10 +159,10 @@ zip の名前と exe のプロパティ（右クリック→プロパティ→�
 
 | | |
 |---|---|
-| **そろい点検**（`tools\check-blocks.js`） | ブロックが「定義・プレビュー・栞・説明・テスト」のすべてにそろっているか。ビルドが要らないので、いちばん先に走ります |
-| **一致テスト**（`shiori\test\parity`） | 同じ `interp.cpp` を **32bit（SSP に入る栞）** と **64bit（なしスタジオの「ためす」）** で組んで、同じ `ghost.json` を流し、出てきたさくらスクリプトが一致するか見くらべます（ビット幅に頼った書きかたを見つけます） |
-| **ふるまいテスト**（`shiori\test\behavior`） | 栞だけが持っている判断 — 同じイベントに複数あるときどれを選ぶか、ブロックが無いときの既定の反応、`OnClose` の `\-`、「◯秒ごと」の間引き、なでなでの生成、通信の届け先、SAORI（テスト用のおそい DLL を実際に呼びます） — が期待どおりか |
-| **書き出しテスト**（`studio\test`） | 書き出したファイル（`surfaces.txt` / `descript.txt` / `ghost.json` / `install.txt`）の中身が期待どおりか。`updates2.dau` は MD5 を node の `crypto` と突き合わせます |
+| **そろい点検**（`tools\check-blocks.js`） | ブロックが「定義・栞・説明・テスト」のすべてにそろっているか。ビルドが要らないので、いちばん先に走ります |
+| **一致テスト**（`shiori\test\parity\parity.js`） | 同じ `interp.cpp` を **32bit（SSP に入る栞）** と **64bit（なしスタジオの「ためす」）** で組んで、同じ `ghost.json` を流し、出てきたさくらスクリプトが一致するか見くらべます（ビット幅に頼った書きかたを見つけます） |
+| **ふるまいテスト**（`shiori\test\behavior\behavior.js`） | 栞だけが持っている判断 — 同じイベントに複数あるときどれを選ぶか、ブロックが無いときの既定の反応、`OnClose` の `\-`、「◯秒ごと」の間引き、なでなでの生成、通信の届け先、SAORI（テスト用のおそい DLL を実際に呼びます） — が期待どおりか |
+| **書き出しテスト**（`studio\test\export.js`） | 書き出したファイル（`surfaces.txt` / `descript.txt` / `ghost.json` / `install.txt`）の中身が期待どおりか。`updates2.dau` は MD5 を node の `crypto` と突き合わせます |
 | **エディタテスト**（`ui\test\editor.js`） | 読みこんだプロジェクトの整形（`model.js`）と、チェックタブが出す注意（`lint.js`）が期待どおりか |
 | **画面ファイルの点検**（`ui\test\modules.js`） | `ui\js\*.js` を `index.html` と同じ順に読みこんで、落ちないか・`N.Xxx.yyy()` の呼び先がそろっているか。ファイルを分けたときの**移し忘れ**を捕まえます |
 
@@ -225,15 +225,19 @@ nashi-shiori/
 │   │   ├── saori.cpp       外部モジュール（SAORI）の呼び出し
 │   │   ├── program.cpp     ghost.json の読み込みと変数
 │   │   ├── json.cpp        小さな JSON パーサ（スタジオと共用）
-│   │   └── util.cpp        文字コード・ファイル・乱数（スタジオと共用）
+│   │   ├── util.cpp        文字コード・ファイル・乱数（スタジオと共用）
+│   │   └── nashi.def       DLL が公開する名前（load / unload / request）
 │   ├── test/               SSP なしで動かせるテストホスト
-│   │   ├── lib/            テスト用の道具箱（test_host を動かして応答をほどく）
-│   │   ├── parity/         プレビューと栞の出力を見くらべる一致テスト
+│   │   ├── lib/            テスト用の道具箱（32bit / 64bit の栞を動かして応答をほどく）
+│   │   ├── parity/         32bit と 64bit の栞の出力を見くらべる一致テスト
+│   │   ├── saori/          テスト用の「わざとおそい SAORI」
 │   │   └── behavior/       栞のふるまい（どれを選ぶか・既定の反応）のテスト
 │   └── dist/               ビルド結果（nashi.dll / test_host.exe）
 ├── studio/                 なしスタジオ（C++ / 64bit EXE）
 │   ├── build.ps1
-│   ├── test/               書き出しの答え合わせテスト（-Test で作るコンソール付き）
+│   ├── test/               答え合わせテスト（-Test でコンソールも作る）
+│   │                         export_host  … 書き出したファイルの中身を見る
+│   │                         preview_host … 「ためす」の結果を見る
 │   ├── res/                アイコン・埋め込むサンプルプロジェクト
 │   ├── third_party/        WebView2 SDK（ヘッダ + 静的ローダ）
 │   ├── tools/embed.ps1     ui\ と nashi.dll をリソース化
@@ -241,8 +245,10 @@ nashi-shiori/
 │       ├── main.cpp        ウィンドウ・起動終了・多重起動防止
 │       ├── webview.cpp     WebView2 の埋め込みと要求の横取り
 │       ├── webreq.cpp      要求の解析（URL デコードなど）
+│       ├── assets.cpp      exe に埋め込んだ ui\ と nashi.dll を取り出す
 │       ├── sstp.cpp        SSP との連携（SSTP と ssp.exe の検出）
-│       ├── api.cpp         保存・読み込み・書き出しの処理
+│       ├── api.cpp         保存・読み込み・書き出し・ためす の処理
+│       ├── preview.cpp     「ためす」を栞そのものに実行させる
 │       ├── exporter.cpp    ゴースト一式の組み立て（仮シェル込み）
 │       ├── image.cpp       PNG 出力と簡易ラスタライザ
 │       ├── zip.cpp         .nar (ZIP) 出力
@@ -251,7 +257,9 @@ nashi-shiori/
 ├── ui/                     画面（exe に埋め込まれる）
 │   ├── index.html
 │   ├── style.css
-│   ├── test/               整形とチェックタブのテスト（画面を出さずに動かす）
+│   ├── test/               画面を出さずに動かすテスト
+│   │                         editor.js  … 整形とチェックタブ
+│   │                         modules.js … 読みこみと呼び先のそろい
 │   └── js/
 │       ├── blocks.js       ブロック定義（ここを増やすとブロックが増える）
 │       ├── model.js        プロジェクトのデータと Undo
@@ -279,6 +287,8 @@ nashi-shiori/
 エディタの「ためす」も、**この栞そのもの**が動かしています。なしスタジオは
 `shiori/src/interp.cpp` を 64bit で組んだものを積んでいて、画面は `POST /api/preview`
 で頼むだけです（画面側にブロックの解釈はありません）。
+違うのは 2 つだけで、**SAORI は呼びません**（本物の 32bit DLL が要るため）、
+**時計や起動回数は画面から渡します**。それ以外は SSP に入れたときと同じ答えになります。
 
 * SHIORI/3.0 の DLL として `load` / `unload` / `request` を公開しています（`src/nashi.def`）。
 * 起動時に、DLL と同じフォルダの **`ghost.json`** を読み込みます。
@@ -346,7 +356,7 @@ nashi-shiori/
 * ランダムトークの**まとまり**（朝のトーク、季節のトーク…）と、そこから 1 つよぶブロック
 * どうしても必要なときの「さくらスクリプトをそのまま出す」ブロック
 
-まだできないこと（必要なら `ui\js\blocks.js` と `shiori\src\interp.cpp` に足せます）:
+まだできないこと（足しかたは [`docs/maintenance.md`](docs/maintenance.md) の「ブロックを 1 つ足す」にあります）:
 
 * SERIKO の残り（`alternativestart` などのまとめ操作、`scaling` / `insert`、
   `blend-*` のこまかい種類、着せ替え（MAYUNA）の `bind`）
@@ -375,6 +385,7 @@ nashi-shiori/
   あとは置いていきます（そこで固まらないため）。置いていっても、走っているスレッドが
   消えたメモリや外れた栞を触らないように、置き場を分けあい、栞じしんを押さえています。
 * 変数 1 つに入れておける長さは 32KB までです（つなげ続けてメモリを使いきらないため）。
+  1 回に出すさくらスクリプトも 32KB までで、こえたぶんは出しません。
 
 ---
 
@@ -384,3 +395,5 @@ nashi-shiori/
 * PNG も .nar も外部ライブラリを使わず自前で書き出しています（zlib 不要）。
 * 画面は WebView2 の中で動く HTML/CSS/JS ですが、`https://nashi.example/` という
   見せかけのアドレスから exe の中身を直接返しているだけで、通信はしていません。
+* `ui\index.html` をブラウザで直接開くと、画面の見た目は出ますが、保存・書き出し・
+  「ためす」は動きません（どれも exe の中の処理を呼んでいるためです）。
