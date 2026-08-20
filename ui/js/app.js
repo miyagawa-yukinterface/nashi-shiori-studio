@@ -7,6 +7,7 @@
   const Render = N.Render;
   const Player = N.Player;
   const $ = (sel) => document.querySelector(sel);
+  N.$ = $;   // あとから読みこむ画面ファイルも使います
 
   const App = {
     state: null,
@@ -63,8 +64,8 @@
     $('#canvas-hint').style.display = project.scripts.length ? 'none' : '';
     renderVarList();
     renderRunTargets();
-    renderCheck();
-    renderSearch();
+    N.Search.renderCheck();
+    N.Search.renderSearch();
     syncMetaFields();
     $('#btn-undo').disabled = !Model.undoStack.length;
     $('#btn-redo').disabled = !Model.redoStack.length;
@@ -74,6 +75,19 @@
   function updateTitle() {
     document.title = (Model.dirty ? '● ' : '') +
       (Model.project.meta.name || 'なしゴースト') + ' - なしスタジオ';
+  }
+
+  function switchTab(name) {
+    for (const t of document.querySelectorAll('.side-tab')) {
+      t.classList.toggle('is-active', t.dataset.tab === name);
+    }
+    for (const p of document.querySelectorAll('.side-panel')) {
+      p.classList.toggle('is-active', p.dataset.panel === name);
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   }
 
   App.onLiveEdit = function () {
@@ -316,7 +330,7 @@
     if (res.commTo) preview += `\n\n（「${res.commTo}」に届きます）`;
     $('#script-preview').textContent = preview;
     renderRunVars();
-    playSakura(res.script);
+    N.Shell.playSakura(res.script);
   };
 
   function renderRunVars() {
@@ -405,479 +419,6 @@
 
   function balloonOf(who) {
     return document.getElementById('balloon-' + (who === 1 ? 1 : 0));
-  }
-
-  // ------------------------------------------------------------ 立ち絵の絵
-  // 標準の 6 枚。ここに無い番号も「追加」でふやせる。
-  const SHELL_SLOTS = [
-    [0, 'さくら／通常'], [1, 'さくら／笑顔'], [2, 'さくら／驚き'],
-    [10, 'うにゅう／通常'], [11, 'うにゅう／笑顔'], [12, 'うにゅう／驚き'],
-  ];
-
-  function shellImages() {
-    const sh = Model.project.shell || {};
-    if (!Array.isArray(sh.images)) sh.images = [];
-    return sh.images;
-  }
-
-  function shellImageOf(surfaceId) {
-    return shellImages().find((x) => Number(x.id) === Number(surfaceId)) || null;
-  }
-
-  // 仮シェルは exe 側で描いてもらう。色を URL に入れてあるので、
-  // 色を変えれば URL も変わり、そのまま描き直しになる。
-  function shellUrl(surfaceId) {
-    const img = shellImageOf(surfaceId);
-    if (img && img.path) {
-      return '/api/shell/file?path=' + encodeURIComponent(img.path) +
-             '&v=' + encodeURIComponent(img.stamp || '');
-    }
-    const s = Model.project.shell || {};
-    const kero = surfaceId >= 10;
-    const hair = (kero ? s.keroColor : s.sakuraColor) || (kero ? '#8fd18a' : '#f08cae');
-    const cloth = (kero ? s.keroCloth : s.sakuraCloth) || (kero ? '#e8b45c' : '#6e82c8');
-    return '/api/shell?id=' + surfaceId +
-           '&hair=' + encodeURIComponent(hair) +
-           '&cloth=' + encodeURIComponent(cloth);
-  }
-
-  function setSurface(who, surfaceId) {
-    const img = document.getElementById('chara-' + (who === 1 ? 1 : 0));
-    if (!img) return;
-    // 用意した画像があればその番号をそのまま使う。
-    // 仮シェルしか無い番号は 0/1/2（さくら）と 10/11/12（うにゅう）に丸める。
-    let id = Number(surfaceId) || 0;
-    if (!shellImageOf(id)) {
-      if (who === 1 && id < 10) id += 10;
-      if ([0, 1, 2, 10, 11, 12].indexOf(id) < 0) id = who === 1 ? 10 : 0;
-    }
-    const url = shellUrl(id);
-    if (img.getAttribute('src') !== url) img.setAttribute('src', url);
-  }
-
-  // ゴーストタブの見本と、ためすタブの立ち絵をまとめて描き直す
-  function refreshShell() {
-    setSurface(0, 0);
-    setSurface(1, 10);
-    for (const id of [0, 1, 2, 10]) {
-      const img = document.getElementById('shell-prev-' + id);
-      if (img) img.setAttribute('src', shellUrl(id));
-    }
-    renderShellSlots();
-    renderAnimList();
-  }
-
-  // うごき（SERIKO のアニメーション）
-  const ANIM_INTERVALS = [
-    ['呼んだときだけ', 'never'],
-    ['いつも', 'always'],
-    ['ときどき', 'sometimes'],
-    ['まれに', 'rarely'],
-    ['◯秒に一度くらい', 'random'],
-    ['◯回しゃべるごと', 'talk'],
-    ['起動時に一度だけ', 'runonce'],
-  ];
-
-  // こまの重ねかた（SERIKO の描画メソッド）。名前は surfaces.txt にそのまま出ます。
-  const ANIM_METHODS = [
-    ['かさねる', 'overlay'],
-    ['かさねる（速い）', 'overlayfast'],
-    ['土台をとりかえる', 'base'],
-    ['すきとおりごと上書き', 'replace'],
-    ['すきまだけ重ねる', 'interpolate'],
-    ['すきとおりを無視する', 'asis'],
-    ['すきとおりをけずる', 'reduce'],
-    ['位置だけ動かす', 'move'],
-    ['かけあわせ', 'blend-multiply'],
-    ['スクリーン', 'blend-screen'],
-    ['オーバーレイ', 'blend-overlay'],
-    ['足しあわせ', 'blend-add'],
-    ['ほかのうごきを動かす', 'start'],
-    ['ほかのうごきを止める', 'stop'],
-    ['動く絵を差しこむ', 'import'],
-  ];
-
-  // 当たり判定のかたち
-  const ANIM_SHAPES = [
-    ['四角', 'rect'],
-    ['だ円', 'ellipse'],
-    ['丸', 'circle'],
-    ['多角形', 'polygon'],
-  ];
-
-  function renderAnimList() {
-    const box = $('#anim-list');
-    if (!box) return;
-    const anims = Model.project.animations || [];
-    box.textContent = '';
-    if (!anims.length) {
-      box.appendChild(Render.div('hint', 'まだうごきがありません。下のボタンで作れます。'));
-      return;
-    }
-
-    anims.forEach((a, idx) => {
-      const row = Render.div('anim-row');
-
-      const head = Render.div('anim-head');
-      head.appendChild(Render.el('span', 'anim-id', `うごき ${a.id}`));
-
-      const mk = (label, value, onInput, opts) => {
-        const f = Render.el('label', 'field row');
-        f.appendChild(Render.el('span', null, label));
-        const inp = Render.el('input');
-        inp.type = (opts && opts.type) || 'number';
-        inp.value = value;
-        if (opts && opts.min != null) inp.min = String(opts.min);
-        inp.addEventListener('change', () => {
-          const snap = Model.clone(Model.project);
-          onInput(inp.value);
-          Model.pushUndo(snap);
-          renderAnimList();
-        });
-        f.appendChild(inp);
-        return f;
-      };
-
-      head.appendChild(mk('番号', a.id, (v) => { a.id = Math.max(0, Math.min(127, Number(v) || 0)); },
-        { min: 0 }));
-      head.appendChild(mk('どの立ち絵に付ける', a.base, (v) => { a.base = Number(v) || 0; }, { min: 0 }));
-
-      const sel = Render.el('select');
-      for (const [label, value] of ANIM_INTERVALS) {
-        const o = Render.el('option', null, label);
-        o.value = value;
-        sel.appendChild(o);
-      }
-      sel.value = a.interval;
-      sel.addEventListener('change', () => {
-        const snap = Model.clone(Model.project);
-        a.interval = sel.value;
-        Model.pushUndo(snap);
-        renderAnimList();
-      });
-      const selField = Render.el('label', 'field row');
-      selField.appendChild(Render.el('span', null, 'いつ動く'));
-      selField.appendChild(sel);
-      head.appendChild(selField);
-
-      if (a.interval === 'random' || a.interval === 'talk') {
-        head.appendChild(mk(a.interval === 'random' ? '秒' : '回', a.every,
-          (v) => { a.every = Math.max(1, Number(v) || 1); }, { min: 1 }));
-      }
-
-      const del = Render.el('button', 'btn tiny', '消す');
-      del.addEventListener('click', () => {
-        Model.act(() => { Model.project.animations.splice(idx, 1); });
-        renderAnimList();
-      });
-      head.appendChild(del);
-      row.appendChild(head);
-
-      // パラパラの中身（どの絵を何ミリ秒）
-      const pats = Render.div('anim-pats');
-      // えらんだものを owner[key] に入れる小さなドロップダウン
-      const pick = (label, list, value, onPick) => {
-        const f = Render.el('label', 'field row');
-        f.appendChild(Render.el('span', null, label));
-        const s = Render.el('select');
-        for (const [text, v] of list) {
-          const o = Render.el('option', null, text);
-          o.value = v;
-          s.appendChild(o);
-        }
-        s.value = value;
-        s.addEventListener('change', () => {
-          const snap = Model.clone(Model.project);
-          onPick(s.value);
-          Model.pushUndo(snap);
-          renderAnimList();
-        });
-        f.appendChild(s);
-        return f;
-      };
-
-      a.patterns.forEach((p, k) => {
-        const pr = Render.div('anim-pat');
-        pr.appendChild(Render.el('span', 'anim-step', `${k + 1}`));
-        pr.appendChild(pick('重ねかた', ANIM_METHODS, p.method || 'base',
-          (v) => { p.method = v; }));
-        // 重ねかたによって、必要な欄が変わる
-        if (p.method === 'start' || p.method === 'stop') {
-          pr.appendChild(mk('うごき番号', p.surface,
-            (v) => { p.surface = Math.max(0, Math.min(127, Number(v) || 0)); }, { min: 0 }));
-        } else {
-          if (p.method === 'import') {
-            pr.appendChild(mk('動く絵', p.file || '', (v) => { p.file = String(v).trim(); },
-              { type: 'text' }));
-          } else {
-            pr.appendChild(mk('立ち絵', p.surface, (v) => { p.surface = Number(v) || 0; }, { min: 0 }));
-          }
-          pr.appendChild(mk('ミリ秒', p.wait, (v) => { p.wait = Math.max(0, Number(v) || 0); },
-            { min: 0 }));
-          // 位置ずらし。0 のままなら基準の絵とぴったり重なります。
-          pr.appendChild(mk('よこ', p.x || 0, (v) => { p.x = Number(v) || 0; }));
-          pr.appendChild(mk('たて', p.y || 0, (v) => { p.y = Number(v) || 0; }));
-        }
-        const rm = Render.el('button', 'btn tiny', '−');
-        rm.title = 'このこまを消す';
-        rm.addEventListener('click', () => {
-          Model.act(() => { a.patterns.splice(k, 1); });
-          renderAnimList();
-        });
-        pr.appendChild(rm);
-        pats.appendChild(pr);
-      });
-      const addPat = Render.el('button', 'btn tiny', '＋ こまを足す');
-      addPat.addEventListener('click', () => {
-        Model.act(() => { a.patterns.push({ surface: a.base, wait: 200, method: 'base', x: 0, y: 0 }); });
-        renderAnimList();
-      });
-      pats.appendChild(addPat);
-      row.appendChild(pats);
-
-      // このうごきの間だけ有効な当たり判定（animationN.collisionM）
-      const cols = Render.div('anim-cols');
-      (a.collisions || []).forEach((c, k) => {
-        const cr = Render.div('anim-pat');
-        cr.appendChild(Render.el('span', 'anim-step', 'あたり'));
-        cr.appendChild(mk('名前', c.name, (v) => { c.name = String(v).trim(); }, { type: 'text' }));
-        cr.appendChild(pick('かたち', ANIM_SHAPES, c.shape || 'rect', (v) => { c.shape = v; }));
-        if (c.shape === 'circle') {
-          cr.appendChild(mk('中心よこ', c.x1, (v) => { c.x1 = Number(v) || 0; }));
-          cr.appendChild(mk('中心たて', c.y1, (v) => { c.y1 = Number(v) || 0; }));
-          cr.appendChild(mk('半径', c.x2, (v) => { c.x2 = Math.max(0, Number(v) || 0); }, { min: 0 }));
-        } else if (c.shape === 'polygon') {
-          cr.appendChild(mk('かどの位置', c.points || '', (v) => { c.points = String(v); },
-            { type: 'text' }));
-          cr.appendChild(Render.el('span', 'hint', 'x,y を空白でならべます（3 つ以上）'));
-        } else {
-          cr.appendChild(mk('左', c.x1, (v) => { c.x1 = Number(v) || 0; }));
-          cr.appendChild(mk('上', c.y1, (v) => { c.y1 = Number(v) || 0; }));
-          cr.appendChild(mk('右', c.x2, (v) => { c.x2 = Number(v) || 0; }));
-          cr.appendChild(mk('下', c.y2, (v) => { c.y2 = Number(v) || 0; }));
-        }
-        const rm = Render.el('button', 'btn tiny', '−');
-        rm.title = 'この当たり判定を消す';
-        rm.addEventListener('click', () => {
-          Model.act(() => { a.collisions.splice(k, 1); });
-          renderAnimList();
-        });
-        cr.appendChild(rm);
-        cols.appendChild(cr);
-      });
-      const addCol = Render.el('button', 'btn tiny', '＋ 当たり判定を足す');
-      addCol.title = 'このうごきが動いている間だけ、ここを触れるようにします';
-      addCol.addEventListener('click', () => {
-        Model.act(() => {
-          if (!Array.isArray(a.collisions)) a.collisions = [];
-          a.collisions.push({
-            name: 'Anim' + a.id, shape: 'rect',
-            x1: 0, y1: 0, x2: 60, y2: 60, points: '',
-          });
-        });
-        renderAnimList();
-      });
-      cols.appendChild(addCol);
-      row.appendChild(cols);
-
-      if (!a.patterns.length) {
-        row.appendChild(Render.div('hint', 'こまが無いので、書き出しても動きません。'));
-      }
-      box.appendChild(row);
-    });
-  }
-
-  function addAnimation() {
-    Model.act(() => {
-      const anims = Model.project.animations;
-      let id = 0;
-      while (anims.some((a) => a.id === id)) id++;
-      anims.push({
-        id, base: 0, interval: 'sometimes', every: 4,
-        patterns: [
-          { surface: 1, wait: 200, method: 'base', x: 0, y: 0 },
-          { surface: 0, wait: 200, method: 'base', x: 0, y: 0 },
-        ],
-      });
-    });
-    renderAnimList();
-  }
-
-  function renderShellSlots() {
-    const box = $('#shell-slots');
-    if (!box) return;
-    const images = shellImages();
-    const extra = images
-      .map((x) => Number(x.id))
-      .filter((id) => !SHELL_SLOTS.some(([sid]) => sid === id))
-      .sort((a, b) => a - b);
-    const rows = SHELL_SLOTS.concat(extra.map((id) => [id, id >= 10 ? 'うにゅう' : 'さくら']));
-
-    box.textContent = '';
-    for (const [id, label] of rows) {
-      const img = shellImageOf(id);
-      const row = Render.div('shell-slot');
-
-      const thumb = Render.div('thumb');
-      const pic = Render.el('img');
-      pic.src = shellUrl(id);
-      pic.alt = label;
-      thumb.appendChild(pic);
-      row.appendChild(thumb);
-
-      const info = Render.div('info');
-      info.appendChild(Render.div('slot-name', `${label}（${id} 番）`));
-      const file = Render.el('span', 'slot-file' + (img ? '' : ' is-auto'),
-        img ? (img.name || img.path) : '自動生成');
-      if (img) {
-        file.title = img.path;
-        // ファイルが動いた・消えたときは、ここで気づけるようにする
-        pic.addEventListener('error', () => {
-          file.textContent = 'ファイルが見つかりません';
-          file.style.color = '#e2664a';
-          thumb.textContent = '？';
-        });
-      }
-      info.appendChild(file);
-      row.appendChild(info);
-
-      const pickBtn = Render.el('button', 'btn tiny', img ? '変える' : 'えらぶ');
-      pickBtn.addEventListener('click', () => pickShellImage(id));
-      row.appendChild(pickBtn);
-
-      if (img) {
-        const clear = Render.el('button', 'btn tiny', 'もどす');
-        clear.title = '自動生成にもどす';
-        clear.addEventListener('click', () => {
-          Model.act(() => {
-            const list = shellImages();
-            const i = list.findIndex((x) => Number(x.id) === Number(id));
-            if (i >= 0) list.splice(i, 1);
-          });
-          refreshShell();
-        });
-        row.appendChild(clear);
-      }
-      box.appendChild(row);
-    }
-  }
-
-  async function pickShellImage(surfaceId) {
-    let r;
-    try {
-      r = await api('/api/shell/pick', { method: 'POST', body: {} });
-    } catch (e) {
-      App.toast(e.message, true);
-      return;
-    }
-    const files = r.files || [];
-    if (!files.length) return;
-
-    // 複数えらんだときは、この番号から順にあてはめる（0,1,2 / 10,11,12 の並び）
-    const order = SHELL_SLOTS.map(([id]) => id);
-    let at = order.indexOf(Number(surfaceId));
-    Model.act(() => {
-      const list = shellImages();
-      files.forEach((f, n) => {
-        let id = Number(surfaceId);
-        if (n > 0) {
-          if (at < 0 || at + n >= order.length) id = Number(surfaceId) + n;
-          else id = order[at + n];
-        }
-        const one = { id, path: f.path, name: f.name, w: f.width, h: f.height, stamp: String(Date.now()) };
-        const i = list.findIndex((x) => Number(x.id) === id);
-        if (i >= 0) list[i] = one; else list.push(one);
-      });
-      list.sort((a, b) => Number(a.id) - Number(b.id));
-    });
-    refreshShell();
-    App.toast(files.length > 1 ? `${files.length} 枚を割り当てました` : '画像を割り当てました');
-  }
-
-  function resetStage() {
-    for (const id of ['balloon-0', 'balloon-1']) {
-      const b = document.getElementById(id);
-      b.querySelector('.balloon-text').textContent = '';
-      b.classList.add('is-empty');
-    }
-    $('#balloon-0 .balloon-name').textContent = Model.project.meta.sakuraName || 'さくら';
-    $('#balloon-1 .balloon-name').textContent = Model.project.meta.keroName || 'うにゅう';
-    refreshShell();
-  }
-
-  async function playSakura(script) {
-    const token = ++App.playToken;
-    resetStage();
-    if (!script) return;
-    const ops = Player.parseSakura(script);
-    let who = 0;
-    let target = balloonOf(0);
-
-    for (const op of ops) {
-      if (token !== App.playToken) return;
-      switch (op.op) {
-        case 'scope':
-          who = op.who;
-          target = balloonOf(who);
-          target.classList.remove('is-empty');
-          break;
-        case 'surface':
-          setSurface(who, op.id);
-          break;
-        case 'text': {
-          target.classList.remove('is-empty');
-          const box = target.querySelector('.balloon-text');
-          for (const ch of Array.from(op.text)) {
-            if (token !== App.playToken) return;
-            box.appendChild(document.createTextNode(ch));
-            target.scrollTop = target.scrollHeight;
-            await sleep(22);
-          }
-          break;
-        }
-        case 'newline':
-          target.querySelector('.balloon-text').appendChild(document.createTextNode('\n'));
-          break;
-        case 'clear':
-          target.querySelector('.balloon-text').textContent = '';
-          break;
-        case 'wait':
-          await sleep(Math.min(1200, op.ms));
-          break;
-        case 'clickwait': {
-          const mark = Render.el('span', 'balloon-wait', ' ▼');
-          target.querySelector('.balloon-text').appendChild(mark);
-          await Promise.race([sleep(2500), waitForStageClick()]);
-          mark.remove();
-          break;
-        }
-        case 'choice': {
-          const chip = Render.el('span', 'balloon-choice', op.label);
-          chip.addEventListener('click', () => {
-            const fn = Model.project.scripts.find(
-              (s) => (s.kind === 'function' || s.kind === 'talk') && s.name === op.id
-            );
-            if (fn) App.runScript(fn);
-            else App.toast(`「${op.id}」というトークが見つかりません`, true);
-          });
-          target.querySelector('.balloon-text').appendChild(chip);
-          break;
-        }
-        case 'end':
-        case 'close':
-          return;
-        default:
-          break;
-      }
-    }
-  }
-
-  function waitForStageClick() {
-    return new Promise((resolve) => {
-      const stage = $('#stage');
-      const fn = () => { stage.removeEventListener('click', fn); resolve(); };
-      stage.addEventListener('click', fn);
-    });
   }
 
   // ---------------------------------------------------------- 右クリック
@@ -981,7 +522,7 @@
     setVal('#shell-sakura-cloth', sh.sakuraCloth);
     setVal('#shell-kero-color', sh.keroColor);
     setVal('#shell-kero-cloth', sh.keroCloth);
-    refreshShell();
+    N.Shell.refreshShell();
   }
 
   function setVal(sel, v) {
@@ -1025,460 +566,10 @@
     bind('#set-talk-enabled', (v) => { Model.project.settings.randomTalkEnabled = !!v; });
     bind('#shell-balloon-on', (v) => { Model.project.shell.balloonEnabled = !!v; });
     bind('#shell-balloon-color', (v) => { Model.project.shell.balloonColor = v; });
-    bind('#shell-sakura-color', (v) => { Model.project.shell.sakuraColor = v; }, refreshShell);
-    bind('#shell-sakura-cloth', (v) => { Model.project.shell.sakuraCloth = v; }, refreshShell);
-    bind('#shell-kero-color', (v) => { Model.project.shell.keroColor = v; }, refreshShell);
-    bind('#shell-kero-cloth', (v) => { Model.project.shell.keroCloth = v; }, refreshShell);
-  }
-
-  // ------------------------------------------------------------- チェック
-  function renderCheck() {
-    const list = $('#check-list');
-    const badge = $('#check-badge');
-    const issues = N.Lint.run(Model.project);
-    const errors = N.Lint.countErrors(issues);
-
-    badge.textContent = issues.length ? String(issues.length) : '';
-    badge.classList.toggle('is-on', issues.length > 0);
-    badge.classList.toggle('warn-only', issues.length > 0 && errors === 0);
-
-    list.textContent = '';
-    if (!issues.length) {
-      list.appendChild(Render.div('check-ok', '✓ 気になるところはありません'));
-      return;
-    }
-    for (const it of issues) {
-      const item = Render.el('button', 'check-item ' + (it.level === 'error' ? 'is-error' : 'is-warn'));
-      item.appendChild(Render.el('span', 'mark', it.level === 'error' ? '⛔' : '⚠'));
-      const msg = Render.div('msg');
-      msg.appendChild(document.createTextNode(it.message));
-      if (it.hint) msg.appendChild(Render.el('span', 'why', it.hint));
-      item.appendChild(msg);
-      if (it.script) {
-        item.title = 'クリックでその場所へ移動します';
-        item.addEventListener('click', () => jumpTo(it));
-      } else {
-        item.style.cursor = 'default';
-      }
-      list.appendChild(item);
-    }
-  }
-
-  // --------------------------------------------------------------- さがす
-  /** ブロック 1 つを、画面に出ているのと同じ言葉にする（検索と一覧の見出し用） */
-  function blockSummary(b, depth) {
-    if (!b || typeof b !== 'object') return '';
-    if ((depth || 0) > 6) return '…';
-    const d = N.getDef(b);
-    if (!d) return String(b.type || '');
-    let s = '';
-    for (const part of d.parts) {
-      if (part.lbl != null) { s += part.lbl; continue; }
-      const v = b[part.arg];
-      if (v == null || v === '') { s += '◯'; continue; }
-      if (typeof v === 'object') {
-        s += v.type ? '（' + blockSummary(v, (depth || 0) + 1) + '）' : '…';
-        continue;
-      }
-      const a = (d.args || {})[part.arg];
-      if (a && a.kind === 'dropdown' && Array.isArray(a.options)) {
-        const hit = a.options.find((o) => String(o[1]) === String(v));
-        s += hit ? hit[0] : String(v);
-      } else {
-        s += String(v);
-      }
-    }
-    return s.replace(/\s+/g, ' ').trim();
-  }
-  App.blockSummary = blockSummary;
-
-  /** かたまりの中のブロックを、入れ子もふくめて順に見る */
-  function walkBlocks(script, visit) {
-    const stack = (arr) => {
-      if (!Array.isArray(arr)) return;
-      for (const b of arr) {
-        if (!b || typeof b !== 'object') continue;
-        visit(b);
-        inner(b);
-      }
-    };
-    const inner = (b) => {
-      const d = N.getDef(b);
-      if (!d) return;
-      for (const s of d.subs || []) stack(b[s.key]);
-      if (d.dynamic && Array.isArray(b[d.dynamic])) b[d.dynamic].forEach(stack);
-      for (const name in (d.args || {})) {
-        const v = b[name];
-        if (v && typeof v === 'object' && v.type) { visit(v); inner(v); }
-      }
-    };
-    stack(script.blocks);
-  }
-
-  function renderSearch() {
-    const list = $('#search-list');
-    if (!list) return;
-    const q = ($('#search-input').value || '').trim().toLowerCase();
-    list.textContent = '';
-    if (!q) {
-      list.appendChild(Render.div('hint', 'さがす言葉を入れてください。'));
-      return;
-    }
-
-    const hits = [];
-    for (const s of Model.project.scripts) {
-      const title = Model.scriptTitle(s);
-      if (title.toLowerCase().includes(q)) hits.push({ script: s, block: null, text: title });
-      walkBlocks(s, (b) => {
-        if (hits.length > 200) return;
-        const text = blockSummary(b);
-        if (text.toLowerCase().includes(q)) hits.push({ script: s, block: b, text, title });
-      });
-    }
-
-    if (!hits.length) {
-      list.appendChild(Render.div('check-ok', '見つかりませんでした'));
-      return;
-    }
-    for (const h of hits) {
-      const item = Render.el('button', 'check-item');
-      item.appendChild(Render.el('span', 'mark', h.block ? '🔎' : '📄'));
-      const msg = Render.div('msg');
-      msg.appendChild(document.createTextNode(h.text));
-      if (h.block) msg.appendChild(Render.el('span', 'why', h.title));
-      item.appendChild(msg);
-      item.title = 'クリックでその場所へ移動します';
-      item.addEventListener('click', () => jumpTo(h));
-      list.appendChild(item);
-    }
-  }
-
-  /** チェックで見つけた場所までキャンバスを動かして、光らせる */
-  function jumpTo(it) {
-    if (!it.script) return;
-    let target = null;
-    let scriptEl = null;
-    for (const el of document.querySelectorAll('#canvas .script')) {
-      if (el._script === it.script) { scriptEl = el; break; }
-    }
-    if (!scriptEl) return;
-    if (it.block) {
-      for (const el of scriptEl.querySelectorAll('.blk')) {
-        if (el._blk === it.block) { target = el; break; }
-      }
-    }
-
-    const ws = $('#workspace');
-    const box = (target || scriptEl).getBoundingClientRect();
-    const view = ws.getBoundingClientRect();
-    ws.scrollLeft += box.left - view.left - Math.max(40, (view.width - box.width) / 2);
-    ws.scrollTop += box.top - view.top - Math.max(40, (view.height - box.height) / 2);
-
-    const flashEl = target || scriptEl;
-    flashEl.classList.remove('flash');
-    void flashEl.offsetWidth;          // アニメーションをやり直させる
-    flashEl.classList.add('flash');
-    setTimeout(() => flashEl.classList.remove('flash'), 2600);
-  }
-
-  function switchTab(name) {
-    for (const t of document.querySelectorAll('.side-tab')) {
-      t.classList.toggle('is-active', t.dataset.tab === name);
-    }
-    for (const p of document.querySelectorAll('.side-panel')) {
-      p.classList.toggle('is-active', p.dataset.panel === name);
-    }
-  }
-
-  // ---------------------------------------------------------- 保存 / 読込
-  async function saveProject(silent) {
-    const name = Model.project.meta.name || 'ゴースト';
-    try {
-      const r = await api('/api/project', { method: 'POST', body: { name, project: Model.project } });
-      App.projectName = r.saved;
-      Model.dirty = false;
-      updateTitle();
-      if (!silent) App.toast(`「${r.saved}」を保存しました`);
-      return true;
-    } catch (e) {
-      App.toast(e.message, true);
-      return false;
-    }
-  }
-
-  /** ウィンドウを閉じるとき、アプリ本体から呼ばれる（保存し終わったら合図を返す） */
-  App.requestSaveAndClose = async function () {
-    try { await saveProject(true); } catch (e) { /* 保存できなくても閉じる */ }
-    if (window.chrome && window.chrome.webview) window.chrome.webview.postMessage('saved');
-  };
-
-  function modal(title, bodyEl, buttons) {
-    const root = $('#modal-root');
-    root.textContent = '';
-    const box = Render.div('modal');
-    box.appendChild(Render.el('h3', null, title));
-    const body = Render.div('modal-body');
-    body.appendChild(bodyEl);
-    box.appendChild(body);
-    const foot = Render.div('modal-foot');
-    for (const b of buttons) {
-      const btn = Render.el('button', 'btn' + (b.primary ? ' primary' : ''), b.label);
-      btn.addEventListener('click', () => { if (b.run) b.run(); if (b.close !== false) closeModal(); });
-      foot.appendChild(btn);
-    }
-    box.appendChild(foot);
-    root.appendChild(box);
-    root.classList.add('open');
-    root.onclick = (e) => { if (e.target === root) closeModal(); };
-  }
-  function closeModal() { $('#modal-root').classList.remove('open'); }
-
-  async function openProjectDialog() {
-    let state;
-    try { state = await api('/api/state'); } catch (e) { App.toast(e.message, true); return; }
-    const list = Render.div('');
-    if (!state.projects.length) list.appendChild(Render.div('hint', 'まだ保存したプロジェクトがありません。'));
-    for (const p of state.projects) {
-      const row = Render.div('proj-row');
-      row.appendChild(Render.div('t', p.title));
-      row.appendChild(Render.div('d', new Date(p.updated).toLocaleString('ja-JP')));
-      const x = Render.el('button', 'x', '✕');
-      x.title = '削除';
-      x.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (!confirm(`「${p.title}」を削除しますか？`)) return;
-        await api('/api/project/delete', { method: 'POST', body: { name: p.file } });
-        closeModal();
-        openProjectDialog();
-      });
-      row.appendChild(x);
-      row.addEventListener('click', async () => {
-        try {
-          const data = await api('/api/project?name=' + encodeURIComponent(p.file));
-          Model.init(data);
-          App.projectName = p.file;
-          App.sessionVars = {};
-          closeModal();
-          App.toast(`「${p.title}」を開きました`);
-        } catch (e) { App.toast(e.message, true); }
-      });
-      list.appendChild(row);
-    }
-    modal('プロジェクトを開く', list, [
-      { label: 'お手本から始める', run: () => setTimeout(openSampleDialog, 0) },
-      { label: '閉じる' },
-    ]);
-  }
-
-  /** お手本ゴースト（exe に入っている見本）をひらく */
-  async function openSampleDialog() {
-    let index;
-    try {
-      index = await (await fetch('samples/index.json')).json();
-    } catch (e) {
-      App.toast('お手本を読めませんでした', true);
-      return;
-    }
-    const list = Render.div('');
-    list.appendChild(Render.div('hint',
-      'えらぶと、いまのプロジェクトを置きかえて開きます（保存していないものは消えます）。'));
-    for (const s of index) {
-      const row = Render.div('proj-row');
-      row.appendChild(Render.div('t', s.title));
-      row.appendChild(Render.div('d', s.desc));
-      row.addEventListener('click', async () => {
-        if (Model.dirty && !confirm('保存していない変更があります。お手本を開きますか？')) return;
-        try {
-          const data = await (await fetch('samples/' + s.file)).json();
-          Model.init(data);
-          App.projectName = '';          // 上書き保存ではなく、名前を付けて保存させる
-          App.sessionVars = {};
-          closeModal();
-          App.toast(`お手本「${s.title}」を開きました。保存すると自分のものになります`);
-        } catch (e) { App.toast('お手本を読めませんでした', true); }
-      });
-      list.appendChild(row);
-    }
-    modal('お手本からはじめる', list, [{ label: '閉じる' }]);
-  }
-
-  // ------------------------------------------------------------- 書き出し
-  async function doExport(mode) {
-    const outDir = $('#export-dir').value.trim();
-    const box = $('#export-result');
-    box.textContent = '書き出し中…';
-    try {
-      const r = await api('/api/export', {
-        method: 'POST',
-        body: {
-          project: Model.project,
-          outDir,
-          mode,
-          includeShell: $('#export-shell').checked,
-          overwriteShell: $('#export-overwrite').checked,
-        },
-      });
-      box.textContent = '';
-      const p = Render.div('');
-      if (mode === 'nar') {
-        p.innerHTML = `<b>.nar を作りました</b><br><code>${escapeHtml(r.path)}</code><br>` +
-          'SSP のウィンドウにドラッグ＆ドロップするとインストールできます。';
-      } else {
-        p.innerHTML = `<b>書き出しました</b><br><code>${escapeHtml(r.root)}</code><br>` +
-          `ファイル ${r.written.length} 個` +
-          (r.skipped.length ? `（既存のシェル ${r.skipped.length} 個はそのまま）` : '');
-      }
-      if (!r.dll) {
-        p.appendChild(Render.div('status-line status-ng',
-          'nashi.dll が見つかりません。shiori\\build.ps1 を実行してから書き出し直してください。'));
-      }
-      const open = Render.el('button', 'btn small', 'フォルダを開く');
-      open.style.marginTop = '8px';
-      open.addEventListener('click', () => api('/api/reveal', {
-        method: 'POST', body: { path: r.root || r.path },
-      }).catch(() => {}));
-      p.appendChild(open);
-      box.appendChild(p);
-      App.toast('書き出しました');
-    } catch (e) {
-      box.textContent = '';
-      box.appendChild(Render.div('status-line status-ng', e.message));
-      App.toast(e.message, true);
-    }
-  }
-
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  }
-
-  // -------------------------------------------------------------- SSP 連携
-  function currentScript() {
-    const id = $('#run-target').value;
-    return Model.project.scripts.find((s) => s.id === id) || null;
-  }
-
-  function describeSsp(ssp) {
-    if (!ssp) return { text: 'SSP: 確認できません', ok: false };
-    if (ssp.sstp) {
-      return { text: 'SSP: つながっています' + (ssp.ghost ? `（${ssp.ghost}）` : ''), ok: true };
-    }
-    if (ssp.running) return { text: 'SSP: 起動中（SSTP の応答なし）', ok: false };
-    if (ssp.exe) return { text: 'SSP: 見つかりました（停止中）', ok: false };
-    return { text: 'SSP: 見つかりません', ok: false };
-  }
-
-  async function refreshSsp() {
-    let ssp = null;
-    try { ssp = await api('/api/ssp'); } catch (e) { /* 表示だけ更新する */ }
-    App.ssp = ssp;
-
-    const badge = $('#ssp-status');
-    const info = describeSsp(ssp);
-    badge.textContent = info.text;
-    badge.classList.toggle('is-off', !info.ok);
-    $('#btn-run-ssp').disabled = !info.ok;
-    $('#btn-send-event').disabled = !info.ok;
-    $('#btn-send-comm').disabled = !info.ok;
-
-    const box = $('#ssp-info');
-    if (box) {
-      box.className = 'status-line ' + (info.ok ? 'status-ok' : 'status-ng');
-      let text = info.text;
-      if (ssp && ssp.ghostDir) text += `\n${ssp.ghostDir}`;
-      else text += '\n下の欄に ssp.exe の場所を入れてください。';
-      box.textContent = text;
-      box.style.whiteSpace = 'pre-wrap';
-    }
-    const install = $('#btn-ssp-install');
-    if (install) install.disabled = !(ssp && ssp.ghostDir);
-    const launch = $('#btn-ssp-launch');
-    if (launch) launch.disabled = !(ssp && ssp.exe) || (ssp && ssp.running);
-    if (ssp && ssp.exe && !$('#ssp-path').value) $('#ssp-path').value = ssp.exe;
-    return ssp;
-  }
-
-  async function sendScriptToSsp() {
-    const script = currentScript();
-    if (!script) { App.toast('実行するかたまりがありません', true); return; }
-    let res;
-    try {
-      res = await runPreview(script);
-    } catch (e) { App.toast(e.message, true); return; }
-    App.sessionVars = res.vars || {};
-    $('#script-preview').textContent = res.script || '（なにも出力されませんでした）';
-    renderRunVars();
-    if (!res.script) { App.toast('出力がありませんでした', true); return; }
-    try {
-      await api('/api/ssp/script', { method: 'POST', body: { script: res.script } });
-      App.toast('SSP のゴーストに送りました');
-    } catch (e) {
-      App.toast(e.message, true);
-      refreshSsp();
-    }
-  }
-
-  async function sendEventToSsp() {
-    const script = currentScript();
-    if (!script) return;
-    if (script.kind !== 'event') {
-      App.toast('イベントのかたまりを選んでください', true);
-      return;
-    }
-    try {
-      await api('/api/ssp/notify', { method: 'POST', body: { event: script.event, refs: refsFor(script) } });
-      App.toast(`${script.event} を送りました（SSP に入れたゴーストが反応します）`);
-    } catch (e) {
-      App.toast(e.message, true);
-      refreshSsp();
-    }
-  }
-
-  // 他のゴーストのふりをして、動いているゴーストに話しかける。
-  // 「話しかけられたとき」のブロックを、本物のゴーストで試すためのもの。
-  async function sendCommToSsp() {
-    const script = currentScript();
-    const isComm = script && script.kind === 'event' && script.event === 'OnCommunicate';
-    // 「話しかけられたとき」を選んでいれば、その条件どおりの内容で話しかける
-    const sender = (isComm && script.from) || 'ほかのゴースト';
-    const sentence = (isComm && script.contains) || 'こんにちは';
-    try {
-      await api('/api/ssp/communicate', { method: 'POST', body: { sentence, sender } });
-      App.toast(`「${sender}」が「${sentence}」と話しかけました`);
-    } catch (e) {
-      App.toast(e.message, true);
-      refreshSsp();
-    }
-  }
-
-  async function installToSsp() {
-    const box = $('#ssp-result');
-    box.textContent = 'SSP に入れています…';
-    try {
-      const r = await api('/api/ssp/install', {
-        method: 'POST',
-        body: {
-          project: Model.project,
-          includeShell: $('#export-shell').checked,
-          overwriteShell: $('#export-overwrite').checked,
-          activate: true,
-        },
-      });
-      const notes = {
-        reload: '入れ直して、栞を読み込み直しました。すぐ反映されています。',
-        change: 'SSP のゴーストを切り替えました。切り替わらないときは、新しいゴーストなので SSP を再起動してください。',
-        none: '書き出しました。SSP を起動（または再起動）すると反映されます。',
-        failed: '書き出しましたが、SSP への指示は届きませんでした。',
-      };
-      box.innerHTML =
-        `<b>${escapeHtml(r.folder)}</b> を入れました（${r.files} ファイル）<br>` +
-        `<code>${escapeHtml(r.root)}</code><br>${escapeHtml(notes[r.action] || '')}`;
-      App.toast('SSP に入れました');
-      refreshSsp();
-    } catch (e) {
-      box.textContent = '';
-      box.appendChild(Render.div('status-line status-ng', e.message));
-      App.toast(e.message, true);
-    }
+    bind('#shell-sakura-color', (v) => { Model.project.shell.sakuraColor = v; }, N.Shell.refreshShell);
+    bind('#shell-sakura-cloth', (v) => { Model.project.shell.sakuraCloth = v; }, N.Shell.refreshShell);
+    bind('#shell-kero-color', (v) => { Model.project.shell.keroColor = v; }, N.Shell.refreshShell);
+    bind('#shell-kero-cloth', (v) => { Model.project.shell.keroCloth = v; }, N.Shell.refreshShell);
   }
 
   // ------------------------------------------------------------------ ズーム
@@ -1528,7 +619,7 @@
     Model.init(loaded || sampleProject());
     setZoom(1);
     switchTab('run');
-    resetStage();
+    N.Shell.resetStage();
 
     // ---- ボタン類
     $('#btn-new').addEventListener('click', () => {
@@ -1537,21 +628,21 @@
       App.sessionVars = {};
       App.toast('新しいゴーストを作りました');
     });
-    $('#btn-open').addEventListener('click', openProjectDialog);
-    $('#btn-save').addEventListener('click', () => saveProject(false));
+    $('#btn-open').addEventListener('click', N.Dialog.openProjectDialog);
+    $('#btn-save').addEventListener('click', () => N.Dialog.saveProject(false));
     $('#btn-undo').addEventListener('click', () => Model.undo());
     $('#btn-redo').addEventListener('click', () => Model.redo());
-    $('#btn-export').addEventListener('click', () => { switchTab('export'); doExport('dir'); });
-    $('#btn-export-dir').addEventListener('click', () => doExport('dir'));
-    $('#btn-export-nar').addEventListener('click', () => doExport('nar'));
+    $('#btn-export').addEventListener('click', () => { switchTab('export'); N.Dialog.doExport('dir'); });
+    $('#btn-export-dir').addEventListener('click', () => N.Dialog.doExport('dir'));
+    $('#btn-export-nar').addEventListener('click', () => N.Dialog.doExport('nar'));
     $('#btn-add-var').addEventListener('click', () => App.promptNewVariable());
-    $('#btn-anim-add').addEventListener('click', addAnimation);
+    $('#btn-anim-add').addEventListener('click', N.Shell.addAnimation);
     $('#btn-shell-add').addEventListener('click', () => {
       const v = prompt('どの番号の立ち絵にしますか？（さくらは 0〜9、うにゅうは 10 以上）', '3');
       if (v == null) return;
       const id = Math.max(0, Math.floor(Number(v)));
       if (!Number.isFinite(id)) { App.toast('番号は数字で入れてください', true); return; }
-      pickShellImage(id);
+      N.Shell.pickShellImage(id);
     });
     $('#btn-run').addEventListener('click', () => {
       const id = $('#run-target').value;
@@ -1580,31 +671,31 @@
       } catch (e) { App.toast(e.message, true); }
     });
 
-    $('#btn-run-ssp').addEventListener('click', sendScriptToSsp);
-    $('#btn-send-event').addEventListener('click', sendEventToSsp);
-    $('#btn-send-comm').addEventListener('click', sendCommToSsp);
+    $('#btn-run-ssp').addEventListener('click', N.Ssp.sendScriptToSsp);
+    $('#btn-send-event').addEventListener('click', N.Ssp.sendEventToSsp);
+    $('#btn-send-comm').addEventListener('click', N.Ssp.sendCommToSsp);
     $('#btn-vars-reset').addEventListener('click', resetSessionVars);
     $('#btn-save-reset').addEventListener('click', resetGhostSave);
     $('#btn-log-show').addEventListener('click', () => ghostLog(''));
     $('#btn-log-start').addEventListener('click', () => ghostLog('start'));
     $('#btn-log-clear').addEventListener('click', () => ghostLog('clear'));
-    $('#btn-ssp-install').addEventListener('click', installToSsp);
+    $('#btn-ssp-install').addEventListener('click', N.Ssp.installToSsp);
     $('#btn-ssp-refresh').addEventListener('click', async () => {
-      await refreshSsp();
+      await N.Ssp.refreshSsp();
       App.toast('SSP の状態を確認しました');
     });
     $('#btn-ssp-launch').addEventListener('click', async () => {
       try {
         await api('/api/ssp/launch', { method: 'POST', body: {} });
         App.toast('SSP を起動しました');
-        setTimeout(refreshSsp, 2500);
+        setTimeout(N.Ssp.refreshSsp, 2500);
       } catch (e) { App.toast(e.message, true); }
-      refreshSsp();
+      N.Ssp.refreshSsp();
     });
     $('#btn-ssp-path').addEventListener('click', async () => {
       try {
         await api('/api/ssp/path', { method: 'POST', body: { path: $('#ssp-path').value.trim() } });
-        await refreshSsp();
+        await N.Ssp.refreshSsp();
         App.toast('SSP の場所を覚えました');
       } catch (e) { App.toast(e.message, true); }
     });
@@ -1612,22 +703,22 @@
     for (const t of document.querySelectorAll('.side-tab')) {
       t.addEventListener('click', () => {
         switchTab(t.dataset.tab);
-        if (t.dataset.tab === 'export' || t.dataset.tab === 'run') refreshSsp();
+        if (t.dataset.tab === 'export' || t.dataset.tab === 'run') N.Ssp.refreshSsp();
       });
     }
-    refreshSsp();
-    setInterval(refreshSsp, 30000);
+    N.Ssp.refreshSsp();
+    setInterval(N.Ssp.refreshSsp, 30000);
 
     const searchInput = $('#search-input');
     if (searchInput) {
-      searchInput.addEventListener('input', renderSearch);
+      searchInput.addEventListener('input', N.Search.renderSearch);
       searchInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') searchInput.blur(); });
     }
 
     // ---- キーボード
     document.addEventListener('keydown', (e) => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
-      if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); saveProject(false); return; }
+      if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); N.Dialog.saveProject(false); return; }
       if (e.ctrlKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         switchTab('search');
@@ -1696,7 +787,7 @@
       e.returnValue = '';
     });
 
-    setInterval(() => { if (Model.dirty) saveProject(true); }, 60000);
+    setInterval(() => { if (Model.dirty) N.Dialog.saveProject(true); }, 60000);
   }
 
   // ------------------------------------------------------------ サンプル
@@ -1751,6 +842,22 @@
     ];
     return p;
   }
+
+  // ---------------------------------------------------- 分けた画面ファイルへ渡すもの
+  // shell.js / search.js / dialog.js / ssp.js は app.js のあとに読みこまれるので、
+  // ここに載せたものを N.App 経由で使います。逆向き（app.js から向こう）は、
+  // 読みこみ順の都合で N.Shell.xxx() のように、その場で引きます。
+  App.api = api;
+  App.sleep = sleep;
+  App.escapeHtml = escapeHtml;
+  App.updateTitle = updateTitle;
+  App.switchTab = switchTab;
+  App.refsFor = refsFor;
+  App.runPreview = runPreview;
+  App.renderRunVars = renderRunVars;
+  App.balloonOf = balloonOf;
+  App.scheduleRender = scheduleRender;
+  App.renderAll = renderAll;
 
   document.addEventListener('DOMContentLoaded', boot);
 

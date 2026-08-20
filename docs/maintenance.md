@@ -10,7 +10,7 @@
 
 ```powershell
 node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろっているか
-.\build.ps1 -Test              # 3 分ほど。ビルドしてテスト 5 本
+.\build.ps1 -Test              # 3 分ほど。ビルドしてテスト 6 本
 ```
 
 `check-blocks.js` はビルドが要らないので、**手を入れたら、まずこれ**です。
@@ -78,7 +78,7 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 
 ---
 
-## テスト 5 本と、それぞれが守っているもの
+## テスト 6 本と、それぞれが守っているもの
 
 | 走らせかた | 守っているもの |
 |---|---|
@@ -87,10 +87,11 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 | `node shiori\test\behavior\behavior.js` | 栞**だけ**が持っている判断（どれを選ぶか・既定の反応・間引き・通信・SAORI） |
 | `node studio\test\export.js` | 書き出したファイルの中身（バイトで見くらべ） |
 | `node ui\test\editor.js` | 読みこみの整形（`model.js`）とチェックタブ（`lint.js`） |
+| `node ui\test\modules.js` | `ui\js\*.js` が読みこめて、`N.Xxx.yyy()` の呼び先がそろっているか |
 
 `parity` と `behavior` は `shiori\dist\test_host.exe` を、`parity` はさらに
 `studio\test\preview_host.exe` を使うので、**先にビルドが要ります**（`.\build.ps1 -Test`）。
-`check-blocks` と `editor` はビルド無しで走ります。
+`check-blocks` と `editor` と `modules` はビルド無しで走ります。
 
 書き出しかたをわざと変えたときは、出てきたものを**目で確かめてから**
 `node studio\test\export.js --update` で期待値を作りなおします。
@@ -108,6 +109,27 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 * ランナーには MSVC も Windows SDK も入っていて、WebView2 の SDK は
   `studio/third_party` に置いてあるので、**落としてくるものはありません**。
 * スマートアプリコントロールはランナーには無いので、手元より素直に通ります。
+
+---
+
+## 画面のファイルの決まりごと
+
+`ui/js/` は `index.html` に書いた順に読みこまれ、それぞれ `window.NASHI`（`N`）に
+自分のぶんを載せます。**読みこみ順が、そのまま依存の向き**です。
+
+```
+blocks → model → player → lint → render → drag → app → shell / search / dialog / ssp
+```
+
+* **先に読まれるものは、載せてある名前をそのまま受け取れます**
+  （`const Model = N.Model;` のように、ファイルの先頭で）。
+* **あとに読まれるものを呼ぶときは、その場で引きます**（`N.Shell.playSakura(...)`）。
+  先頭で `const Shell = N.Shell;` と書くと、まだ載っていないので `undefined` になります。
+* `app.js` が分けたファイルへ渡すものは、`app.js` の終わりのほうで `App.api = api;` の形で
+  まとめて載せています。足すときはそこに書いてください。
+
+`node ui\test\modules.js` が、この決まりを守れているかを見ます
+（`N.Xxx.yyy()` の呼び先が無ければ、ファイルと行を名指しします）。
 
 ---
 
@@ -155,7 +177,7 @@ Defender のほうを疑うなら `Get-MpThreatDetection`（何も出なけれ�
 
 1. `VERSION`（ルートの 1 行）を直す。zip の名前と exe のプロパティは、ここだけを見ています。
 2. `CHANGELOG.md` に、変わったことを足す。
-3. `.\build.ps1 -Release` — きれいに作り直し、テスト 5 本を通し、`dist\nashi-studio-<版>.zip` を作ります。
+3. `.\build.ps1 -Release` — きれいに作り直し、テスト 6 本を通し、`dist\nashi-studio-<版>.zip` を作ります。
 4. `git tag -a v<版> -m "…"` して `git push origin v<版>`。
 5. GitHub の Releases で、そのタグからリリースを作り、zip を添える
    （`gh` があれば `gh release create v<版> dist\nashi-studio-<版>.zip -F CHANGELOG.md`）。
