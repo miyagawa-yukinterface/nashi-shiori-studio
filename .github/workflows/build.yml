@@ -1,0 +1,68 @@
+# 押すたびに、手元と同じテストを走らせます。
+#
+# 手元では `.\build.ps1 -Test` を打った人にしかテストが走りません。打ち忘れると、
+# 壊れたまま進んでも誰も気づけないので、ここで必ず走るようにしておきます。
+# 手順やテストの中身は docs/maintenance.md を見てください。
+name: ビルドとテスト
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']          # 配るためのタグも、押した時点で確かめる
+  pull_request:
+  workflow_dispatch:      # 手で走らせたいとき
+
+# 続けて push したら、古いほうは止める（順番待ちにならないように）
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ビルドが要らない点検だけ、先に。1 分ほどで赤か緑か分かります。
+  check:
+    name: そろい点検（ビルド不要）
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: ブロックのそろい
+        run: node tools\check-blocks.js
+
+      - name: エディタ（整形とチェックタブ）
+        run: node ui\test\editor.js
+
+  # 栞（32bit DLL）とスタジオ（64bit EXE）を作って、テスト 5 本を通す。
+  build:
+    name: ビルドとテスト
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # MSVC も Windows SDK もランナーに入っています。WebView2 の SDK は
+      # studio/third_party に置いてあるので、落としてくるものはありません。
+      - name: ビルドしてテスト
+        shell: pwsh
+        run: |
+          # テストの結果は日本語なので、UTF-8 で読めるようにしておく
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          .\build.ps1 -Test
+
+      # 手元でビルドしなくても、ここから落として試せるように。
+      # 署名はしていないので、Windows に止められることがあります（README 参照）。
+      - name: できたものを残す
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nashi-studio-${{ github.sha }}
+          path: |
+            nashi-studio.exe
+            shiori/dist/nashi.dll
+          retention-days: 14

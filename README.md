@@ -5,6 +5,8 @@ AIを思いっきり使ってます。
 
 # なし栞 + なしスタジオ
 
+[![build](https://github.com/miyagawa-yukinterface/nashi-shiori-studio/actions/workflows/build.yml/badge.svg)](https://github.com/miyagawa-yukinterface/nashi-shiori-studio/actions/workflows/build.yml)
+
 伺か（SSP）用の **栞（SHIORI）** と、その栞を使うゴーストを **Scratch のようにブロックを積んで作れるアプリ** の一式です。
 どちらも Windows ネイティブ（C++ / MSVC）で、ランタイムのインストールは要りません。
 
@@ -173,6 +175,9 @@ zip の名前と exe のプロパティ（右クリック→プロパティ→�
 **ブロックを 1 つ足すときの手順**（どのファイルに何を書くか）と、つまずきやすいところは
 [`docs/maintenance.md`](docs/maintenance.md) にまとめてあります。
 
+この 5 つは **GitHub でも自動で走ります**（`main` への push・`v*` タグ・プルリク）。
+打ち忘れても止まるようにするためのものです。設定は `.github/workflows/build.yml`。
+
 個別に作るときは `shiori\build.ps1` / `studio\build.ps1`。
 スタジオのビルドでは `studio\tools\embed.ps1` が `ui\` 以下と `nashi.dll` を
 リソースにまとめ、exe に埋め込みます（UI を直したら再ビルドしてください）。
@@ -206,6 +211,8 @@ Windows 11 の **スマートアプリコントロール**（既定でオンの�
 
 ```
 nashi-shiori/
+├── .github/workflows/
+│   └── build.yml            push のたびにビルドしてテストを走らせる
 ├── nashi-studio.exe        ビルド結果（これ1つで動く）
 ├── build.ps1               まとめてビルド
 ├── shiori/                 栞（C++ / 32bit DLL）
