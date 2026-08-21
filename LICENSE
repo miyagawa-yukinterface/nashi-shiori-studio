@@ -1,7 +1,8 @@
-なしライセンス 1.0
+なしライセンス 1.1
 ==================
 
-Copyright (c) 2026 ミヤガワ (miyagawa-yukinterface)
+Copyright (c) 2026 月見里　彩葉 (miyagawa-yukinterface)
+なし栞 + なしスタジオ  https://github.com/miyagawa-yukinterface/nashi-shiori-studio
 
 「本ソフトウェア」とは、なし栞（`nashi.dll`）、なしスタジオ（`nashi-studio.exe`）、
 およびこのリポジトリに含まれるソースコード・書きもの一式を指します。
@@ -46,13 +47,26 @@ Copyright (c) 2026 ミヤガワ (miyagawa-yukinterface)
 -------------------------------
 
 `nashi-studio.exe` や `nashi.dll` を**単体で**、あるいはソースコードを、
-そのまま、または書きかえて配るときは、次の 2 つをお願いします。
+そのまま、または書きかえて配るときは、次のことをお願いします。
 
 * この `LICENSE` ファイルを一緒に入れてください。
-* 書きかえたものを配るときは、**元のものと取りちがえられないように**、
-  変更を加えた旨がわかるようにしてください（README に一行でも、名前を変えるのでも）。
 
-2 の「ゴーストに入れて配る場合」は、この節の対象外です（何も要りません）。
+* **書きかえたもの（フォークを含みます）**を配るときは、あわせて次の 2 つを。
+
+  * **元のものと取りちがえられないように**、変更を加えた旨がわかるようにしてください
+    （README に一行でも、名前を変えるのでも構いません）。
+
+  * **もとになったプロジェクトの場所と作者名を、分かるところに書いてください。**
+    README でも、アプリのヘルプでも、置きやすいところで構いません。
+
+    ```
+    このソフトウェアは「なし栞 + なしスタジオ」をもとにしています。
+    https://github.com/miyagawa-yukinterface/nashi-shiori-studio
+    作者: 月見里　彩葉 (miyagawa-yukinterface)
+    ```
+
+2 の「ゴーストに入れて配る場合」は、この節の対象外です（**何も要りません**）。
+フォークしたものを使って書き出したゴーストにも、表示の義務はおよびません。
 
 
 4. 保証はありません
@@ -78,15 +92,18 @@ Copyright (c) 2026 ミヤガワ (miyagawa-yukinterface)
 * この条件に同意できない場合は、本ソフトウェアを使わないでください。
 * 作者は、将来の版でこの条件を変えることがあります。すでに受け取った版に
   ついては、受け取った時点の条件がそのまま有効です。
+  （1.0 との違いは、3 節に「フォークしたら、もとの場所と作者名を書く」を
+  足したことだけです。ゴーストまわりは変えていません。）
 * 日本語の本文を正文とします。下の英訳は参考です。
 
 
 ---
 
-Nashi License 1.0 (reference translation)
+Nashi License 1.1 (reference translation)
 =========================================
 
-Copyright (c) 2026 ミヤガワ (miyagawa-yukinterface)
+Copyright (c) 2026 月見里　彩葉 (miyagawa-yukinterface)
+nashi SHIORI + nashi studio  https://github.com/miyagawa-yukinterface/nashi-shiori-studio
 
 "The Software" means nashi SHIORI (`nashi.dll`), nashi studio
 (`nashi-studio.exe`), and the source code and documents in this repository.
@@ -106,9 +123,18 @@ required.
 
 **3. Distributing the Software itself.** If you distribute
 `nashi-studio.exe` or `nashi.dll` on their own, or the source code, in
-original or modified form, please (a) include this `LICENSE` file, and
-(b) if modified, make it clear that changes were made, so it is not
-mistaken for the original. Section 2 (ghosts) is exempt from this section.
+original or modified form, please (a) include this `LICENSE` file. If your
+copy is modified (this includes a fork), please also (b) make it clear that
+changes were made, so it is not mistaken for the original, and (c) state the
+original project's address and author somewhere visible — a README or an
+in-app help screen is fine:
+
+    This software is based on "nashi SHIORI + nashi studio".
+    https://github.com/miyagawa-yukinterface/nashi-shiori-studio
+    Author: 月見里　彩葉 (miyagawa-yukinterface)
+
+Section 2 (ghosts) is exempt from this section: nothing is required there,
+including for ghosts exported with a forked build.
 
 **4. No warranty.** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
 ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
