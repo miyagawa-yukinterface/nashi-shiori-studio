@@ -203,6 +203,36 @@ if ($Test) {
     if ($LASTEXITCODE -ne 0) { throw '配置テスト用コンソールのリンクに失敗しました。' }
     Write-Host "[studio] OK -> $layExe" -ForegroundColor Green
 
+    # 描いた絵を PNG にして出すコンソール（窓を出さずに、目でも確かめられるように）
+    Write-Host '[studio] 描画テスト用コンソールをビルド中...' -ForegroundColor Cyan
+    $renObj = Join-Path $obj 'render'
+    New-Item -ItemType Directory -Force -Path $renObj | Out-Null
+    $renSources = @(
+        (Join-Path $root 'test\render_host.cpp'),
+        (Join-Path $src 'w2k\blockdefs.cpp'),
+        (Join-Path $src 'w2k\layout.cpp'),
+        (Join-Path $src 'w2k\paint.cpp'),
+        (Join-Path $src 'image.cpp'),
+        (Join-Path $src 'deflate.cpp'),
+        (Join-Path $repo 'shiori\src\json.cpp'),
+        (Join-Path $repo 'shiori\src\util.cpp')
+    )
+    $renCl = @(
+        '/nologo', '/c', '/O2', '/MT', '/EHsc', '/W3', '/std:c++17', '/utf-8',
+        '/DNDEBUG', '/DWIN32', '/DUNICODE', '/D_UNICODE', '/D_CRT_SECURE_NO_WARNINGS',
+        "/I$src", "/I$repo\shiori\src", "/Fo:$renObj\"
+    ) + $renSources
+    & cl @renCl
+    if ($LASTEXITCODE -ne 0) { throw '描画テスト用コンソールのコンパイルに失敗しました。' }
+    $renObjs = $renSources | ForEach-Object {
+        Join-Path $renObj ([System.IO.Path]::GetFileNameWithoutExtension($_) + '.obj')
+    }
+    $renExe = Join-Path $root 'test\render_host.exe'
+    & link '/nologo' "/OUT:$renExe" '/SUBSYSTEM:CONSOLE' @renObjs `
+        'kernel32.lib' 'user32.lib' 'gdi32.lib' 'shell32.lib' 'shlwapi.lib' 'advapi32.lib' 'ole32.lib'
+    if ($LASTEXITCODE -ne 0) { throw '描画テスト用コンソールのリンクに失敗しました。' }
+    Write-Host "[studio] OK -> $renExe" -ForegroundColor Green
+
     Write-Host '[studio] プレビューテスト用コンソールをビルド中...' -ForegroundColor Cyan
     $prevObj = Join-Path $obj 'preview'
     New-Item -ItemType Directory -Force -Path $prevObj | Out-Null

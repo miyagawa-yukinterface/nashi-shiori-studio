@@ -23,6 +23,8 @@ shiori/test/*/*/slow_saori.dll
 studio/test/export_host.exe
 studio/test/preview_host.exe
 studio/test/layout_host.exe
+studio/test/render_host.exe
+studio/test/render_out/
 
 # 配布用のまとめ（-Release で作る）
 /dist/

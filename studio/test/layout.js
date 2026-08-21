@@ -88,6 +88,48 @@ check('帽子をつかめる', /ブロック: @event/.test(hitHat) ? '@event' : 
 const hitNone = run([ghost, 'b_boot', '--hit', '9000', '9000']);
 check('外を押したら何もない', /には何もありません/.test(hitNone) ? 'はい' : 'いいえ', 'はい');
 
+// ------------------------------------------------------------ 5. 描けるか
+// 窓を出さずに、記憶の中の絵へ GDI で描いて PNG にします。
+// 中身の見た目までは見ませんが、「落ちずに、それらしい大きさの絵が出る」までは見ます。
+const renderHost = path.join(root, 'studio', 'test', 'render_host.exe');
+if (fs.existsSync(renderHost)) {
+  const outDir = path.join(root, 'studio', 'test', 'render_out');
+  fs.mkdirSync(outDir, { recursive: true });
+  const outPng = path.join(outDir, 'p05.png');
+  if (fs.existsSync(outPng)) fs.unlinkSync(outPng);
+
+  let ranOk = true;
+  let said = '';
+  try {
+    said = execFileSync(renderHost, [parity, 'p05', outPng],
+      { encoding: 'utf8', maxBuffer: 1 << 24 });
+  } catch (e) {
+    // 作りたての exe は、スマートアプリコントロールに止められることがあります
+    // （docs\maintenance.md の「つまずきやすいところ」）。中身の問題ではないので、
+    // そのときだけは飛ばします。CI にはこの仕組みが無いので、向こうでは必ず走ります。
+    if (String(e.code) === 'UNKNOWN' || /Application Control|アプリケーション制御/.test(String(e.message))) {
+      console.log(`${C.dim}  ――  render_host.exe を起動できませんでした`
+        + `（スマートアプリコントロール）。描画の確かめは飛ばします。${C.off}`);
+      ranOk = false;
+    } else {
+      throw e;
+    }
+  }
+  if (ranOk) check('絵が書き出せた', fs.existsSync(outPng) ? 'はい' : said.trim(), 'はい');
+
+  if (ranOk && fs.existsSync(outPng)) {
+    const buf = fs.readFileSync(outPng);
+    const sig = buf.slice(0, 8).toString('hex');
+    check('PNG の印がある', sig, '89504e470d0a1a0a');
+    // IHDR の幅と高さ
+    const pw = buf.readUInt32BE(16), ph = buf.readUInt32BE(20);
+    check('絵の幅がそれらしい', pw > 200 && pw < 900 ? 'はい' : String(pw), 'はい');
+    check('絵の高さがそれらしい', ph > 200 && ph < 900 ? 'はい' : String(ph), 'はい');
+  }
+} else {
+  console.log(`${C.dim}  ――  render_host.exe が無いので、描画は飛ばします${C.off}`);
+}
+
 // ---------------------------------------------------------------------- 結果
 console.log('');
 if (bad) {

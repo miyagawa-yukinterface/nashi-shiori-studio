@@ -119,8 +119,13 @@ int LayoutBlock(Ctx& c, const JValue& block, int x, int y, int depth,
     const bool isHat = def->hat;
     const int headTop = y + (isHat ? m.hatHeight : 0);
 
+    // 丸いブロックと六角のブロックは、左右がとがっているぶん余白を広めに取ります
+    // （そうしないと、中の欄がとがったところにはみ出します）。
+    const bool pointy = (def->shape == Shape::Reporter || def->shape == Shape::Boolean);
+    const int padX = pointy ? m.padX + 6 : m.padX;
+
     // ---- 見出しの行（文字と欄をよこに並べる）
-    int cursor = x + m.padX;
+    int cursor = x + padX;
     int rowH = m.textHeight;
     int partCount = 0;
     const PartDef* parts = BlockParts(*def, &partCount);
@@ -156,7 +161,7 @@ int LayoutBlock(Ctx& c, const JValue& block, int x, int y, int depth,
         p.y = headTop + m.padY + (rowH - p.h) / 2;
     }
 
-    int width = (cursor - x) + m.padX;
+    int width = (cursor - x) + padX;
     if (width < m.minHeight * 2) width = m.minHeight * 2;
     int height = (isHat ? m.hatHeight : 0) + (headH < m.minHeight ? m.minHeight : headH);
 
@@ -233,15 +238,17 @@ int LayoutStackInto(Ctx& c, const JValue& blocks, int x, int y, int depth,
     return first;
 }
 
-void Finish(Layout* out) {
-    int w = 0, h = 0;
+void Finish(Layout* out, const Metrics& m) {
+    // 下の出っぱりは箱より下に出るので、その分を見こんでおきます
+    // （そうしないと、いちばん下のブロックの足が切れます）。
+    int w = 0, h = m.notchH;
     for (size_t i = 0; i < out->pieces.size(); i++) {
         const Piece& p = out->pieces[i];
         if (p.x + p.w > w) w = p.x + p.w;
         if (p.y + p.h > h) h = p.y + p.h;
     }
     out->width = w;
-    out->height = h;
+    out->height = h + m.notchH;
 }
 
 } // namespace
@@ -272,7 +279,7 @@ void LayoutStack(const JValue& blocks, int x, int y,
     out->pieces.clear();
     Ctx c = { &m, &tm, out };
     LayoutStackInto(c, blocks, x, y, 0, NULL);
-    Finish(out);
+    Finish(out, m);
 }
 
 void LayoutScript(const JValue& script, int x, int y,
@@ -304,7 +311,7 @@ void LayoutScript(const JValue& script, int x, int y,
         cy = c.out->pieces[idx].y + c.out->pieces[idx].h;
     }
     LayoutStackInto(c, script["blocks"], x, cy, 0, NULL);
-    Finish(out);
+    Finish(out, m);
 }
 
 void LayoutOne(const JValue& block, int x, int y,
@@ -312,7 +319,7 @@ void LayoutOne(const JValue& block, int x, int y,
     out->pieces.clear();
     Ctx c = { &m, &tm, out };
     LayoutBlock(c, block, x, y, 0);
-    Finish(out);
+    Finish(out, m);
 }
 
 // -------------------------------------------------------------------- 当たり

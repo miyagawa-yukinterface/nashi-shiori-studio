@@ -1,0 +1,162 @@
+// なしスタジオ（ネイティブ版）- ブロックを描いて PNG に出す（画面は出しません）
+//
+//   render_host.exe <ghost.json> <かたまりのid> <out.png>
+//   render_host.exe <ghost.json> --all <出す先のフォルダ>
+//
+// 窓を作らずに、記憶の中のビットマップへ GDI で描いて、PNG にして書き出します。
+// おかげで、絵の出来を目で確かめられますし、テストからも動かせます
+// （画面まわりは動かしてみないと分からないことが多いので、ここを作っておきます）。
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <cstdio>
+#include <string>
+#include <vector>
+
+#include "w2k/blockdefs.h"
+#include "w2k/layout.h"
+#include "w2k/paint.h"
+#include "image.h"
+#include "json.h"
+#include "util.h"
+
+using namespace nashi;
+using namespace nashi::w2k;
+
+static std::string WideToUtf8Arg(const wchar_t* w) {
+    int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, NULL, 0, NULL, NULL);
+    if (n <= 1) return std::string();
+    std::string s((size_t)n - 1, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w, -1, &s[0], n, NULL, NULL);
+    return s;
+}
+
+/** 1 つのかたまりを描いて PNG のバイト列にする。 */
+static bool RenderScript(const JValue& script, std::string& outPng, int* wOut, int* hOut) {
+    HDC screen = GetDC(NULL);
+    HDC dc = CreateCompatibleDC(screen);
+    ReleaseDC(NULL, screen);
+    if (!dc) return false;
+
+    PaintTools tools;
+    if (!tools.Create()) { DeleteDC(dc); return false; }
+
+    // ---- まず、置き場所を決める（文字は GDI で測る）
+    GdiMeasurer tm(dc, tools.blockFont);
+    Metrics m;
+    Layout lay;
+    LayoutScript(script, 0, 0, m, tm, &lay);
+
+    const int pad = 12;
+    const int w = lay.width + pad * 2;
+    const int h = lay.height + pad * 2;
+    if (w <= 0 || h <= 0 || w > 4000 || h > 8000) {
+        tools.Free();
+        DeleteDC(dc);
+        return false;
+    }
+
+    // ---- 記憶の中の絵に描く（上から下へ並ぶ 32bit の面）
+    BITMAPINFO bi;
+    ZeroMemory(&bi, sizeof(bi));
+    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bi.bmiHeader.biWidth = w;
+    bi.bmiHeader.biHeight = -h;              // マイナスで「上が先」
+    bi.bmiHeader.biPlanes = 1;
+    bi.bmiHeader.biBitCount = 32;
+    bi.bmiHeader.biCompression = BI_RGB;
+
+    void* bits = NULL;
+    HBITMAP bmp = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, &bits, NULL, 0);
+    if (!bmp || !bits) { tools.Free(); DeleteDC(dc); return false; }
+    HGDIOBJ oldBmp = SelectObject(dc, bmp);
+
+    PaintStyle style;
+    style.gridStep = 24;
+    RECT rc = { 0, 0, w, h };
+    PaintBackground(dc, rc, style, pad, pad);
+    PaintLayout(dc, lay, tools, style, -pad, -pad);
+
+    GdiFlush();
+
+    // ---- PNG にする（image.cpp は RGBA を待っているので、並びを直す）
+    std::vector<unsigned char> rgba((size_t)w * h * 4);
+    const unsigned char* src = (const unsigned char*)bits;
+    for (int i = 0; i < w * h; i++) {
+        rgba[i * 4 + 0] = src[i * 4 + 2];   // B G R X -> R
+        rgba[i * 4 + 1] = src[i * 4 + 1];
+        rgba[i * 4 + 2] = src[i * 4 + 0];
+        rgba[i * 4 + 3] = 255;
+    }
+    outPng = EncodePng(w, h, rgba);
+    if (wOut) *wOut = w;
+    if (hOut) *hOut = h;
+
+    SelectObject(dc, oldBmp);
+    DeleteObject(bmp);
+    tools.Free();
+    DeleteDC(dc);
+    return !outPng.empty();
+}
+
+static bool WriteBytes(const std::wstring& path, const std::string& data) {
+    HANDLE h = CreateFileW(path.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
+                           FILE_ATTRIBUTE_NORMAL, NULL);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    DWORD written = 0;
+    BOOL ok = WriteFile(h, data.c_str(), (DWORD)data.size(), &written, NULL);
+    CloseHandle(h);
+    return ok != FALSE && written == data.size();
+}
+
+int wmain(int argc, wchar_t** argv) {
+    SetConsoleOutputCP(CP_UTF8);
+    if (argc < 4) {
+        printf("usage: render_host <ghost.json> <id|--all> <out.png|folder>\n");
+        return 1;
+    }
+
+    std::string text;
+    if (!ReadTextFile(argv[1], text)) {
+        printf("cannot read %s\n", WideToUtf8Arg(argv[1]).c_str());
+        return 2;
+    }
+    JValue project;
+    std::string err;
+    if (!JsonParse(text, project, err)) {
+        printf("JSON parse error: %s\n", err.c_str());
+        return 3;
+    }
+
+    const bool all = (std::wstring(argv[2]) == L"--all");
+    const std::string want = all ? std::string() : WideToUtf8Arg(argv[2]);
+    std::wstring dest = argv[3];
+
+    const JValue& scripts = project["scripts"];
+    int done = 0;
+    for (size_t i = 0; i < scripts.size(); i++) {
+        const JValue& s = scripts.at(i);
+        std::string id = s["id"].asStr();
+        if (!all && id != want) continue;
+
+        std::string png;
+        int w = 0, h = 0;
+        if (!RenderScript(s, png, &w, &h)) {
+            printf("描けませんでした: %s\n", id.c_str());
+            continue;
+        }
+        std::wstring out = dest;
+        if (all) {
+            if (!out.empty() && out[out.size() - 1] != L'\\') out += L'\\';
+            out += MbToWide(id, CP_UTF8) + L".png";
+        }
+        if (!WriteBytes(out, png)) {
+            printf("書けませんでした: %s\n", WideToUtf8Arg(out.c_str()).c_str());
+            continue;
+        }
+        printf("%-14s %4d x %-4d  %6d バイト  %s\n", id.c_str(), w, h,
+               (int)png.size(), WideToUtf8Arg(out.c_str()).c_str());
+        done++;
+    }
+    if (!done) { printf("描くものがありませんでした\n"); return 4; }
+    return 0;
+}
