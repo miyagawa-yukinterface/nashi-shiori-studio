@@ -101,5 +101,11 @@ bool DropAt(JValue& root, const DropTarget& target, const JValue& payload);
 /** その欄を、はまっているブロックを外したときの空の値にもどします。 */
 JValue EmptySlotValue(const ArgDef* arg);
 
+/** 定義から、あたらしいブロックを 1 つ作ります（blocks.js の createBlock と同じ）。 */
+JValue MakeBlock(const BlockDef& def);
+
+/** 帽子の定義から、あたらしいかたまり（スクリプト）を 1 つ作ります。 */
+JValue MakeScript(const BlockDef& hat);
+
 } // namespace w2k
 } // namespace nashi

@@ -74,7 +74,7 @@ if ($Test) {
         foreach ($t in @('tools\check-imports.js',
                          'shiori\test\parity\parity.js', 'shiori\test\behavior\behavior.js',
                          'studio\test\export.js', 'studio\test\layout.js',
-                         'studio\test\image.js',
+                         'studio\test\image.js', 'studio\test\window.js',
                          'ui\test\editor.js', 'ui\test\modules.js')) {
             & node (Join-Path $root $t)
             if ($LASTEXITCODE -ne 0) { throw "$([System.IO.Path]::GetFileName($t)) が失敗しました。" }

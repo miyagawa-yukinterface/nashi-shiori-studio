@@ -228,6 +228,52 @@ JValue EmptySlotValue(const ArgDef* arg) {
     return JValue::makeStr(arg->defValue ? arg->defValue : "");
 }
 
+JValue MakeBlock(const BlockDef& def) {
+    JValue b = JValue::makeObj();
+    b.set("type", JValue::makeStr(def.type ? def.type : ""));
+
+    // 決めうちの値（"arith#+" なら op に "+" が入る、など）
+    int nf = 0;
+    const FixedDef* fixed = BlockFixed(def, &nf);
+    for (int i = 0; i < nf; i++) b.set(fixed[i].key, JValue::makeStr(fixed[i].value));
+
+    // 引数の既定値
+    int na = 0;
+    const ArgDef* args = BlockArgs(def, &na);
+    for (int i = 0; i < na; i++) {
+        b.set(args[i].name, EmptySlotValue(&args[i]));
+    }
+
+    // 中に入る腕（からっぽのならび）
+    int ns = 0;
+    const SubDef* subs = BlockSubs(def, &ns);
+    for (int i = 0; i < ns; i++) b.set(subs[i].key, JValue::makeArr());
+
+    // 「つぎのどれかを」は、はじめから 2 とおり用意しておきます
+    if (def.dynamic && def.dynamic[0]) {
+        JValue two = JValue::makeArr();
+        two.arr.push_back(JValue::makeArr());
+        two.arr.push_back(JValue::makeArr());
+        b.set(def.dynamic, two);
+    }
+    return b;
+}
+
+JValue MakeScript(const BlockDef& hat) {
+    JValue s = MakeBlock(hat);
+    // かたまりの帽子は ghost.json に "type" を持ちません（kind で見分けます）
+    for (size_t i = 0; i < s.obj.size(); i++) {
+        if (s.obj[i].first == "type") { s.obj.erase(s.obj.begin() + i); break; }
+    }
+    s.set("kind", JValue::makeStr(hat.scriptKind ? hat.scriptKind : "event"));
+    s.set("blocks", JValue::makeArr());
+    if (hat.scriptKind && std::string(hat.scriptKind) != "event") {
+        s.set("name", JValue::makeStr("あたらしいトーク"));
+        s.set("weight", JValue::makeNum(1));
+    }
+    return s;
+}
+
 bool PickUpStack(JValue& root, const JPath& listPath, int index, JValue* outBlocks) {
     JValue* list = JResolve(root, listPath);
     if (!list || !list->isArr()) return false;

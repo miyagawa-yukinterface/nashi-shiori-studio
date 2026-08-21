@@ -5,8 +5,8 @@
       "id": "d_cap",
       "kind": "event",
       "event": "OnBoot",
-      "x": 0,
-      "y": 0,
+      "x": 40,
+      "y": 40,
       "blocks": [
         { "type": "say", "who": "sakura", "text": "はじめ", "nl": "1" },
         { "type": "end" },
@@ -17,8 +17,8 @@
       "id": "d_bool",
       "kind": "event",
       "event": "OnSecondChange",
-      "x": 0,
-      "y": 0,
+      "x": 40,
+      "y": 300,
       "blocks": [
         { "type": "if", "cond": null, "then": [] }
       ]

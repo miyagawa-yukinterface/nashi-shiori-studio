@@ -9,12 +9,14 @@
 #include <shellapi.h>
 #include <objbase.h>
 #include <cstdio>
+#include <string>
 
 #include "api.h"
 #include "assets.h"
 #include "fsutil.h"
 #include "util.h"
 #include "webview.h"
+#include "w2k/window.h"
 
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "advapi32.lib")
@@ -145,6 +147,22 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 // -------------------------------------------------------------------- main
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
+    // --w2k は、作りかけのネイティブ版（WebView2 を使わない画面）を出します。
+    // WebView2 版と入れかえるまでの間、こうして横に置いて見くらべます。
+    {
+        int argc = 0;
+        LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+        if (argv) {
+            for (int i = 1; i < argc; i++) {
+                if (std::wstring(argv[i]) != L"--w2k") continue;
+                std::wstring ghost = (i + 1 < argc) ? argv[i + 1] : L"";
+                LocalFree(argv);
+                return w2k::RunEditor(hInstance, ghost);
+            }
+            LocalFree(argv);
+        }
+    }
+
     // 二重起動したときは、すでに開いているウィンドウを前に出すだけ
     HANDLE mutex = CreateMutexW(NULL, TRUE, kMutexName);
     if (mutex && GetLastError() == ERROR_ALREADY_EXISTS) {

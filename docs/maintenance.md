@@ -78,7 +78,7 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 
 ---
 
-## テスト 9 本と、それぞれが守っているもの
+## テスト 10 本と、それぞれが守っているもの
 
 | 走らせかた | 守っているもの |
 |---|---|
@@ -91,13 +91,14 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 | `node tools\check-imports.js` | `nashi.dll` が Windows 2000 から読みこめるか（輸入表を直に読む） |
 | `node studio\test\layout.js` | ネイティブ版のブロックの置き場所・つまみかた・描画（`studio\src\w2k`） |
 | `node studio\test\image.js` | PNG の読み書きと inflate（`pngread.cpp` / `inflate.cpp`） |
+| `node studio\test\window.js` | ネイティブ版の編集画面（つまむ・つなぐ・すてる。`window.cpp`） |
 
 `parity` と `behavior` は `shiori\dist\test_host.exe` を、`parity` はさらに
 `studio\test\preview_host.exe` を使うので、**先にビルドが要ります**（`.\build.ps1 -Test`）。
 `check-imports` も出来あがった `nashi.dll` を見るので、ビルドが要ります。
 `check-blocks` と `editor` と `modules` はビルド無しで走ります。
 `layout` は `studio\test\layout_host.exe` と `render_host.exe` を使います。
-`image` は `studio\test\png_host.exe` を使います。
+`image` は `studio\test\png_host.exe`、`window` は `render_host.exe` を使います。
 
 書き出しかたをわざと変えたときは、出てきたものを**目で確かめてから**
 `node studio\test\export.js --update` で期待値を作りなおします。
@@ -150,6 +151,7 @@ WebView2 は Windows 10 からしか動かないので、画面は Win32 と GDI
 | `layout.cpp` | 幅と高さを決める。どこを押したかを探す | **使わない** |
 | `drag.cpp` | どこにつなげるか。つまむ・はなすと ghost.json がどう変わるか | **使わない** |
 | `paint.cpp` | 決まったものを描く | 使う |
+| `window.cpp` | 窓を出して、マウスとキーを受ける | 使う |
 
 `layout.cpp` と `drag.cpp` に GDI が出てこないのは、**画面を出さずにテストするため**です。
 文字の幅だけは環境で変わるので、`TextMeasurer` を外から渡してもらいます
@@ -167,6 +169,36 @@ WebView2 は Windows 10 からしか動かないので、画面は Win32 と GDI
 `render_host.exe` は窓を出さずに PNG を書き出すので、**見た目を目で確かめられます**。
 置き場所を触ったら、数字だけでなく絵も一度見てください（数字が合っていても、
 とがったところに欄がはみ出す、といったことが起きます）。
+
+### 画面は「窓を出さずに」動かせます
+
+画面まわりは、動かしてみないと分からないことばかりです。そこで `window.cpp` には
+**窓を出さずにマウスの動きだけまねる入口**（`ProbeEditor`）を用意してあります。
+`studio\test\window.js` はこれを使って、つまむ・つなぐ・すてるを確かめています。
+
+```powershell
+# 編集の画面ぜんぶを PNG に（左のブロック置き場もふくめて）
+.\studio\test\render_host.exe .\studio\test\drag_fixture.json --window out.png 900 600
+
+# 左のブロック置き場に、何がどこにあるか
+.\studio\test\render_host.exe .\studio\test\drag_fixture.json --palette x
+
+# (260,165) をつまんで (260,101) へ。はなしたあとの ghost.json が返ります
+.\studio\test\render_host.exe .\studio\test\drag_fixture.json --drag out.png 260 165 260 101 --drop
+
+# 左の置き場から名前でつまむ（ならびが変わってもテストが壊れないように）
+.\studio\test\render_host.exe .\studio\test\drag_fixture.json --drag out.png 0 0 260 101 --drop --from newline
+```
+
+テストで場所を指すときは、**たての位置**でえらんでください。ブロックの高さは
+文字の幅に左右されないので、どの環境でも同じところをつかめます。
+よこは文字の幅で変わるので、左のはしのあたりを押します。
+
+作りかけの画面は、こうして出せます（WebView2 版はそのままです）。
+
+```powershell
+.\nashi-studio.exe --w2k .\studio\test\drag_fixture.json
+```
 
 つなぎかたの決まりは `ui\js\drag.js` と同じにしてあります。片方だけ変えないでください。
 

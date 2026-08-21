@@ -2,6 +2,14 @@
 //
 //   render_host.exe <ghost.json> <かたまりのid> <out.png>
 //   render_host.exe <ghost.json> --all <出す先のフォルダ>
+//   render_host.exe <ghost.json> --window <out.png> [幅 高さ]
+//                                        編集の画面ぜんぶ（窓を出さずに）
+//   render_host.exe <ghost.json> --palette
+//                                        置き場所に何がどこにあるか
+//   render_host.exe <ghost.json> --drag <out.png> <x1> <y1> <x2> <y2>
+//                                        [--drop] [--from <ブロックの名前>]
+//                                        つまんで動かしてみる。--drop ではなす。
+//                                        はなしたあとの ghost.json も出します。
 //
 // 窓を作らずに、記憶の中のビットマップへ GDI で描いて、PNG にして書き出します。
 // おかげで、絵の出来を目で確かめられますし、テストからも動かせます
@@ -15,6 +23,7 @@
 #include "w2k/blockdefs.h"
 #include "w2k/layout.h"
 #include "w2k/paint.h"
+#include "w2k/window.h"
 #include "image.h"
 #include "json.h"
 #include "util.h"
@@ -110,8 +119,8 @@ static bool WriteBytes(const std::wstring& path, const std::string& data) {
 
 int wmain(int argc, wchar_t** argv) {
     SetConsoleOutputCP(CP_UTF8);
-    if (argc < 4) {
-        printf("usage: render_host <ghost.json> <id|--all> <out.png|folder>\n");
+    if (argc < 3) {
+        printf("usage: render_host <ghost.json> <id|--all|--window|--drag|--palette> ...\n");
         return 1;
     }
 
@@ -127,6 +136,62 @@ int wmain(int argc, wchar_t** argv) {
         return 3;
     }
 
+    // 左のブロック置き場に、何がどこにあるか
+    if (std::wstring(argv[2]) == L"--palette") {
+        std::vector<PaletteSpot> spots;
+        if (!EditorPaletteSpots(1100, 760, &spots)) { printf("できませんでした\n"); return 5; }
+        for (size_t i = 0; i < spots.size(); i++) {
+            printf("%-16s (%4d,%4d) %4dx%-4d\n", spots[i].key.c_str(),
+                   spots[i].x, spots[i].y, spots[i].w, spots[i].h);
+        }
+        return 0;
+    }
+
+    // つまんで動かしてみる（窓を出さずに、マウスの動きだけまねます）
+    if (std::wstring(argv[2]) == L"--drag") {
+        if (argc < 8) {
+            printf("--drag <out.png> <x1> <y1> <x2> <y2> [--drop]\n");
+            return 1;
+        }
+        EditorProbe probe;
+        probe.ghostPath = argv[1];
+        probe.drag = true;
+        probe.fromX = _wtoi(argv[4]);
+        probe.fromY = _wtoi(argv[5]);
+        probe.toX = _wtoi(argv[6]);
+        probe.toY = _wtoi(argv[7]);
+        for (int i = 8; i < argc; i++) {
+            if (std::wstring(argv[i]) == L"--drop") probe.release = true;
+            else if (std::wstring(argv[i]) == L"--from" && i + 1 < argc) {
+                probe.grabPalette = WideToUtf8Arg(argv[i + 1]);   // 置き場所から名前でつまむ
+            }
+        }
+        std::string png, json;
+        if (!ProbeEditor(probe, &png, &json)) { printf("できませんでした\n"); return 5; }
+        if (!WriteBytes(argv[3], png)) { printf("書けませんでした\n"); return 6; }
+        printf("%s\n", json.c_str());
+        return 0;
+    }
+
+    // 編集の画面まるごと（左のブロック置き場もふくめて）
+    if (std::wstring(argv[2]) == L"--window") {
+        const int w = (argc >= 5) ? _wtoi(argv[4]) : 1100;
+        const int h = (argc >= 6) ? _wtoi(argv[5]) : 760;
+        std::string png;
+        if (!RenderEditor(argv[1], w, h, 0, 0, &png)) {
+            printf("画面を描けませんでした\n");
+            return 5;
+        }
+        if (!WriteBytes(argv[3], png)) { printf("書けませんでした\n"); return 6; }
+        printf("画面 %4d x %-4d  %6d バイト  %s\n", w, h, (int)png.size(),
+               WideToUtf8Arg(argv[3]).c_str());
+        return 0;
+    }
+
+    if (argc < 4) {
+        printf("かたまりの id と、出す先が要ります\n");
+        return 1;
+    }
     const bool all = (std::wstring(argv[2]) == L"--all");
     const std::string want = all ? std::string() : WideToUtf8Arg(argv[2]);
     std::wstring dest = argv[3];

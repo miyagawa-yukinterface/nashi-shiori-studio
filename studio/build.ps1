@@ -100,6 +100,12 @@ $sources = @(
     (Join-Path $src 'deflate.cpp'),
     (Join-Path $src 'fsutil.cpp'),
     (Join-Path $src 'preview.cpp'),
+    # ネイティブ版の画面（WebView2 をやめるための作りかけ。--w2k で出ます）
+    (Join-Path $src 'w2k\blockdefs.cpp'),
+    (Join-Path $src 'w2k\layout.cpp'),
+    (Join-Path $src 'w2k\drag.cpp'),
+    (Join-Path $src 'w2k\paint.cpp'),
+    (Join-Path $src 'w2k\window.cpp'),
     # 「ためす」は栞そのものでブロックを動かします（同じ規則を二重に書かないため）
     (Join-Path $repo 'shiori\src\interp.cpp'),
     (Join-Path $repo 'shiori\src\program.cpp'),
@@ -216,6 +222,7 @@ if ($Test) {
         (Join-Path $src 'w2k\layout.cpp'),
         (Join-Path $src 'w2k\drag.cpp'),
         (Join-Path $src 'w2k\paint.cpp'),
+        (Join-Path $src 'w2k\window.cpp'),
         (Join-Path $src 'image.cpp'),
         (Join-Path $src 'pngread.cpp'),
         (Join-Path $src 'inflate.cpp'),
@@ -235,7 +242,8 @@ if ($Test) {
     }
     $renExe = Join-Path $root 'test\render_host.exe'
     & link '/nologo' "/OUT:$renExe" '/SUBSYSTEM:CONSOLE' @renObjs `
-        'kernel32.lib' 'user32.lib' 'gdi32.lib' 'shell32.lib' 'shlwapi.lib' 'advapi32.lib' 'ole32.lib'
+        'kernel32.lib' 'user32.lib' 'gdi32.lib' 'shell32.lib' 'shlwapi.lib' 'advapi32.lib' `
+        'ole32.lib' 'comdlg32.lib'
     if ($LASTEXITCODE -ne 0) { throw '描画テスト用コンソールのリンクに失敗しました。' }
     Write-Host "[studio] OK -> $renExe" -ForegroundColor Green
 
