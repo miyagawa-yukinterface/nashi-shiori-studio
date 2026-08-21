@@ -65,6 +65,24 @@ struct FieldProbe {
 bool ProbeField(const FieldProbe& probe, std::string* info, std::string* json);
 
 /**
+ * 右の作業だなを調べる（確かめ用）。
+ * tab は 0=ためす 1=ゴースト 2=変数 3=さがす 4=チェック 5=書き出し 6=ヘルプ。
+ * clickId を渡すと、その目じるしの部品を押してみます。
+ */
+struct PanelProbe {
+    std::wstring ghostPath;
+    int width = 1200, height = 760;
+    int tab = 2;
+    std::string query;        // 「さがす言葉」
+    std::string clickId;      // 押す部品（"var.add" など）
+    std::string typeValue;    // 打ちこむ欄なら、この中身にします
+    bool type = false;
+};
+
+/** items は部品のならび、json はそのあとの ghost.json。要らないほうは NULL で。 */
+bool ProbePanel(const PanelProbe& probe, std::string* items, std::string* json);
+
+/**
  * 画面に出ている欄を、ぜんぶならべます（確かめ用）。
  * テストが「文字の幅で動くよこの位置」を決めうちにしないで済むようにするためです。
  */

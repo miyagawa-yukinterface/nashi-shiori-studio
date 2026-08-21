@@ -151,7 +151,7 @@ check('空の六角の欄が見つかる',
   /欄=cond\s+六角/.test(boolDrops) ? 'はい' : boolDrops.trim(), 'はい');
 const repIntoBool = run([fixture, '--drops', 'd_bool', 'reporter']);
 check('六角の欄に丸ブロックは入らない',
-  (repIntoBool.match(/^  欄 /gm) || []).length, 0);
+  /欄=cond/.test(repIntoBool) ? '入ってしまう' : 'はい', 'はい');
 
 // ------------------------------------------------------------ 6. 描けるか
 // 窓を出さずに、記憶の中の絵へ GDI で描いて PNG にします。

@@ -3,6 +3,7 @@
 #include <commdlg.h>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -10,6 +11,7 @@
 #include "drag.h"
 #include "layout.h"
 #include "paint.h"
+#include "panel.h"
 #include "../image.h"
 #include "../../../shiori/src/json.h"
 #include "../../../shiori/src/util.h"
@@ -23,6 +25,9 @@ const wchar_t* kClass = L"NashiStudioW2kWindow";
 const int kPaletteW = 210;      // 左のブロック置き場の幅
 const int kPalettePad = 10;
 const int kMinCanvas = 320;
+const int kPanelW = 320;        // 右の作業だなの幅
+const int kTabH = 26;           // たなの見出しの高さ
+const int kTabRows = 2;         // 見出しは 2 段にならべます（7 つあるので）
 
 // ------------------------------------------------------------------- 持ちもの
 
@@ -78,6 +83,11 @@ struct Editor {
     std::string editArg;             // どの欄か
     bool editNumber = false;         // 数だけの欄か
     bool editing = false;
+    bool editToQuery = false;        // 「さがす言葉」を打ちこんでいるか
+
+    // ---- 右の作業だな
+    PanelState panel;
+    std::vector<PanelItem> panelItems;
 };
 
 Editor g;
@@ -94,7 +104,36 @@ void SyncClient() {
 RECT CanvasRect() {
     RECT rc = g.client;
     rc.left += kPaletteW;
-    if (rc.left > rc.right) rc.left = rc.right;
+    rc.right -= kPanelW;
+    if (rc.right < rc.left) rc.right = rc.left;
+    return rc;
+}
+
+/** 右の作業だな（見出しもふくめた全体）。 */
+RECT PanelRect() {
+    RECT rc = g.client;
+    rc.left = rc.right - kPanelW;
+    if (rc.left < 0) rc.left = 0;
+    return rc;
+}
+
+bool InPanel(int sx, int sy) {
+    const RECT rc = PanelRect();
+    return sx >= rc.left && sx < rc.right && sy >= rc.top && sy < rc.bottom;
+}
+
+/** 見出しの中の、i 番目のたなの場所。 */
+RECT TabRect(int i) {
+    const RECT panel = PanelRect();
+    const int perRow = (kTabCount + kTabRows - 1) / kTabRows;   // 4 つと 3 つ
+    const int row = i / perRow;
+    const int col = i % perRow;
+    const int w = (panel.right - panel.left) / perRow;
+    RECT rc;
+    rc.left = panel.left + col * w;
+    rc.right = rc.left + w;
+    rc.top = panel.top + row * kTabH;
+    rc.bottom = rc.top + kTabH;
     return rc;
 }
 
@@ -178,10 +217,21 @@ void RelayoutScripts(HDC dc) {
     g.canvasH = h + 80;
 }
 
+void RelayoutPanel(HDC dc) {
+    GdiMeasurer tm(dc, g.tools.slotFont);
+    const RECT rc = PanelRect();
+    BuildPanel(g.project, g.panel, tm, rc.left, rc.right - rc.left, &g.panelItems);
+    // 見出しのぶんだけ下げます
+    for (size_t i = 0; i < g.panelItems.size(); i++) {
+        g.panelItems[i].y += kTabH * kTabRows;
+    }
+}
+
 void Relayout() {
     HDC dc = GetDC(g.hwnd);      // hwnd が NULL なら画面の DC（文字を測るだけなので十分）
     RelayoutPalette(dc);
     RelayoutScripts(dc);
+    RelayoutPanel(dc);
     ReleaseDC(g.hwnd, dc);
 }
 
@@ -210,23 +260,6 @@ void Refresh(bool relayout = true) {
 
 // -------------------------------------------------------------------- 読み書き
 
-/**
- * 読みこんだときの下ごしらえ。
- * 場所の決まっていないかたまりを、たてにならべます（ui\js\model.js と同じ）。
- */
-void PlaceScripts(JValue& project) {
-    JValue* scripts = JResolve(project, JPath().Then(JStep::Key("scripts")));
-    if (!scripts || !scripts->isArr()) return;
-    int y = 40;
-    for (size_t i = 0; i < scripts->arr.size(); i++) {
-        JValue& s = scripts->arr[i];
-        if (!s.isObj()) continue;
-        if (s["x"].type != JType::Num) s.set("x", JValue::makeNum(60));
-        if (s["y"].type != JType::Num) { s.set("y", JValue::makeNum(y)); y += 180; }
-        if (!s.has("blocks")) s.set("blocks", JValue::makeArr());
-    }
-}
-
 bool LoadGhost(const std::wstring& path) {
     std::string text;
     if (!ReadTextFile(path, text)) return false;
@@ -235,7 +268,7 @@ bool LoadGhost(const std::wstring& path) {
     if (!JsonParse(text, root, err)) return false;
     if (!root.isObj()) return false;
 
-    PlaceScripts(root);
+    NormalizeProject(root);
     g.project = root;
     g.path = path;
     g.dirty = false;
@@ -380,7 +413,11 @@ void CommitEdit(bool keep) {
 
     HWND edit = g.edit;
     g.edit = NULL;
-    if (!edit) return;
+    if (!edit) {              // 窓を出していないとき（テスト）は、覚えていた先を忘れます
+        g.editToQuery = false;
+        g.editArg.clear();
+        return;
+    }
 
     if (keep) {
         wchar_t buf[1024];
@@ -388,40 +425,51 @@ void CommitEdit(bool keep) {
         buf[(n >= 0 && n < 1024) ? n : 0] = 0;
         const std::string text = WideToUtf8(buf);
 
-        JValue* owner = JResolve(g.project, g.editOwner);
-        if (owner && owner->isObj()) {
-            owner->set(g.editArg, ValueForField(g.editNumber, text));
-            MarkDirty();
+        if (g.editToQuery) {
+            g.panel.query = text;      // 「さがす言葉」は ghost.json には入れません
+        } else {
+            JValue* owner = JResolve(g.project, g.editOwner);
+            if (owner && owner->isObj()) {
+                owner->set(g.editArg, ValueForField(g.editNumber, text));
+                MarkDirty();
+            }
         }
     }
+    g.editToQuery = false;
     DestroyWindow(edit);
     Refresh();
 }
 
-/** その欄の上に、打ちこみ用の小さな窓を出す。 */
-void BeginEdit(const JPath& ownerPath, const ArgDef& arg, const Piece& slot, int ox, int oy) {
+/** そこに、打ちこみ用の小さな窓を出す（欄でも、作業だなでも使います）。 */
+void BeginEditRect(const JPath& ownerPath, const std::string& key, const std::string& text,
+                   bool isNumber, int x, int y, int w, int h) {
     CommitEdit(true);
+
+    // 打ちこむ先は、窓が無くても覚えておきます（テストから中身を入れられるように）
+    g.editOwner = ownerPath;
+    g.editArg = key;
+    g.editNumber = isNumber;
+    g.editing = true;
     if (!g.hwnd) return;
 
-    const JValue* owner = JResolve(g.project, ownerPath);
-    if (!owner) return;
-    const std::wstring text = Utf8ToWide(SlotText(*owner, arg));
-
-    const int x = slot.x - ox;
-    const int y = slot.y - oy;
-    g.edit = CreateWindowExW(0, L"EDIT", text.c_str(),
+    const std::wstring wide = Utf8ToWide(text);
+    g.edit = CreateWindowExW(0, L"EDIT", wide.c_str(),
                              WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
-                             x, y, slot.w > 40 ? slot.w : 40, slot.h,
+                             x, y, w > 40 ? w : 40, h,
                              g.hwnd, (HMENU)(INT_PTR)kEditId, g.inst, NULL);
     if (!g.edit) return;
     SendMessageW(g.edit, WM_SETFONT, (WPARAM)g.tools.slotFont, TRUE);
     SendMessageW(g.edit, EM_SETSEL, 0, -1);
     SetFocus(g.edit);
+}
 
-    g.editOwner = ownerPath;
-    g.editArg = arg.name;
-    g.editNumber = (arg.mode == ArgMode::Number);
-    g.editing = true;
+/** その欄の上に、打ちこみ用の小さな窓を出す。 */
+void BeginEdit(const JPath& ownerPath, const ArgDef& arg, const Piece& slot, int ox, int oy) {
+    const JValue* owner = JResolve(g.project, ownerPath);
+    if (!owner) return;
+    BeginEditRect(ownerPath, arg.name, SlotText(*owner, arg),
+                  arg.mode == ArgMode::Number,
+                  slot.x - ox, slot.y - oy, slot.w, slot.h);
 }
 
 /** その欄でえらべるものを集める。値と見出しの組でならべます。 */
@@ -595,12 +643,135 @@ bool TouchSlot(int scriptIndex, int piece, int ox, int oy) {
     return true;
 }
 
+// ------------------------------------------------------- 作業だなを押す
+
+/** "var.del.3" のような目じるしから、うしろの数を取り出す。無ければ -1。 */
+int IdIndex(const std::string& id) {
+    const size_t dot = id.rfind('.');
+    if (dot == std::string::npos || dot + 1 >= id.size()) return -1;
+    int v = 0;
+    for (size_t i = dot + 1; i < id.size(); i++) {
+        if (id[i] < '0' || id[i] > '9') return -1;
+        v = v * 10 + (id[i] - '0');
+    }
+    return v;
+}
+
+bool StartsWith(const std::string& s, const char* head) {
+    const size_t n = strlen(head);
+    return s.size() >= n && s.compare(0, n, head) == 0;
+}
+
+/** 変数のならびを、無ければ作って返す。 */
+JValue* VariablesList() {
+    if (!g.project.has("variables")) g.project.set("variables", JValue::makeArr());
+    return JResolve(g.project, JPath().Then(JStep::Key("variables")));
+}
+
+/** まだ使われていない、あたらしい変数の名前。 */
+std::string FreshVarName() {
+    const JValue& vars = g.project["variables"];
+    for (int n = 1; n < 1000; n++) {
+        char buf[32];
+        sprintf(buf, "へんすう%d", n);
+        bool used = false;
+        for (size_t i = 0; i < vars.size(); i++) {
+            if (vars.at(i)["name"].asStr() == buf) { used = true; break; }
+        }
+        if (!used) return buf;
+    }
+    return "へんすう";
+}
+
+/** 作業だなの中を押されたとき。押した場所は窓の中の座標。 */
+void OnPanelClick(int sx, int sy) {
+    // ---- 見出し（たなを切りかえる）
+    for (int i = 0; i < kTabCount; i++) {
+        const RECT rc = TabRect(i);
+        if (sx < rc.left || sx >= rc.right || sy < rc.top || sy >= rc.bottom) continue;
+        g.panel.tab = TabAt(i);
+        g.panel.scroll = 0;
+        Refresh();
+        return;
+    }
+
+    const int hit = PanelHitTest(g.panelItems, sx, sy);
+    if (hit < 0) return;
+    const PanelItem it = g.panelItems[(size_t)hit];
+
+    // ---- 変数のたな
+    if (it.id == "var.add") {
+        PushUndo();
+        JValue* vars = VariablesList();
+        if (!vars) return;
+        JValue v = JValue::makeObj();
+        v.set("name", JValue::makeStr(FreshVarName()));
+        v.set("value", JValue::makeNum(0));
+        vars->arr.push_back(v);
+        MarkDirty();
+        Refresh();
+        return;
+    }
+    if (StartsWith(it.id, "var.del.")) {
+        const int i = IdIndex(it.id);
+        JValue* vars = VariablesList();
+        if (!vars || i < 0 || i >= (int)vars->arr.size()) return;
+        PushUndo();
+        vars->arr.erase(vars->arr.begin() + i);
+        MarkDirty();
+        Refresh();
+        return;
+    }
+    if (StartsWith(it.id, "var.name.") || StartsWith(it.id, "var.value.")) {
+        const int i = IdIndex(it.id);
+        const JValue& vars = g.project["variables"];
+        if (i < 0 || i >= (int)vars.size()) return;
+        const bool isName = StartsWith(it.id, "var.name.");
+        PushUndo();
+        BeginEditRect(JPath().Then(JStep::Key("variables")).Then(JStep::Index(i)),
+                      isName ? "name" : "value",
+                      vars.at(i)[isName ? "name" : "value"].asStr(),
+                      false, it.x, it.y, it.w, it.h);
+        return;
+    }
+
+    // ---- さがすたな
+    if (it.id == "search.query") {
+        BeginEditRect(JPath(), "search.query", g.panel.query, false,
+                      it.x, it.y, it.w, it.h);
+        g.editToQuery = true;
+        return;
+    }
+    if (StartsWith(it.id, "search.hit.")) {
+        const int i = IdIndex(it.id);
+        std::vector<SearchHit> hits;
+        SearchProject(g.project, g.panel.query, &hits);
+        if (i < 0 || i >= (int)hits.size()) return;
+
+        // そのかたまりが見えるところまで動かします
+        const int si = hits[(size_t)i].scriptIndex;
+        if (si < 0 || si >= (int)g.layouts.size()) return;
+        const JValue& script = g.project["scripts"].at((size_t)si);
+        const RECT canvas = CanvasRect();
+        g.scrollX = script["x"].asInt(0) - 40;
+        g.scrollY = script["y"].asInt(0) - 40;
+        if (g.scrollX < 0) g.scrollX = 0;
+        if (g.scrollY < 0) g.scrollY = 0;
+        (void)canvas;
+        Repaint();
+        return;
+    }
+}
+
 // ------------------------------------------------------------------ マウス
 
 /** 押されたところにあるものを見て、つまむ。 */
 void OnLeftDown(int sx, int sy) {
     CommitEdit(true);           // 別のところを押したら、打ちこみは決まったことにします
     if (g.hwnd) SetFocus(g.hwnd);
+
+    // ---- 右の作業だな
+    if (InPanel(sx, sy)) { OnPanelClick(sx, sy); return; }
 
     // ---- 左のブロック置き場から
     if (InPalette(sx, sy)) {
@@ -861,6 +1032,8 @@ void PaintDropMark(HDC dc) {
     }
 }
 
+void PaintPanel(HDC dc);   // 下で書いています
+
 /** いまの画面ぜんぶを dc に描きます（窓があってもなくても同じ絵）。 */
 void PaintEditor(HDC dc) {
     const RECT client = g.client;
@@ -886,8 +1059,163 @@ void PaintEditor(HDC dc) {
     SelectClipRgn(dc, NULL);
     DeleteObject(clip);
 
-    // ---- 左のブロック置き場
+    // ---- 左のブロック置き場と、右の作業だな
     PaintPalette(dc, client);
+    PaintPanel(dc);
+}
+
+void PaintPanel(HDC dc) {
+    const RECT panel = PanelRect();
+
+    HBRUSH bg = CreateSolidBrush(RGB(0xff, 0xff, 0xff));
+    FillRect(dc, &panel, bg);
+    DeleteObject(bg);
+
+    // ---- 見出し
+    for (int i = 0; i < kTabCount; i++) {
+        RECT rc = TabRect(i);
+        const bool on = ((int)g.panel.tab == i);
+        HBRUSH b = CreateSolidBrush(on ? RGB(0xff, 0xff, 0xff) : RGB(0xe4, 0xe8, 0xf0));
+        FillRect(dc, &rc, b);
+        DeleteObject(b);
+
+        HPEN pen = CreatePen(PS_SOLID, 1, RGB(0xc8, 0xcf, 0xdc));
+        HGDIOBJ op = SelectObject(dc, pen);
+        MoveToEx(dc, rc.left, rc.bottom - 1, NULL);
+        LineTo(dc, rc.right, rc.bottom - 1);
+        MoveToEx(dc, rc.right - 1, rc.top, NULL);
+        LineTo(dc, rc.right - 1, rc.bottom);
+        SelectObject(dc, op);
+        DeleteObject(pen);
+
+        HGDIOBJ of = SelectObject(dc, g.tools.slotFont);
+        SetTextColor(dc, on ? RGB(0x22, 0x26, 0x33) : RGB(0x5a, 0x62, 0x74));
+        SetBkMode(dc, TRANSPARENT);
+        std::wstring name = Utf8ToWide(TabName(TabAt(i)));
+        DrawTextW(dc, name.c_str(), -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        SelectObject(dc, of);
+    }
+
+    // ---- 中身
+    RECT body = panel;
+    body.top += kTabH * kTabRows;
+    HRGN clip = CreateRectRgn(body.left, body.top, body.right, body.bottom);
+    SelectClipRgn(dc, clip);
+    SetBkMode(dc, TRANSPARENT);
+
+    for (size_t i = 0; i < g.panelItems.size(); i++) {
+        const PanelItem& it = g.panelItems[i];
+        if (it.y + it.h < body.top || it.y > body.bottom) continue;
+        RECT rc;
+        rc.left = it.x;
+        rc.top = it.y;
+        rc.right = it.x + it.w;
+        rc.bottom = it.y + it.h;
+
+        switch (it.kind) {
+            case ItemKind::Head: {
+                HGDIOBJ of = SelectObject(dc, g.tools.blockFont);
+                SetTextColor(dc, RGB(0x22, 0x26, 0x33));
+                std::wstring t = Utf8ToWide(it.text);
+                DrawTextW(dc, t.c_str(), -1, &rc, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+                SelectObject(dc, of);
+                break;
+            }
+            case ItemKind::Hint:
+            case ItemKind::Text: {
+                HGDIOBJ of = SelectObject(dc, g.tools.slotFont);
+                SetTextColor(dc, it.kind == ItemKind::Hint ? RGB(0x77, 0x7f, 0x90)
+                                                           : RGB(0x33, 0x38, 0x45));
+                std::wstring t = Utf8ToWide(it.text);
+                DrawTextW(dc, t.c_str(), -1, &rc,
+                          DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+                SelectObject(dc, of);
+                break;
+            }
+            case ItemKind::Button: {
+                HBRUSH b = CreateSolidBrush(RGB(0xef, 0xf2, 0xf8));
+                FillRect(dc, &rc, b);
+                DeleteObject(b);
+                HBRUSH edge = CreateSolidBrush(RGB(0xc8, 0xcf, 0xdc));
+                FrameRect(dc, &rc, edge);
+                DeleteObject(edge);
+                HGDIOBJ of = SelectObject(dc, g.tools.slotFont);
+                SetTextColor(dc, RGB(0x22, 0x26, 0x33));
+                std::wstring t = Utf8ToWide(it.text);
+                DrawTextW(dc, t.c_str(), -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+                SelectObject(dc, of);
+                break;
+            }
+            case ItemKind::Field: {
+                RECT label = rc;
+                label.right = rc.left + 96;
+                RECT box = rc;
+                box.left = label.right + 6;
+
+                HGDIOBJ of = SelectObject(dc, g.tools.slotFont);
+                SetTextColor(dc, RGB(0x5a, 0x62, 0x74));
+                std::wstring t = Utf8ToWide(it.text);
+                DrawTextW(dc, t.c_str(), -1, &label,
+                          DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+
+                HBRUSH b = CreateSolidBrush(RGB(0xff, 0xff, 0xff));
+                FillRect(dc, &box, b);
+                DeleteObject(b);
+                HBRUSH edge = CreateSolidBrush(RGB(0xc8, 0xcf, 0xdc));
+                FrameRect(dc, &box, edge);
+                DeleteObject(edge);
+
+                RECT inner = box;
+                inner.left += 5;
+                SetTextColor(dc, RGB(0x22, 0x26, 0x33));
+                std::wstring v = Utf8ToWide(it.value);
+                DrawTextW(dc, v.c_str(), -1, &inner,
+                          DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+                SelectObject(dc, of);
+                break;
+            }
+            case ItemKind::Row: {
+                HBRUSH b = CreateSolidBrush(it.mark == 2 ? RGB(0xff, 0xf0, 0xf0)
+                                          : it.mark == 1 ? RGB(0xff, 0xfa, 0xe8)
+                                                         : RGB(0xf7, 0xf9, 0xfd));
+                FillRect(dc, &rc, b);
+                DeleteObject(b);
+                HBRUSH edge = CreateSolidBrush(RGB(0xdd, 0xe2, 0xec));
+                FrameRect(dc, &rc, edge);
+                DeleteObject(edge);
+
+                HGDIOBJ of = SelectObject(dc, g.tools.slotFont);
+                RECT line = rc;
+                line.left += 6;
+                line.bottom = rc.top + 18;
+                SetTextColor(dc, RGB(0x22, 0x26, 0x33));
+                std::wstring t = Utf8ToWide(it.text);
+                DrawTextW(dc, t.c_str(), -1, &line,
+                          DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+                if (!it.sub.empty()) {
+                    RECT sub = rc;
+                    sub.left += 6;
+                    sub.top = rc.top + 17;
+                    SetTextColor(dc, RGB(0x88, 0x90, 0xa0));
+                    std::wstring u = Utf8ToWide(it.sub);
+                    DrawTextW(dc, u.c_str(), -1, &sub,
+                              DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+                }
+                SelectObject(dc, of);
+                break;
+            }
+        }
+    }
+    SelectClipRgn(dc, NULL);
+    DeleteObject(clip);
+
+    // ---- 左のふち
+    HPEN pen = CreatePen(PS_SOLID, 1, RGB(0xc8, 0xcf, 0xdc));
+    HGDIOBJ op = SelectObject(dc, pen);
+    MoveToEx(dc, panel.left, panel.top, NULL);
+    LineTo(dc, panel.left, panel.bottom);
+    SelectObject(dc, op);
+    DeleteObject(pen);
 }
 
 void OnPaint(HWND hwnd) {
@@ -981,7 +1309,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             const int delta = (short)HIWORD(wp);
             POINT pt = { (short)LOWORD(lp), (short)HIWORD(lp) };
             ScreenToClient(hwnd, &pt);
-            if (InPalette(pt.x, pt.y)) {
+            if (InPanel(pt.x, pt.y)) {
+                g.panel.scroll -= delta / 2;
+                if (g.panel.scroll < 0) g.panel.scroll = 0;
+                Refresh();
+            } else if (InPalette(pt.x, pt.y)) {
                 g.paletteScroll = ClampI(g.paletteScroll - delta / 2, 0,
                                          g.paletteHeight > 100 ? g.paletteHeight - 100 : 0);
                 InvalidateRect(hwnd, NULL, FALSE);
@@ -1112,7 +1444,7 @@ bool SetUpHeadless(const std::wstring& ghostPath, int width, int height,
             g.tools.Free();
             return false;
         }
-        PlaceScripts(root);
+        NormalizeProject(root);
         g.project = root;
         g.path = ghostPath;
     }
@@ -1214,6 +1546,73 @@ bool ProbeField(const FieldProbe& probe, std::string* info, std::string* json) {
         }
     }
     if (info) *info = out;
+    if (json) *json = g.project.dump(2);
+    g.tools.Free();
+    return true;
+}
+
+bool ProbePanel(const PanelProbe& probe, std::string* items, std::string* json) {
+    if (!SetUpHeadless(probe.ghostPath, probe.width, probe.height, 0, 0)) return false;
+
+    g.panel.tab = TabAt(probe.tab);
+    g.panel.query = probe.query;
+    g.panel.scroll = 0;
+    Relayout();
+
+    if (!probe.clickId.empty()) {
+        // その目じるしの部品を、まんなかで押したことにします
+        int hit = -1;
+        for (size_t i = 0; i < g.panelItems.size(); i++) {
+            if (g.panelItems[i].id == probe.clickId) { hit = (int)i; break; }
+        }
+        if (hit < 0) { g.tools.Free(); return false; }
+        const PanelItem it = g.panelItems[(size_t)hit];
+        OnPanelClick(it.x + 4, it.y + it.h / 2);
+
+        // 打ちこむ欄なら、窓が無くても中身を入れられるようにします
+        if (probe.type) {
+            if (g.editToQuery) {
+                g.panel.query = probe.typeValue;
+                g.editToQuery = false;
+            } else if (!g.editArg.empty()) {
+                JValue* owner = JResolve(g.project, g.editOwner);
+                if (owner && owner->isObj()) {
+                    owner->set(g.editArg, ValueForField(g.editNumber, probe.typeValue));
+                    MarkDirty();
+                }
+            }
+            g.editing = false;
+            g.editArg.clear();
+        }
+        Relayout();
+    }
+
+    if (items) {
+        std::string out;
+        for (size_t i = 0; i < g.panelItems.size(); i++) {
+            const PanelItem& it = g.panelItems[i];
+            const char* kind = "text";
+            switch (it.kind) {
+                case ItemKind::Head:   kind = "head"; break;
+                case ItemKind::Hint:   kind = "hint"; break;
+                case ItemKind::Button: kind = "button"; break;
+                case ItemKind::Field:  kind = "field"; break;
+                case ItemKind::Row:    kind = "row"; break;
+                default: break;
+            }
+            char buf[64];
+            sprintf(buf, " (%4d,%4d) %4dx%-4d ", it.x, it.y, it.w, it.h);
+            out += std::string(kind) + " " + (it.id.empty() ? "-" : it.id) + buf
+                 + it.text;
+            if (!it.value.empty()) out += " = " + it.value;
+            if (!it.sub.empty()) out += " / " + it.sub;
+            out += "\n";
+        }
+        // いまえらんでいるたなと、さがす言葉も言っておきます
+        out += std::string("たな ") + TabName(g.panel.tab) + "\n";
+        out += "さがす言葉 " + g.panel.query + "\n";
+        *items = out;
+    }
     if (json) *json = g.project.dump(2);
     g.tools.Free();
     return true;

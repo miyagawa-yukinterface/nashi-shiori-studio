@@ -293,13 +293,11 @@ void LayoutScript(const JValue& script, int x, int y,
     if (kind == "talk") key = "@talk";
     else if (kind == "function") key = "@function";
     else {
-        // マウス系や「◯秒ごと」は、形の変わる帽子を使う
-        if (script.has("everySec")) key = "@event.every";
-        else if (script.has("filter")) {
-            const JValue& f = script["filter"];
-            if (f.has("from") || f.has("contains")) key = "@event.comm";
-            else key = "@event.touch";
-        }
+        // マウス系や「◯秒ごと」は、形の変わる帽子を使う（render.js の hatKeyFor と同じ）
+        const std::string event = script["event"].asStr();
+        if (IsMouseEvent(event)) key = "@event.touch";
+        else if (event == "OnSecondChange") key = "@event.every";
+        else if (event == "OnCommunicate") key = "@event.comm";
     }
     const BlockDef* hat = FindBlock(key);
 

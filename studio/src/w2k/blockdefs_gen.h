@@ -551,4 +551,33 @@ static const OptionDef kEvents[] = {
 };
 static const int kEventCount = 27;
 
+// マウス系のイベント。N.MOUSE_EVENTS と同じです。
+static const char* const kMouseEvents[] = {
+    "OnMouseClick",
+    "OnMouseDoubleClick",
+    "OnMouseMove",
+    "OnMouseWheel",
+    "OnNadeNade",
+};
+static const int kMouseEventCount = 5;
+
+// 当たり判定の名前。N.AREAS と同じです。
+static const OptionDef kAreas[] = {
+    { "どこか", "" },
+    { "あたま", "Head" },
+    { "かお", "Face" },
+    { "むね", "Bust" },
+    { "スカート", "Skirt" },
+    { "て", "Hand" },
+};
+static const int kAreaCount = 6;
+
+// だれの当たり判定か。N.WHO_ANY と同じです。
+static const OptionDef kWhoAny[] = {
+    { "どちらか", "-1" },
+    { "さくら", "0" },
+    { "うにゅう", "1" },
+};
+static const int kWhoAnyCount = 3;
+
 // clang-format on

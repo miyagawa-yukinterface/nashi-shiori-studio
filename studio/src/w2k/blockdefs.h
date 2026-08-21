@@ -90,6 +90,13 @@ const PaletteRow* Palette(int* count);
 /** イベントの名前のならび（「〜されたとき」でえらべるもの）。 */
 const OptionDef* AllEvents(int* count);
 
+/** そのイベントは、マウス系（どこを・だれを でしぼり込めるもの）か。 */
+bool IsMouseEvent(const std::string& event);
+
+/** 当たり判定の名前と、だれの当たり判定か。 */
+const OptionDef* AllAreas(int* count);
+const OptionDef* AllWho(int* count);
+
 /** 表ぜんぶ（点検やテスト用）。 */
 const BlockDef* AllBlocks(int* count);
 const CategoryDef* AllCategories(int* count);

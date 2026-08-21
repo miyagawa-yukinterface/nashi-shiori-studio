@@ -85,6 +85,23 @@ const OptionDef* AllEvents(int* count) {
     return kEvents;
 }
 
+bool IsMouseEvent(const std::string& event) {
+    for (int i = 0; i < kMouseEventCount; i++) {
+        if (event == kMouseEvents[i]) return true;
+    }
+    return false;
+}
+
+const OptionDef* AllAreas(int* count) {
+    if (count) *count = kAreaCount;
+    return kAreas;
+}
+
+const OptionDef* AllWho(int* count) {
+    if (count) *count = kWhoAnyCount;
+    return kWhoAny;
+}
+
 const CategoryDef* AllCategories(int* count) {
     if (count) *count = kCategoryCount;
     return kCategories;

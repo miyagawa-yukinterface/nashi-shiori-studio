@@ -78,7 +78,7 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 
 ---
 
-## テスト 10 本と、それぞれが守っているもの
+## テスト 11 本と、それぞれが守っているもの
 
 | 走らせかた | 守っているもの |
 |---|---|
@@ -92,6 +92,7 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 | `node studio\test\layout.js` | ネイティブ版のブロックの置き場所・つまみかた・描画（`studio\src\w2k`） |
 | `node studio\test\image.js` | PNG の読み書きと inflate（`pngread.cpp` / `inflate.cpp`） |
 | `node studio\test\window.js` | ネイティブ版の編集画面（つまむ・つなぐ・すてる・欄に打ちこむ。`window.cpp`） |
+| `node studio\test\panel.js` | 右の作業だな。**言いあらわしが JavaScript 版と同じか**も見ます |
 
 `parity` と `behavior` は `shiori\dist\test_host.exe` を、`parity` はさらに
 `studio\test\preview_host.exe` を使うので、**先にビルドが要ります**（`.\build.ps1 -Test`）。
@@ -151,6 +152,7 @@ WebView2 は Windows 10 からしか動かないので、画面は Win32 と GDI
 | `layout.cpp` | 幅と高さを決める。どこを押したかを探す | **使わない** |
 | `drag.cpp` | どこにつなげるか。つまむ・はなすと ghost.json がどう変わるか | **使わない** |
 | `paint.cpp` | 決まったものを描く | 使う |
+| `panel.cpp` | 右の作業だなの中身を組み立てる | **使わない** |
 | `window.cpp` | 窓を出して、マウスとキーを受ける | 使う |
 
 `layout.cpp` と `drag.cpp` に GDI が出てこないのは、**画面を出さずにテストするため**です。
@@ -203,6 +205,40 @@ WebView2 は Windows 10 からしか動かないので、画面は Win32 と GDI
 
 ブロックをつかむときは、**左のはし**を押してください。すこし右は欄になっていて、
 押すと打ちこみ・えらびに入ります（それはそれで正しい動きです）。
+
+### 右の作業だな
+
+`panel.cpp` が「見出し・説明・ボタン・欄・行」のならびを作り、`window.cpp` が
+それを描いて、押されたところを探します。部品には `var.del.2` のような目じるしが
+付いていて、テストはこれで押す場所を言います（見た目が変わっても壊れません）。
+
+```powershell
+# 変数のたなを見る（0=ためす 1=ゴースト 2=変数 3=さがす 4=チェック 5=書き出し 6=ヘルプ）
+.\studio\test\render_host.exe .\studio\test\drag_fixture.json --panel 2
+
+# ボタンを押してみる。うしろに字を足すと、その欄に打ちこみます
+.\studio\test\render_host.exe .\studio\test\drag_fixture.json --panel 2 --click var.add
+.\studio\test\render_host.exe .\studio\test\drag_fixture.json --panel 2 --click var.name.0 すきど
+
+# さがす
+.\studio\test\render_host.exe .\studio\test\drag_fixture.json --panel 3 --q はじめ
+```
+
+### 二重になっているあいだの見張り
+
+`blockSummary`（ブロックを字にする）と `scriptTitle`（かたまりの見出し）は、
+いま **JavaScript（`ui\js`）と C++（`panel.cpp`）の両方にあります**。
+WebView2 版を外すまでのあいだだけです。
+
+そのあいだ、`studio\test\panel.js` が**同じ ghost.json を両方に通して、
+出てくる字が 1 行ずつ同じかを見張ります**（いまは 3 つのゴースト、323 行）。
+栞の二重実装を `parity.js` で見張ったのと同じやりかたです。
+
+この見張りが、読みこみの下ごしらえ（`NormalizeProject`）の抜けを 1 つ見つけました。
+読みこんだゴーストは、しぼり込みを `filter` の中に持っています。
+**編集するときは `area` / `who` / `from` / `contains` にほどく**必要があります。
+
+WebView2 版を外したら JavaScript 側が消えるので、この見張りも要らなくなります。
 
 ### 欄のこと
 

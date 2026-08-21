@@ -4,6 +4,11 @@
 //   render_host.exe <ghost.json> --all <出す先のフォルダ>
 //   render_host.exe <ghost.json> --window <out.png> [幅 高さ]
 //                                        編集の画面ぜんぶ（窓を出さずに）
+//   render_host.exe <ghost.json> --summary
+//                                        かたまり・ブロックの言いあらわし
+//   render_host.exe <ghost.json> --panel <たなの番号> [--q 言葉]
+//                                        [--click 目じるし [打ちこむ中身]]
+//                                        右の作業だなを調べる／押してみる
 //   render_host.exe <ghost.json> --fields
 //                                        画面に出ている欄をぜんぶならべる
 //   render_host.exe <ghost.json> --field <x> <y> [書きこむ中身]
@@ -27,6 +32,7 @@
 #include "w2k/blockdefs.h"
 #include "w2k/layout.h"
 #include "w2k/paint.h"
+#include "w2k/panel.h"
 #include "w2k/window.h"
 #include "image.h"
 #include "json.h"
@@ -138,6 +144,47 @@ int wmain(int argc, wchar_t** argv) {
     if (!JsonParse(text, project, err)) {
         printf("JSON parse error: %s\n", err.c_str());
         return 3;
+    }
+
+    // かたまりとブロックの言いあらわしを出す（画面の言葉と同じか、くらべるため）
+    if (std::wstring(argv[2]) == L"--summary") {
+        // 読みこんだときと同じ下ごしらえをしてから見ます（filter をほどくため）
+        NormalizeProject(project);
+        const JValue& scripts = project["scripts"];
+        for (size_t i = 0; i < scripts.size(); i++) {
+            const JValue& s = scripts.at(i);
+            printf("title\t%s\n", ScriptTitle(s).c_str());
+            std::vector<const JValue*> blocks;
+            CollectBlocks(s, &blocks);
+            for (size_t k = 0; k < blocks.size(); k++) {
+                printf("block\t%s\n", BlockSummary(*blocks[k]).c_str());
+            }
+        }
+        return 0;
+    }
+
+    // 右の作業だなを調べる／押してみる
+    if (std::wstring(argv[2]) == L"--panel") {
+        if (argc < 4) { printf("--panel <たなの番号> [--q 言葉] [--click 目じるし [中身]]\n"); return 1; }
+        PanelProbe probe;
+        probe.ghostPath = argv[1];
+        probe.tab = _wtoi(argv[3]);
+        for (int i = 4; i < argc; i++) {
+            const std::wstring a = argv[i];
+            if (a == L"--q" && i + 1 < argc) { probe.query = WideToUtf8Arg(argv[++i]); }
+            else if (a == L"--click" && i + 1 < argc) {
+                probe.clickId = WideToUtf8Arg(argv[++i]);
+                if (i + 1 < argc && std::wstring(argv[i + 1]).compare(0, 2, L"--") != 0) {
+                    probe.type = true;
+                    probe.typeValue = WideToUtf8Arg(argv[++i]);
+                }
+            }
+        }
+        std::string items, json;
+        if (!ProbePanel(probe, &items, &json)) { printf("できませんでした\n"); return 5; }
+        printf("%s", items.c_str());
+        if (!probe.clickId.empty()) printf("---- ghost.json\n%s\n", json.c_str());
+        return 0;
     }
 
     // 画面に出ている欄を、ぜんぶならべる

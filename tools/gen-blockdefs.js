@@ -194,6 +194,29 @@ w('};');
 w(`static const int kEventCount = ${N.EVENTS.length};`);
 w('');
 
+// ---- マウス系のイベント（「どこを・だれを」でしぼり込めるもの）
+w('// マウス系のイベント。N.MOUSE_EVENTS と同じです。');
+w('static const char* const kMouseEvents[] = {');
+for (const name of Object.keys(N.MOUSE_EVENTS)) w(`    ${cstr(name)},`);
+w('};');
+w(`static const int kMouseEventCount = ${Object.keys(N.MOUSE_EVENTS).length};`);
+w('');
+
+// ---- 当たり判定の名前と、だれの
+w('// 当たり判定の名前。N.AREAS と同じです。');
+w('static const OptionDef kAreas[] = {');
+for (const [label, value] of N.AREAS) w(`    { ${cstr(label)}, ${cstr(value)} },`);
+w('};');
+w(`static const int kAreaCount = ${N.AREAS.length};`);
+w('');
+
+w('// だれの当たり判定か。N.WHO_ANY と同じです。');
+w('static const OptionDef kWhoAny[] = {');
+for (const [label, value] of N.WHO_ANY) w(`    { ${cstr(label)}, ${cstr(value)} },`);
+w('};');
+w(`static const int kWhoAnyCount = ${N.WHO_ANY.length};`);
+w('');
+
 w('// clang-format on');
 w('');
 
