@@ -1,0 +1,190 @@
+なしライセンス 1.0
+==================
+
+Copyright (c) 2026 ミヤガワ (miyagawa-yukinterface)
+
+「本ソフトウェア」とは、なし栞（`nashi.dll`）、なしスタジオ（`nashi-studio.exe`）、
+およびこのリポジトリに含まれるソースコード・書きもの一式を指します。
+
+
+1. できること
+-------------
+
+だれでも、無償で、目的を問わず、次のことができます。
+許可を取る必要はありません。連絡も要りません。
+
+* 使うこと（個人でも、仕事でも）
+* 複製すること
+* 中身を書きかえること
+* 配ること（そのままでも、書きかえたものでも）
+* 本ソフトウェアを組みこんだ別のものを作り、配ること
+
+
+2. 作ったゴーストは、あなたのものです
+------------------------------------
+
+なしスタジオで書き出したゴースト（会話の中身、絵、`ghost.json`、
+書き出しに含まれる `nashi.dll`、自動生成された仮のシェルとバルーンを含みます）は、
+**すべてあなたのもの**です。作者は何の権利も主張しません。
+
+そのゴーストを配るとき、
+
+* **このライセンス文を同梱する必要はありません。**
+* **作者名やソフトウェア名を、どこにも書く必要はありません。**
+* 有償で配ってもかまいません。
+* 中身についても、作者は口を出しません。
+
+書いてくださるとうれしいですが、義務ではありません。
+
+> なぜこう書いてあるか：`nashi.dll` は、あなたが配るゴーストの中に入って
+> 一緒に配布されます。ふつうのライセンスだと、ゴーストを配る人まで
+> ライセンス文の同梱を求められることになります。それは本意ではないので、
+> ここではっきり免除しています。
+
+
+3. 本ソフトウェア自体を配るとき
+-------------------------------
+
+`nashi-studio.exe` や `nashi.dll` を**単体で**、あるいはソースコードを、
+そのまま、または書きかえて配るときは、次の 2 つをお願いします。
+
+* この `LICENSE` ファイルを一緒に入れてください。
+* 書きかえたものを配るときは、**元のものと取りちがえられないように**、
+  変更を加えた旨がわかるようにしてください（README に一行でも、名前を変えるのでも）。
+
+2 の「ゴーストに入れて配る場合」は、この節の対象外です（何も要りません）。
+
+
+4. 保証はありません
+-------------------
+
+本ソフトウェアは「現状のまま」提供されます。
+作者は、明示黙示を問わず、いかなる保証も行いません。これには、商品性、
+特定の目的への適合性、および権利の非侵害についての保証を含みますが、
+これらに限られません。
+
+本ソフトウェアの使用、使用不能、または本ソフトウェアに関連して生じた
+いかなる損害（データの消失、逸失利益、事業の中断などを含みますが、
+これらに限られません）についても、作者は責任を負いません。
+これは、契約、無過失責任、不法行為その他いかなる法理に基づく請求であっても、
+また作者がそのような損害の可能性を知らされていた場合であっても同じです。
+
+**自己責任でお使いください。**
+
+
+5. その他
+---------
+
+* この条件に同意できない場合は、本ソフトウェアを使わないでください。
+* 作者は、将来の版でこの条件を変えることがあります。すでに受け取った版に
+  ついては、受け取った時点の条件がそのまま有効です。
+* 日本語の本文を正文とします。下の英訳は参考です。
+
+
+---
+
+Nashi License 1.0 (reference translation)
+=========================================
+
+Copyright (c) 2026 ミヤガワ (miyagawa-yukinterface)
+
+"The Software" means nashi SHIORI (`nashi.dll`), nashi studio
+(`nashi-studio.exe`), and the source code and documents in this repository.
+
+**1. What you may do.** Anyone may, free of charge and for any purpose, use
+(personally or commercially), copy, modify, and distribute the Software in
+original or modified form, and create and distribute works that incorporate
+it. No permission or notification is required.
+
+**2. Ghosts you make are yours.** Any ghost exported with nashi studio —
+including its dialogue, images, `ghost.json`, the bundled copy of
+`nashi.dll`, and the generated placeholder shell and balloon — belongs
+entirely to you. When you distribute such a ghost you are **not** required
+to include this license, and **not** required to credit the author or the
+software anywhere. You may charge for it. Credit is welcome but never
+required.
+
+**3. Distributing the Software itself.** If you distribute
+`nashi-studio.exe` or `nashi.dll` on their own, or the source code, in
+original or modified form, please (a) include this `LICENSE` file, and
+(b) if modified, make it clear that changes were made, so it is not
+mistaken for the original. Section 2 (ghosts) is exempt from this section.
+
+**4. No warranty.** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGE.
+
+**5. Other.** If you do not agree to these terms, do not use the Software.
+Later versions may carry different terms; a copy you already received keeps
+the terms it came with. The Japanese text above is authoritative; this
+English text is a reference translation.
+
+
+===============================================================================
+同梱しているソフトウェア / Bundled third-party software
+===============================================================================
+
+なしスタジオ（`nashi-studio.exe`）には、下記のソフトウェアが組みこまれています。
+このソフトウェアには、それぞれの権利者の条件が適用されます。
+
+nashi studio (`nashi-studio.exe`) statically links the following software.
+It remains under the terms of its own copyright holder.
+
+
+-------------------------------------------------------------------------------
+Microsoft Edge WebView2 SDK (Microsoft.Web.WebView2)
+https://www.nuget.org/packages/Microsoft.Web.WebView2/
+-------------------------------------------------------------------------------
+
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+   * The name of Microsoft Corporation, or the names of its contributors
+may not be used to endorse or promote products derived from this
+software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+-------------------------------------------------------------------------------
+おぼえ書き / Notes
+-------------------------------------------------------------------------------
+
+* なし栞（`nashi.dll`）は、Windows に最初から入っている `msvcrt.dll` を
+  呼び出しますが、同梱はしていません（OS の一部です）。
+  nashi SHIORI calls `msvcrt.dll`, a component of Windows. It is not bundled.
+
+* `updates2.dau` の書き出しは、公開されている読み取り側の実装
+  （ninix-kagari の `lib/ninix/update.rb`）を読んで**形式を合わせた**ものです。
+  コードは引き写していません。
+  The `updates2.dau` writer was written to match a published reader
+  (ninix-kagari's `lib/ninix/update.rb`). No code was copied from it.
+
+* JSON の読み書き、PNG の書き出し、deflate 圧縮、ZIP の書き出しは、
+  外部ライブラリを使わずに自前で書いています。
+  The JSON parser, PNG writer, deflate compressor and ZIP writer are all
+  written from scratch, with no external libraries.

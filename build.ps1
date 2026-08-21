@@ -89,9 +89,13 @@ if ($Release) {
     New-Item -ItemType Directory -Force (Join-Path $stage 'docs') | Out-Null
 
     Copy-Item (Join-Path $root 'nashi-studio.exe') $stage
+    # LICENSE は「あれば入れる」ではなく、無かったら止めます。
+    # 同梱している WebView2 SDK が、配るときに著作権表示を求めているためです
+    # （その本文は LICENSE の後ろに入れてあります）。
     foreach ($f in @('README.md', 'CHANGELOG.md', 'LICENSE')) {
         $p = Join-Path $root $f
-        if (Test-Path $p) { Copy-Item $p $stage }
+        if (-not (Test-Path $p)) { throw "$f がありません。配布物に入れるものです。" }
+        Copy-Item $p $stage
     }
     Get-ChildItem (Join-Path $root 'docs') -Filter '*.md' -ErrorAction SilentlyContinue |
         ForEach-Object { Copy-Item $_.FullName (Join-Path $stage 'docs') }
@@ -103,7 +107,7 @@ if ($Release) {
     Compress-Archive -Path $stage -DestinationPath $zip
     $kb = [math]::Round((Get-Item $zip).Length / 1KB, 1)
     Write-Host "  できました -> $zip ($kb KB)" -ForegroundColor Green
-    Write-Host '  中身: nashi-studio.exe / README.md / CHANGELOG.md / docs' -ForegroundColor DarkGray
+    Write-Host '  中身: nashi-studio.exe / README.md / CHANGELOG.md / LICENSE / docs' -ForegroundColor DarkGray
 }
 
 Write-Host ''
