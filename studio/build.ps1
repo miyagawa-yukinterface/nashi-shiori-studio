@@ -170,6 +170,39 @@ if ($Test) {
     if ($LASTEXITCODE -ne 0) { throw '書き出しテスト用コンソールのリンクに失敗しました。' }
     Write-Host "[studio] OK -> $testExe" -ForegroundColor Green
 
+    # ネイティブ版の画面（w2k）で使うブロックの表を、ui\js\blocks.js から作りなおす
+    $node = Get-Command node -ErrorAction SilentlyContinue
+    if ($node) {
+        & node (Join-Path $repo 'tools\gen-blockdefs.js') | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'gen-blockdefs.js が失敗しました。' }
+    }
+
+    Write-Host '[studio] 配置テスト用コンソールをビルド中...' -ForegroundColor Cyan
+    $layObj = Join-Path $obj 'layout'
+    New-Item -ItemType Directory -Force -Path $layObj | Out-Null
+    $laySources = @(
+        (Join-Path $root 'test\layout_host.cpp'),
+        (Join-Path $src 'w2k\blockdefs.cpp'),
+        (Join-Path $src 'w2k\layout.cpp'),
+        (Join-Path $repo 'shiori\src\json.cpp'),
+        (Join-Path $repo 'shiori\src\util.cpp')
+    )
+    $layCl = @(
+        '/nologo', '/c', '/O2', '/MT', '/EHsc', '/W3', '/std:c++17', '/utf-8',
+        '/DNDEBUG', '/DWIN32', '/DUNICODE', '/D_UNICODE', '/D_CRT_SECURE_NO_WARNINGS',
+        "/I$src", "/I$repo\shiori\src", "/Fo:$layObj\"
+    ) + $laySources
+    & cl @layCl
+    if ($LASTEXITCODE -ne 0) { throw '配置テスト用コンソールのコンパイルに失敗しました。' }
+    $layObjs = $laySources | ForEach-Object {
+        Join-Path $layObj ([System.IO.Path]::GetFileNameWithoutExtension($_) + '.obj')
+    }
+    $layExe = Join-Path $root 'test\layout_host.exe'
+    & link '/nologo' "/OUT:$layExe" '/SUBSYSTEM:CONSOLE' @layObjs `
+        'kernel32.lib' 'user32.lib' 'shell32.lib' 'shlwapi.lib' 'advapi32.lib' 'ole32.lib'
+    if ($LASTEXITCODE -ne 0) { throw '配置テスト用コンソールのリンクに失敗しました。' }
+    Write-Host "[studio] OK -> $layExe" -ForegroundColor Green
+
     Write-Host '[studio] プレビューテスト用コンソールをビルド中...' -ForegroundColor Cyan
     $prevObj = Join-Path $obj 'preview'
     New-Item -ItemType Directory -Force -Path $prevObj | Out-Null
