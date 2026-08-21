@@ -2,8 +2,10 @@
 //
 //   render_host.exe <ghost.json> <かたまりのid> <out.png>
 //   render_host.exe <ghost.json> --all <出す先のフォルダ>
-//   render_host.exe <ghost.json> --window <out.png> [幅 高さ]
+//   render_host.exe <ghost.json> --window <out.png> [幅 高さ [たなの番号]]
 //                                        編集の画面ぜんぶ（窓を出さずに）
+//   render_host.exe <ghost.json> --lint
+//                                        チェックの結果
 //   render_host.exe <ghost.json> --summary
 //                                        かたまり・ブロックの言いあらわし
 //   render_host.exe <ghost.json> --panel <たなの番号> [--q 言葉]
@@ -32,6 +34,7 @@
 #include "w2k/blockdefs.h"
 #include "w2k/layout.h"
 #include "w2k/paint.h"
+#include "w2k/lint.h"
 #include "w2k/panel.h"
 #include "w2k/window.h"
 #include "image.h"
@@ -146,6 +149,20 @@ int wmain(int argc, wchar_t** argv) {
         return 3;
     }
 
+    // チェックの結果を出す（JavaScript 版とくらべるため）
+    if (std::wstring(argv[2]) == L"--lint") {
+        NormalizeProject(project);
+        std::vector<LintIssue> issues;
+        LintProject(project, &issues);
+        for (size_t i = 0; i < issues.size(); i++) {
+            printf("%s\n%s\n%s\n",
+                   issues[i].level == LintLevel::Error ? "error" : "warn",
+                   issues[i].message.c_str(), issues[i].hint.c_str());
+        }
+        printf("---- %d 件（まちがい %d）\n", (int)issues.size(), CountLintErrors(issues));
+        return 0;
+    }
+
     // かたまりとブロックの言いあらわしを出す（画面の言葉と同じか、くらべるため）
     if (std::wstring(argv[2]) == L"--summary") {
         // 読みこんだときと同じ下ごしらえをしてから見ます（filter をほどくため）
@@ -258,8 +275,9 @@ int wmain(int argc, wchar_t** argv) {
     if (std::wstring(argv[2]) == L"--window") {
         const int w = (argc >= 5) ? _wtoi(argv[4]) : 1100;
         const int h = (argc >= 6) ? _wtoi(argv[5]) : 760;
+        const int tab = (argc >= 7) ? _wtoi(argv[6]) : -1;
         std::string png;
-        if (!RenderEditor(argv[1], w, h, 0, 0, &png)) {
+        if (!RenderEditor(argv[1], w, h, 0, 0, &png, tab)) {
             printf("画面を描けませんでした\n");
             return 5;
         }

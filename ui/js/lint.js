@@ -270,7 +270,9 @@
               issue(out, 'error', `${title}の選択肢に、行き先がありません`,
                 'えらんでも何も起きません。行き先のトークをえらんでください。', s, b);
             } else if (callable.indexOf(b.target) < 0) {
-              issue(out, 'error', `選択肢の行き先「${b.target}」がありません（${title}）`, '', s, b);
+              // 欄にブロックが入っているときは、名前ではないので「（ブロック）」と言う
+              const shown = (typeof b.target === 'object') ? '（ブロック）' : String(b.target);
+              issue(out, 'error', `選択肢の行き先「${shown}」がありません（${title}）`, '', s, b);
             }
             if (isEmptyText(b.label)) {
               issue(out, 'warn', `${title}に、文字のない選択肢があります`, '', s, b);

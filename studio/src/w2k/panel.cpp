@@ -1,5 +1,7 @@
 #include "panel.h"
 
+#include "lint.h"
+
 #include <cstdio>
 
 namespace nashi {
@@ -15,7 +17,7 @@ const int kHintH = 18;
 const int kTextH = 20;
 const int kButtonH = 26;
 const int kFieldH = 24;
-const int kRowH = 34;
+const int kRowH = 36;
 const int kLabelW = 96;       // Field の見出しの幅
 
 const char* const kTabNames[kTabCount] = {
@@ -137,6 +139,28 @@ void BuildSearch(Builder& b, const JValue& project, const PanelState& state) {
     for (size_t i = 0; i < hits.size(); i++) {
         b.Row("search.hit." + IntToStr((int)i), hits[i].text,
               hits[i].isBlock ? hits[i].title : std::string(), 0);
+    }
+}
+
+// ------------------------------------------------------------ チェックのたな
+void BuildCheck(Builder& b, const JValue& project) {
+    b.Head("チェック");
+    b.Hint("気になるところをならべます。押すと、その場所へ動きます。");
+
+    std::vector<LintIssue> issues;
+    LintProject(project, &issues);
+    if (issues.empty()) {
+        b.Text("✓ 気になるところはありません");
+        return;
+    }
+    const int errors = CountLintErrors(issues);
+    char head[96];
+    sprintf(head, "まちがい %d / 気になる %d", errors, (int)issues.size() - errors);
+    b.Text(head);
+
+    for (size_t i = 0; i < issues.size(); i++) {
+        b.Row("check.hit." + IntToStr((int)i), issues[i].message, issues[i].hint,
+              issues[i].level == LintLevel::Error ? 2 : 1);
     }
 }
 
@@ -294,9 +318,57 @@ void WalkBlocks(const JValue& list, std::vector<const JValue*>* out) {
 
 } // namespace
 
+namespace {
+
+/** 無ければ既定値を入れる（あるものは触らない）。 */
+void FillDefault(JValue& obj, const char* key, const JValue& value) {
+    if (obj.has(key)) return;
+    obj.set(key, value);
+}
+
+/** obj["key"] を取り出す（無ければ作る）。 */
+JValue* Sub(JValue& obj, const char* key) {
+    if (!obj[key].isObj()) obj.set(key, JValue::makeObj());
+    for (size_t i = 0; i < obj.obj.size(); i++) {
+        if (obj.obj[i].first == key) return &obj.obj[i].second;
+    }
+    return NULL;
+}
+
+} // namespace
+
 void NormalizeProject(JValue& project) {
     if (!project.isObj()) return;
     if (!project.has("scripts")) project.set("scripts", JValue::makeArr());
+    if (!project.has("variables")) project.set("variables", JValue::makeArr());
+
+    // ---- ゴーストの情報（ui\js\model.js の newProject と同じ既定値）
+    if (JValue* meta = Sub(project, "meta")) {
+        FillDefault(*meta, "name", JValue::makeStr("なしゴースト"));
+        FillDefault(*meta, "sakuraName", JValue::makeStr("さくら"));
+        FillDefault(*meta, "keroName", JValue::makeStr("うにゅう"));
+        FillDefault(*meta, "craftman", JValue::makeStr(""));
+        FillDefault(*meta, "craftmanUrl", JValue::makeStr(""));
+        FillDefault(*meta, "homeUrl", JValue::makeStr(""));
+        FillDefault(*meta, "version", JValue::makeStr("1.0.0"));
+        FillDefault(*meta, "description", JValue::makeStr(""));
+    }
+    if (JValue* st = Sub(project, "settings")) {
+        FillDefault(*st, "randomTalkInterval", JValue::makeNum(180));
+        FillDefault(*st, "randomTalkEnabled", JValue::makeBool(true));
+        FillDefault(*st, "noRepeatCount", JValue::makeNum(0));
+        FillDefault(*st, "defaultSurfaceSakura", JValue::makeNum(0));
+        FillDefault(*st, "defaultSurfaceKero", JValue::makeNum(10));
+    }
+    if (JValue* sh = Sub(project, "shell")) {
+        FillDefault(*sh, "balloonEnabled", JValue::makeBool(false));
+        FillDefault(*sh, "balloonColor", JValue::makeStr("#fffdf5"));
+        FillDefault(*sh, "sakuraColor", JValue::makeStr("#f08cae"));
+        FillDefault(*sh, "sakuraCloth", JValue::makeStr("#6e82c8"));
+        FillDefault(*sh, "keroColor", JValue::makeStr("#8fd18a"));
+        FillDefault(*sh, "keroCloth", JValue::makeStr("#e8b45c"));
+        FillDefault(*sh, "images", JValue::makeArr());
+    }
 
     JValue* scripts = NULL;
     for (size_t i = 0; i < project.obj.size(); i++) {
@@ -401,6 +473,7 @@ void BuildPanel(const JValue& project, const PanelState& state,
     switch (state.tab) {
         case Tab::Vars:   BuildVars(b, project); break;
         case Tab::Search: BuildSearch(b, project, state); break;
+        case Tab::Check:  BuildCheck(b, project); break;
         default:
             b.Head(TabName(state.tab));
             b.Hint("このたなは、まだ作っていません。");

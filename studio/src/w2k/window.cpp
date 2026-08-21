@@ -1461,6 +1461,10 @@ bool ProbeEditor(const EditorProbe& probe, std::string* png, std::string* json) 
         || probe.width > 4000 || probe.height > 4000) return false;
     if (!SetUpHeadless(probe.ghostPath, probe.width, probe.height,
                        probe.scrollX, probe.scrollY)) return false;
+    if (probe.tab >= 0) {
+        g.panel.tab = TabAt(probe.tab);
+        Relayout();
+    }
 
     int fromX = probe.fromX, fromY = probe.fromY;
     if (!probe.grabPalette.empty()) {
@@ -1676,13 +1680,14 @@ bool EditorPaletteSpots(int width, int height, std::vector<PaletteSpot>* out) {
 }
 
 bool RenderEditor(const std::wstring& ghostPath, int width, int height,
-                  int scrollX, int scrollY, std::string* png) {
+                  int scrollX, int scrollY, std::string* png, int tab) {
     EditorProbe probe;
     probe.ghostPath = ghostPath;
     probe.width = width;
     probe.height = height;
     probe.scrollX = scrollX;
     probe.scrollY = scrollY;
+    probe.tab = tab;
     return ProbeEditor(probe, png, NULL);
 }
 

@@ -78,7 +78,7 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 
 ---
 
-## テスト 11 本と、それぞれが守っているもの
+## テスト 12 本と、それぞれが守っているもの
 
 | 走らせかた | 守っているもの |
 |---|---|
@@ -93,6 +93,7 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 | `node studio\test\image.js` | PNG の読み書きと inflate（`pngread.cpp` / `inflate.cpp`） |
 | `node studio\test\window.js` | ネイティブ版の編集画面（つまむ・つなぐ・すてる・欄に打ちこむ。`window.cpp`） |
 | `node studio\test\panel.js` | 右の作業だな。**言いあらわしが JavaScript 版と同じか**も見ます |
+| `node studio\test\lint.js` | チェック。**JavaScript 版と同じことを言うか**を 1 件ずつくらべます |
 
 `parity` と `behavior` は `shiori\dist\test_host.exe` を、`parity` はさらに
 `studio\test\preview_host.exe` を使うので、**先にビルドが要ります**（`.\build.ps1 -Test`）。
@@ -153,6 +154,7 @@ WebView2 は Windows 10 からしか動かないので、画面は Win32 と GDI
 | `drag.cpp` | どこにつなげるか。つまむ・はなすと ghost.json がどう変わるか | **使わない** |
 | `paint.cpp` | 決まったものを描く | 使う |
 | `panel.cpp` | 右の作業だなの中身を組み立てる | **使わない** |
+| `lint.cpp` | あぶないところ探し（チェック） | **使わない** |
 | `window.cpp` | 窓を出して、マウスとキーを受ける | 使う |
 
 `layout.cpp` と `drag.cpp` に GDI が出てこないのは、**画面を出さずにテストするため**です。
@@ -230,13 +232,25 @@ WebView2 は Windows 10 からしか動かないので、画面は Win32 と GDI
 いま **JavaScript（`ui\js`）と C++（`panel.cpp`）の両方にあります**。
 WebView2 版を外すまでのあいだだけです。
 
-そのあいだ、`studio\test\panel.js` が**同じ ghost.json を両方に通して、
-出てくる字が 1 行ずつ同じかを見張ります**（いまは 3 つのゴースト、323 行）。
+チェック（`lint.js` と `lint.cpp`）も同じです。
+
+そのあいだ、`studio\test\panel.js` と `studio\test\lint.js` が
+**同じ ghost.json を両方に通して、出てくるものが 1 つずつ同じかを見張ります**。
 栞の二重実装を `parity.js` で見張ったのと同じやりかたです。
 
-この見張りが、読みこみの下ごしらえ（`NormalizeProject`）の抜けを 1 つ見つけました。
-読みこんだゴーストは、しぼり込みを `filter` の中に持っています。
-**編集するときは `area` / `who` / `from` / `contains` にほどく**必要があります。
+* `panel.js` … かたまりの見出しとブロックの言いあらわし（3 つのゴースト、323 行）
+* `lint.js` … チェックの結果を、出た順・段階・言葉・説明の 4 つとも
+  （見本 3 つ＋お手本 5 つ＋**わざと変なところを作った 16 とおり**）
+
+見本のゴーストだけでは通らない道が多いので、`lint.js` は変な ghost.json を
+その場で組み立てます。空の欄、無いものを指している、毎秒しゃべる、といった形です。
+
+この見張りが、読みこみの下ごしらえ（`NormalizeProject`）の抜けを 2 つ見つけました。
+
+1. 読みこんだゴーストは、しぼり込みを `filter` の中に持っています。
+   **編集するときは `area` / `who` / `from` / `contains` にほどく**必要があります。
+2. `settings` と `meta` の**既定値をうめていません**でした。
+   うめないと「しゃべる間隔が 0 秒」と言ってしまいます。
 
 WebView2 版を外したら JavaScript 側が消えるので、この見張りも要らなくなります。
 

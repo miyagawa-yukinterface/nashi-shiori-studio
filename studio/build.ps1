@@ -106,6 +106,7 @@ $sources = @(
     (Join-Path $src 'w2k\drag.cpp'),
     (Join-Path $src 'w2k\paint.cpp'),
     (Join-Path $src 'w2k\panel.cpp'),
+    (Join-Path $src 'w2k\lint.cpp'),
     (Join-Path $src 'w2k\window.cpp'),
     # 「ためす」は栞そのものでブロックを動かします（同じ規則を二重に書かないため）
     (Join-Path $repo 'shiori\src\interp.cpp'),
@@ -224,6 +225,7 @@ if ($Test) {
         (Join-Path $src 'w2k\drag.cpp'),
         (Join-Path $src 'w2k\paint.cpp'),
         (Join-Path $src 'w2k\panel.cpp'),
+        (Join-Path $src 'w2k\lint.cpp'),
         (Join-Path $src 'w2k\window.cpp'),
         (Join-Path $src 'image.cpp'),
         (Join-Path $src 'pngread.cpp'),

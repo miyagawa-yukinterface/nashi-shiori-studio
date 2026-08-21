@@ -29,7 +29,7 @@ int RunEditor(HINSTANCE hInstance, const std::wstring& ghostPath);
  * render_host と同じ考えで、画面まわりも目で見られるようにしておきます。
  */
 bool RenderEditor(const std::wstring& ghostPath, int width, int height,
-                  int scrollX, int scrollY, std::string* png);
+                  int scrollX, int scrollY, std::string* png, int tab = -1);
 
 /**
  * 窓を出さずに、マウスの動きまでまねてみる（確かめ用）。
@@ -46,6 +46,7 @@ struct EditorProbe {
     std::string grabPalette;
     int toX = 0, toY = 0;     // 動かした先
     bool release = false;     // はなすところまでやるか
+    int tab = -1;             // 0 以上なら、右の作業だなをそのたなにします
 };
 
 /** png は途中の絵、json は ghost.json がどうなったか。要らないほうは NULL で。 */
