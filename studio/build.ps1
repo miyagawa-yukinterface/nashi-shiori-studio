@@ -184,6 +184,7 @@ if ($Test) {
         (Join-Path $root 'test\layout_host.cpp'),
         (Join-Path $src 'w2k\blockdefs.cpp'),
         (Join-Path $src 'w2k\layout.cpp'),
+        (Join-Path $src 'w2k\drag.cpp'),
         (Join-Path $repo 'shiori\src\json.cpp'),
         (Join-Path $repo 'shiori\src\util.cpp')
     )
@@ -211,6 +212,7 @@ if ($Test) {
         (Join-Path $root 'test\render_host.cpp'),
         (Join-Path $src 'w2k\blockdefs.cpp'),
         (Join-Path $src 'w2k\layout.cpp'),
+        (Join-Path $src 'w2k\drag.cpp'),
         (Join-Path $src 'w2k\paint.cpp'),
         (Join-Path $src 'image.cpp'),
         (Join-Path $src 'deflate.cpp'),

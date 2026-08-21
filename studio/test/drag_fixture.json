@@ -1,0 +1,27 @@
+{
+  "name": "つなぎかたの確かめ用",
+  "scripts": [
+    {
+      "id": "d_cap",
+      "kind": "event",
+      "event": "OnBoot",
+      "x": 0,
+      "y": 0,
+      "blocks": [
+        { "type": "say", "who": "sakura", "text": "はじめ", "nl": "1" },
+        { "type": "end" },
+        { "type": "say", "who": "sakura", "text": "ここには来ない", "nl": "1" }
+      ]
+    },
+    {
+      "id": "d_bool",
+      "kind": "event",
+      "event": "OnSecondChange",
+      "x": 0,
+      "y": 0,
+      "blocks": [
+        { "type": "if", "cond": null, "then": [] }
+      ]
+    }
+  ]
+}

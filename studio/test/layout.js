@@ -88,7 +88,72 @@ check('帽子をつかめる', /ブロック: @event/.test(hitHat) ? '@event' : 
 const hitNone = run([ghost, 'b_boot', '--hit', '9000', '9000']);
 check('外を押したら何もない', /には何もありません/.test(hitNone) ? 'はい' : 'いいえ', 'はい');
 
-// ------------------------------------------------------------ 5. 描けるか
+// -------------------------------------------------- 5. つまむ・つなぐ（drag）
+// 決まりごとは ui\js\drag.js と同じにしてあります。
+const drops = run([parity, '--drops', 'p05', 'stack']);
+
+// ならびの数だけ、つなぎ目がある（帽子の下の 4 つ ＋ 最後の 1 つ）
+check('外がわのつなぎ目の数',
+  (drops.match(/^  ならび scripts\[4\]\.blocks {2}/gm) || []).length, 5);
+// C ブロックの中にも、つなぎ目ができている
+check('repeat の中にもつなげる',
+  /ならび scripts\[4\]\.blocks\[0\]\.body\s+0 番目/.test(drops) ? 'はい' : 'いいえ', 'はい');
+check('入れ子の中にもつなげる',
+  /ならび scripts\[4\]\.blocks\[3\]\.body\[0\]\.body\s+0 番目/.test(drops) ? 'はい' : 'いいえ', 'はい');
+
+// 丸いブロックは、空いている入力欄にだけ入る（えらぶ欄・ふさがった欄には入らない）
+const dropsRep = run([parity, '--drops', 'p05', 'reporter']);
+check('丸ブロックが入れる欄の数',
+  (dropsRep.match(/^  欄 /gm) || []).length, 8);
+check('えらぶ欄には入らない', /欄=nl|欄=who|欄=name/.test(dropsRep) ? 'いいえ' : 'はい', 'はい');
+check('ふさがった欄には入らない', /欄=cond\s/.test(dropsRep) ? 'いいえ' : 'はい', 'はい');
+
+// 六角のブロックは、空いている六角の欄にだけ入る。p05 の cond は埋まっているので 0 個。
+const dropsBool = run([parity, '--drops', 'p05', 'boolean']);
+check('六角のブロックが入れる欄の数', (dropsBool.match(/^  欄 /gm) || []).length, 0);
+
+// いちばん近いつなぎ目をえらぶ
+const near = run([parity, '--drag', 'p05', 'stack', '14', '82']);
+check('ちょうど上に置いたら、その前につながる',
+  /blocks\[0\]\.body\s+0 番目/.test(near) ? 'はい' : near.trim(), 'はい');
+const near2 = run([parity, '--drag', 'p05', 'stack', '20', '95']);
+check('下にずらしたら、その後ろにつながる',
+  /blocks\[0\]\.body\s+1 番目/.test(near2) ? 'はい' : near2.trim(), 'はい');
+const far = run([parity, '--drag', 'p05', 'stack', '900', '900']);
+check('遠いところでは、つながらない', /つなげる場所なし/.test(far) ? 'はい' : far.trim(), 'はい');
+
+// つまんで、はなす。つまむと下にあるものもついてくる（scratch と同じ）。
+const moved = run([parity, '--move', 'p05', '1', '16', '84']);
+check('つまむと下もついてくる',
+  (moved.match(/^つまむ: (.*)$/m) || [])[1], 'set>while>repeat');
+check('つまんだあと、もとの場所には上だけ残る',
+  (moved.match(/^のこり: (.*)$/m) || [])[1], 'repeat');
+check('はなした先に入っている',
+  (moved.match(/^置いた先: \S+ = (.*)$/m) || [])[1], 'set>while>repeat>say');
+
+// 「ここでおわる」ブロックのまわりの決まりは、専用の見本でたしかめます
+// （parity の見本には cap のブロックが出てこないため）。
+const fixture = path.join(root, 'studio', 'test', 'drag_fixture.json');
+const capDrops = run([fixture, '--drops', 'd_cap', 'stack']);
+check('おわるブロックの後ろにはつなげない',
+  /^  ならび scripts\[0\]\.blocks\s+2 番目/m.test(capDrops) ? 'つなげてしまう' : 'はい', 'はい');
+check('おわるブロックの前にはつなげる',
+  /^  ならび scripts\[0\]\.blocks\s+1 番目/m.test(capDrops) ? 'はい' : 'いいえ', 'はい');
+
+// つまんでいるものの最後が cap なら、その後ろにブロックを残せないので、ならびの終わりだけ
+const capPayload = run([fixture, '--drops', 'd_cap', 'cap']);
+check('おわるブロックはならびの終わりにしか置けない',
+  (capPayload.match(/^  ならび /gm) || []).length, 1);
+
+// 空の六角の欄には、六角のブロックだけが入る
+const boolDrops = run([fixture, '--drops', 'd_bool', 'boolean']);
+check('空の六角の欄が見つかる',
+  /欄=cond\s+六角/.test(boolDrops) ? 'はい' : boolDrops.trim(), 'はい');
+const repIntoBool = run([fixture, '--drops', 'd_bool', 'reporter']);
+check('六角の欄に丸ブロックは入らない',
+  (repIntoBool.match(/^  欄 /gm) || []).length, 0);
+
+// ------------------------------------------------------------ 6. 描けるか
 // 窓を出さずに、記憶の中の絵へ GDI で描いて PNG にします。
 // 中身の見た目までは見ませんが、「落ちずに、それらしい大きさの絵が出る」までは見ます。
 const renderHost = path.join(root, 'studio', 'test', 'render_host.exe');

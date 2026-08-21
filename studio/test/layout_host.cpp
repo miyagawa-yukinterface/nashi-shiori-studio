@@ -3,6 +3,12 @@
 //   layout_host.exe <ghost.json> [かたまりの id]
 //   layout_host.exe --defs                    ブロック定義の表を出す
 //   layout_host.exe <ghost.json> --hit x y    その場所にあるものを言う
+//   layout_host.exe <ghost.json> --drops <id> [stack|cap|reporter|boolean]
+//                                             つなげられる場所をぜんぶ出す
+//   layout_host.exe <ghost.json> --drag <id> <かたち> <x> <y>
+//                                             そこではなしたら、どこにつながるか
+//   layout_host.exe <ghost.json> --move <id> <何番目> <x> <y>
+//                                             つまんで、はなして、どうなったかを出す
 //
 // layout.cpp には GDI が出てこないので、こうしてコンソールで確かめられます。
 // 文字の幅は「1 文字ぶんいくつ」と決め打ちにして、どの環境でも同じ数が出るようにします
@@ -10,9 +16,12 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
+#include <vector>
 
 #include "w2k/blockdefs.h"
+#include "w2k/drag.h"
 #include "w2k/layout.h"
 #include "json.h"
 #include "util.h"
@@ -83,6 +92,41 @@ static void DumpDefs() {
     printf("\n== パレットに出す数: %d ==\n", pc);
 }
 
+
+// ------------------------------------------------------------ つなぎ先の見かた
+static DragShape ShapeArg(const std::string& s) {
+    if (s == "reporter") return DragShape::Reporter;
+    if (s == "boolean") return DragShape::Boolean;
+    return DragShape::Stack;
+}
+
+// "cap" と書いたら「つまんでいるものの最後が、ここでおわるブロック」のあつかいにします
+static bool CapArg(const std::string& s) { return s == "cap"; }
+
+static void PrintTarget(const DropTarget& t) {
+    if (t.kind == DropKind::Stack) {
+        printf("  ならび %-28s %2d 番目  (%4d,%4d) 幅%d\n",
+               t.owner.ToString().c_str(), t.index, t.x, t.y, t.w);
+    } else {
+        printf("  欄     %-28s 欄=%-10s%s (%4d,%4d) %dx%d\n",
+               t.owner.ToString().c_str(), t.argName.c_str(),
+               t.boolSlot ? " 六角" : "    ", t.x, t.y, t.w, t.h);
+    }
+}
+
+/** ならびの中身を「type>type」で言いあらわす（結果をくらべる用）。 */
+static std::string StackSummary(const JValue& list) {
+    std::string s;
+    for (size_t i = 0; i < list.size(); i++) {
+        if (!s.empty()) s += ">";
+        const JValue& b = list.at(i);
+        s += b["type"].asStr("?");
+        std::string op = b["op"].asStr();
+        if (!op.empty()) s += "#" + op;
+    }
+    return s.empty() ? std::string("(からっぽ)") : s;
+}
+
 int wmain(int argc, wchar_t** argv) {
     SetConsoleOutputCP(CP_UTF8);
     if (argc >= 2 && std::wstring(argv[1]) == L"--defs") { DumpDefs(); return 0; }
@@ -105,6 +149,90 @@ int wmain(int argc, wchar_t** argv) {
 
     FixedMeasurer tm;
     Metrics m;
+
+    // ---- つなぎ先まわり（--drops / --drag / --move）
+    std::string mode;
+    std::vector<std::string> rest;
+    for (int i = 2; i < argc; i++) {
+        std::string a = WideToUtf8Arg(argv[i]);
+        if (i == 2 && (a == "--drops" || a == "--drag" || a == "--move")) mode = a;
+        else if (!mode.empty()) rest.push_back(a);
+    }
+    if (!mode.empty()) {
+        if (rest.empty()) { printf("かたまりの id が要ります\n"); return 1; }
+        const std::string id = rest[0];
+        int si = -1;
+        for (size_t i = 0; i < project["scripts"].size(); i++) {
+            if (project["scripts"].at(i)["id"].asStr() == id) { si = (int)i; break; }
+        }
+        if (si < 0) { printf("%s というかたまりがありません\n", id.c_str()); return 4; }
+
+        JPath scriptPath = JPath().Then(JStep::Key("scripts")).Then(JStep::Index(si));
+
+        if (mode == "--move") {
+            if (rest.size() < 4) { printf("--move <id> <何番目> <x> <y>\n"); return 1; }
+            const int from = atoi(rest[1].c_str());
+            const int px = atoi(rest[2].c_str());
+            const int py = atoi(rest[3].c_str());
+
+            JPath listPath = scriptPath.Then(JStep::Key("blocks"));
+            printf("まえ  : %s\n", StackSummary(*JResolve(project, listPath)).c_str());
+
+            JValue taken;
+            if (!PickUpStack(project, listPath, from, &taken)) {
+                printf("%d 番目をつまめませんでした\n", from);
+                return 5;
+            }
+            printf("つまむ: %s\n", StackSummary(taken).c_str());
+            printf("のこり: %s\n", StackSummary(*JResolve(project, listPath)).c_str());
+
+            // つまんだ後の姿で、つなぎ先をさがす
+            const JValue& script = *JResolve(project, scriptPath);
+            Layout lay;
+            LayoutScript(script, 0, 0, m, tm, &lay);
+            std::vector<DropTarget> targets;
+            CollectDropTargets(lay, script, scriptPath, m, DragShape::Stack, false, &targets);
+            int best = NearestDropTarget(targets, DragShape::Stack, px, py);
+            if (best < 0) {
+                printf("(%d,%d) のちかくには、つなげる場所がありません\n", px, py);
+                return 0;
+            }
+            printf("つなぎ先:\n");
+            PrintTarget(targets[best]);
+            JPath dstPath = targets[best].owner;
+            if (!DropAt(project, targets[best], taken)) { printf("置けませんでした\n"); return 6; }
+            printf("あと  : %s\n", StackSummary(*JResolve(project, listPath)).c_str());
+            const JValue* dst = JResolve(project, dstPath);
+            if (dst && dst != JResolve(project, listPath)) {
+                printf("置いた先: %s = %s\n", dstPath.ToString().c_str(),
+                       StackSummary(*dst).c_str());
+            }
+            return 0;
+        }
+
+        const JValue& script = *JResolve(project, scriptPath);
+        Layout lay;
+        LayoutScript(script, 0, 0, m, tm, &lay);
+        const std::string kindArg = rest.size() > 1 ? rest[1] : "stack";
+        DragShape shape = ShapeArg(kindArg);
+        std::vector<DropTarget> targets;
+        CollectDropTargets(lay, script, scriptPath, m, shape, CapArg(kindArg), &targets);
+
+        if (mode == "--drops") {
+            printf("---- %s  つなげる場所 %d\n", id.c_str(), (int)targets.size());
+            for (size_t i = 0; i < targets.size(); i++) PrintTarget(targets[i]);
+            return 0;
+        }
+
+        if (rest.size() < 4) { printf("--drag <id> <かたち> <x> <y>\n"); return 1; }
+        const int px = atoi(rest[2].c_str());
+        const int py = atoi(rest[3].c_str());
+        int best = NearestDropTarget(targets, shape, px, py);
+        if (best < 0) { printf("(%d,%d) -> つなげる場所なし\n", px, py); return 0; }
+        printf("(%d,%d) ->\n", px, py);
+        PrintTarget(targets[best]);
+        return 0;
+    }
 
     const JValue& scripts = project["scripts"];
     std::string want = (argc >= 3 && std::wstring(argv[2]) != L"--hit")

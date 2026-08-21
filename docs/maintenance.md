@@ -78,7 +78,7 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 
 ---
 
-## テスト 7 本と、それぞれが守っているもの
+## テスト 8 本と、それぞれが守っているもの
 
 | 走らせかた | 守っているもの |
 |---|---|
@@ -89,11 +89,13 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 | `node ui\test\editor.js` | 読みこみの整形（`model.js`）とチェックタブ（`lint.js`） |
 | `node ui\test\modules.js` | `ui\js\*.js` が読みこめて、`N.Xxx.yyy()` の呼び先がそろっているか |
 | `node tools\check-imports.js` | `nashi.dll` が Windows 2000 から読みこめるか（輸入表を直に読む） |
+| `node studio\test\layout.js` | ネイティブ版のブロックの置き場所・つまみかた・描画（`studio\src\w2k`） |
 
 `parity` と `behavior` は `shiori\dist\test_host.exe` を、`parity` はさらに
 `studio\test\preview_host.exe` を使うので、**先にビルドが要ります**（`.\build.ps1 -Test`）。
 `check-imports` も出来あがった `nashi.dll` を見るので、ビルドが要ります。
 `check-blocks` と `editor` と `modules` はビルド無しで走ります。
+`layout` は `studio\test\layout_host.exe` と `render_host.exe` を使います。
 
 書き出しかたをわざと変えたときは、出てきたものを**目で確かめてから**
 `node studio\test\export.js --update` で期待値を作りなおします。
@@ -134,6 +136,42 @@ blocks → model → player → lint → render → drag → app → shell / sea
 （`N.Xxx.yyy()` の呼び先が無ければ、ファイルと行を名指しします）。
 
 ---
+
+## ネイティブ版の画面（`studio\src\w2k`）
+
+WebView2 は Windows 10 からしか動かないので、画面は Win32 と GDI で作りなおしています。
+ここは**わざと 2 つに分けてあります**。
+
+| ファイル | 何をするか | GDI |
+|---|---|---|
+| `blockdefs.h` / `blockdefs_gen.h` | ブロックの表（`ui\js\blocks.js` から `tools\gen-blockdefs.js` が作る） | 使わない |
+| `layout.cpp` | 幅と高さを決める。どこを押したかを探す | **使わない** |
+| `drag.cpp` | どこにつなげるか。つまむ・はなすと ghost.json がどう変わるか | **使わない** |
+| `paint.cpp` | 決まったものを描く | 使う |
+
+`layout.cpp` と `drag.cpp` に GDI が出てこないのは、**画面を出さずにテストするため**です。
+文字の幅だけは環境で変わるので、`TextMeasurer` を外から渡してもらいます
+（本物は GDI、テストは「半角 7px・全角 14px」の決め打ち）。
+
+確かめるときは、コンソールから直に呼べます。
+
+```powershell
+.\studio\test\layout_host.exe .\shiori\test\parity\ghost.json p05
+.\studio\test\layout_host.exe .\shiori\test\parity\ghost.json --drops p05 stack
+.\studio\test\layout_host.exe .\shiori\test\parity\ghost.json --move p05 1 16 84
+.\studio\test\render_host.exe .\shiori\test\parity\ghost.json --all .\studio\test\render_out
+```
+
+`render_host.exe` は窓を出さずに PNG を書き出すので、**見た目を目で確かめられます**。
+置き場所を触ったら、数字だけでなく絵も一度見てください（数字が合っていても、
+とがったところに欄がはみ出す、といったことが起きます）。
+
+つなぎかたの決まりは `ui\js\drag.js` と同じにしてあります。片方だけ変えないでください。
+
+* つながる先は 46px まで（縦のずれを重く見る）／欄にはまるのは 34px まで
+* 「ここでおわる」ブロックの後ろにはつなげない
+* 六角の欄には六角のブロックだけ、丸いブロックは空いている**打ちこみ**欄だけ
+* つまむと、その下にあるものもついてくる
 
 ## 栞は、C ランタイムを使わずに組んでいます
 
