@@ -4,6 +4,10 @@
 //   render_host.exe <ghost.json> --all <出す先のフォルダ>
 //   render_host.exe <ghost.json> --window <out.png> [幅 高さ]
 //                                        編集の画面ぜんぶ（窓を出さずに）
+//   render_host.exe <ghost.json> --fields
+//                                        画面に出ている欄をぜんぶならべる
+//   render_host.exe <ghost.json> --field <x> <y> [書きこむ中身]
+//                                        その場所の欄を調べる／書きかえる
 //   render_host.exe <ghost.json> --palette
 //                                        置き場所に何がどこにあるか
 //   render_host.exe <ghost.json> --drag <out.png> <x1> <y1> <x2> <y2>
@@ -134,6 +138,36 @@ int wmain(int argc, wchar_t** argv) {
     if (!JsonParse(text, project, err)) {
         printf("JSON parse error: %s\n", err.c_str());
         return 3;
+    }
+
+    // 画面に出ている欄を、ぜんぶならべる
+    if (std::wstring(argv[2]) == L"--fields") {
+        std::vector<FieldSpot> spots;
+        if (!EditorFieldSpots(argv[1], 1100, 760, &spots)) { printf("できませんでした\n"); return 5; }
+        for (size_t i = 0; i < spots.size(); i++) {
+            printf("%-28s %-8s %-10s (%4d,%4d) %4dx%-4d\n", spots[i].owner.c_str(),
+                   spots[i].arg.c_str(), spots[i].kind.c_str(),
+                   spots[i].x, spots[i].y, spots[i].w, spots[i].h);
+        }
+        return 0;
+    }
+
+    // 欄（打ちこみ・えらぶ）を調べる／書きかえる
+    if (std::wstring(argv[2]) == L"--field") {
+        if (argc < 5) { printf("--field <x> <y> [書きこむ中身]\n"); return 1; }
+        FieldProbe probe;
+        probe.ghostPath = argv[1];
+        probe.x = _wtoi(argv[3]);
+        probe.y = _wtoi(argv[4]);
+        if (argc >= 6) {
+            probe.set = true;
+            probe.value = WideToUtf8Arg(argv[5]);
+        }
+        std::string info, json;
+        if (!ProbeField(probe, &info, &json)) { printf("できませんでした\n"); return 5; }
+        printf("%s", info.c_str());
+        if (probe.set) printf("---- ghost.json\n%s\n", json.c_str());
+        return 0;
     }
 
     // 左のブロック置き場に、何がどこにあるか

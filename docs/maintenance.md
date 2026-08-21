@@ -91,7 +91,7 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 | `node tools\check-imports.js` | `nashi.dll` が Windows 2000 から読みこめるか（輸入表を直に読む） |
 | `node studio\test\layout.js` | ネイティブ版のブロックの置き場所・つまみかた・描画（`studio\src\w2k`） |
 | `node studio\test\image.js` | PNG の読み書きと inflate（`pngread.cpp` / `inflate.cpp`） |
-| `node studio\test\window.js` | ネイティブ版の編集画面（つまむ・つなぐ・すてる。`window.cpp`） |
+| `node studio\test\window.js` | ネイティブ版の編集画面（つまむ・つなぐ・すてる・欄に打ちこむ。`window.cpp`） |
 
 `parity` と `behavior` は `shiori\dist\test_host.exe` を、`parity` はさらに
 `studio\test\preview_host.exe` を使うので、**先にビルドが要ります**（`.\build.ps1 -Test`）。
@@ -188,11 +188,35 @@ WebView2 は Windows 10 からしか動かないので、画面は Win32 と GDI
 
 # 左の置き場から名前でつまむ（ならびが変わってもテストが壊れないように）
 .\studio\test\render_host.exe .\studio\test\drag_fixture.json --drag out.png 0 0 260 101 --drop --from newline
+
+# 画面に出ている欄をぜんぶならべる（よこの位置は文字の幅で変わるので、ここから引きます）
+.\studio\test\render_host.exe .\studio\test\drag_fixture.json --fields
+
+# その場所の欄を調べる。中身をうしろに付けると書きかえます
+.\studio\test\render_host.exe .\studio\test\drag_fixture.json --field 470 104
+.\studio\test\render_host.exe .\studio\test\drag_fixture.json --field 470 104 0
 ```
 
 テストで場所を指すときは、**たての位置**でえらんでください。ブロックの高さは
 文字の幅に左右されないので、どの環境でも同じところをつかめます。
-よこは文字の幅で変わるので、左のはしのあたりを押します。
+よこは文字の幅で変わるので、左のはしのあたりを押すか、`--fields` から引きます。
+
+ブロックをつかむときは、**左のはし**を押してください。すこし右は欄になっていて、
+押すと打ちこみ・えらびに入ります（それはそれで正しい動きです）。
+
+### 欄のこと
+
+* 打ちこむ欄は、その場に小さな EDIT の窓を重ねて出します。日本語の入力も、
+  文字の選びなおしも、Windows にまかせられるからです。Enter で決まり、Esc でやめ、
+  よそを押しても決まります。
+* えらぶ欄は `TrackPopupMenu` を出します。
+* えらべるものは、決まっているもの（`blocks.js` の options）のほか、
+  **その ghost から作る**ものがあります。変数の名前、トークの名前、
+  うごきに書いてある当たり判定の名前です。
+* イベント名は `blocks.js` の `N.EVENTS` を、`tools\gen-blockdefs.js` が
+  C++ の表に写しています。ここも手で書き写さないでください。
+* 数の欄は、ちゃんと数になっていれば**数として**入れます（`ValueForField`）。
+  「1.5あ」のように途中までしか数でないものは、文字のままにします。
 
 作りかけの画面は、こうして出せます（WebView2 版はそのままです）。
 

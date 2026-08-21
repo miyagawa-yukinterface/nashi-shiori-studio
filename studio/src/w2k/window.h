@@ -51,6 +51,32 @@ struct EditorProbe {
 /** png は途中の絵、json は ghost.json がどうなったか。要らないほうは NULL で。 */
 bool ProbeEditor(const EditorProbe& probe, std::string* png, std::string* json);
 
+/**
+ * 欄（打ちこみ・えらぶ）をさわってみる（確かめ用）。
+ * (x, y) にある欄を調べて、set が立っていれば value を書きこみます。
+ */
+struct FieldProbe {
+    std::wstring ghostPath;
+    int width = 1100, height = 760;
+    int x = 0, y = 0;
+    bool set = false;
+    std::string value;
+};
+bool ProbeField(const FieldProbe& probe, std::string* info, std::string* json);
+
+/**
+ * 画面に出ている欄を、ぜんぶならべます（確かめ用）。
+ * テストが「文字の幅で動くよこの位置」を決めうちにしないで済むようにするためです。
+ */
+struct FieldSpot {
+    std::string owner;     // どのブロックの（scripts[0].blocks[1] のような形）
+    std::string arg;       // どの欄か
+    std::string kind;      // input / dropdown / eventname / areaname / funcname / varname
+    int x, y, w, h;        // 画面の中の場所（左のブロック置き場のぶんも入っています）
+};
+bool EditorFieldSpots(const std::wstring& ghostPath, int width, int height,
+                      std::vector<FieldSpot>* out);
+
 /** 左のブロック置き場に、いま何がどこにならんでいるか（確かめ用）。 */
 struct PaletteSpot {
     std::string key;

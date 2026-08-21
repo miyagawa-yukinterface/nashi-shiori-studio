@@ -81,11 +81,14 @@ function summary(script) {
 
 // 見本の置き場所（studio\test\drag_fixture.json）
 //   d_cap  は (40, 40)   帽子 40〜88、say 88〜120、end 120〜152、say 152〜184
-//   d_bool は (40, 300)
+//   d_bool は (40, 300) / d_field は (40, 460) / d_talk は (600, 40)
 // 左のブロック置き場が 210px あるので、画面の x は 40 + 210 = 250 から。
-const HAT = { x: 270, y: 60 };
-const BLOCK0 = { x: 260, y: 100 };   // say（はじめ）
-const BLOCK2 = { x: 260, y: 165 };   // say（ここには来ない）
+//
+// つかむのは、ブロックの**左のはし**です。すこし右は欄になっていて、押すと
+// 打ちこみ・えらびに入ります（それはそれで正しい動きです）。
+const HAT = { x: 254, y: 60 };
+const BLOCK0 = { x: 254, y: 100 };   // say（はじめ）
+const BLOCK2 = { x: 254, y: 165 };   // say（ここには来ない）
 
 // ------------------------------------------------------------ 1. 画面が出るか
 console.log(`${C.dim}-- 画面が出るか${C.off}`);
@@ -131,7 +134,7 @@ console.log(`${C.dim}-- ブロックをつまんで動かす${C.off}`);
     'say(ここには来ない) > say(はじめ) > end');
 
   // つまむと、その下にあるものもついてくる（scratch と同じ）
-  const r2 = drag('all', { x1: BLOCK0.x, y1: BLOCK0.y, x2: 700, y2: 400 });
+  const r2 = drag('all', { x1: BLOCK0.x, y1: BLOCK0.y, x2: 760, y2: 700 });
   check('いちばん上をつまむと、ぜんぶついてくる', summary(r2.json.scripts[0]), '(からっぽ)');
   check('どこにもつながらなければ、あたらしいかたまりになる',
     r2.json.scripts.length, before.scripts.length + 1);
@@ -143,9 +146,10 @@ console.log(`${C.dim}-- ブロックをつまんで動かす${C.off}`);
 // ------------------------------------------------- 4. 置き場所へもどすと消える
 console.log(`${C.dim}-- 置き場所へもどすと消える${C.off}`);
 {
+  const before = JSON.parse(fs.readFileSync(fixture, 'utf8'));
   const r = drag('trash', { x1: BLOCK0.x, y1: BLOCK0.y, x2: 100, y2: 300 });
   check('すてられる', summary(r.json.scripts[0]), '(からっぽ)');
-  check('かたまりの数は変わらない', r.json.scripts.length, 2);
+  check('かたまりの数は変わらない', r.json.scripts.length, before.scripts.length);
 }
 
 // --------------------------------------------------- 5. かたまりごと動かす
@@ -166,10 +170,13 @@ console.log(`${C.dim}-- 置き場所から持ってきて置く${C.off}`);
     'newline > say(はじめ) > end > say(ここには来ない)');
 
   // 帽子を持ってくると、あたらしいかたまりができる
-  const r2 = drag('newhat', { from: '@event', x2: 700, y2: 500 });
-  check('帽子を持ってくると、かたまりがふえる', r2.json.scripts.length, 3);
-  check('あたらしいかたまりは空', summary(r2.json.scripts[2]), '(からっぽ)');
-  check('あたらしいかたまりの kind', r2.json.scripts[2].kind, 'event');
+  const before = JSON.parse(fs.readFileSync(fixture, 'utf8'));
+  const r2 = drag('newhat', { from: '@event', x2: 760, y2: 700 });
+  check('帽子を持ってくると、かたまりがふえる',
+    r2.json.scripts.length, before.scripts.length + 1);
+  const added = r2.json.scripts[r2.json.scripts.length - 1];
+  check('あたらしいかたまりは空', summary(added), '(からっぽ)');
+  check('あたらしいかたまりの kind', added.kind, 'event');
 }
 
 // -------------------------------- 7. 「ここでおわる」ブロックの後ろにはつなげない
@@ -182,6 +189,127 @@ console.log(`${C.dim}-- おわるブロックの決まりも守られるか${C.o
   check('おわるブロックの後ろには入らない',
     /end > newline/.test(got) ? 'うしろに入ってしまった' : 'はい', 'はい');
   check('そのかわり、前に入る', got, 'say(はじめ) > newline > end > say(ここには来ない)');
+}
+
+// -------------------------------------------------- 8. 欄（打ちこみ・えらぶ）
+console.log(`${C.dim}-- 欄（打ちこみ・えらぶ）${C.off}`);
+
+/**
+ * 画面に出ている欄をぜんぶ引く。
+ * よこの位置は文字の幅で変わるので、決めうちにせず、ここから引きます。
+ */
+function fields() {
+  return run([fixture, '--fields']).trim().split(/\r?\n/).map((line) => {
+    const m = line.match(/^(\S+)\s+(\S+)\s+(\S+)\s+\(\s*(\d+),\s*(\d+)\)\s+(\d+)x(\d+)/);
+    if (!m) return null;
+    return {
+      owner: m[1], arg: m[2], kind: m[3],
+      x: Number(m[4]), y: Number(m[5]), w: Number(m[6]), h: Number(m[7]),
+    };
+  }).filter(Boolean);
+}
+
+function findField(owner, arg) {
+  const f = fields().find((x) => x.owner === owner && x.arg === arg);
+  if (!f) throw new Error(`${owner} の ${arg} という欄が見つかりません`);
+  return f;
+}
+
+/** その欄の まんなか を押してみる。value を渡すと書きこみます。 */
+function field(f, value) {
+  const args = [fixture, '--field',
+    String(f.x + Math.min(10, f.w >> 1)), String(f.y + (f.h >> 1))];
+  if (value !== undefined) args.push(value);
+  const said = run(args);
+    const info = {};
+  const choices = [];
+  // 行の終わりの \r まで拾わないように、切りかたを決めておきます
+  // （JavaScript の「.」は \r に当たらないので、$ で止めた形が合わなくなります）
+  for (const line of said.split(/\r?\n/)) {
+    const c = line.match(/^えらべる (.*) = (.*)$/);
+    if (c) { choices.push([c[1], c[2]]); continue; }
+    const m = line.match(/^(欄|やりかた|見出し|いま|どこ) (.*)$/);
+    if (m) info[m[1]] = m[2];
+  }
+  info.choices = choices;
+  const cut = said.indexOf('---- ghost.json');
+  if (cut >= 0) info.json = JSON.parse(said.slice(cut + '---- ghost.json'.length));
+  return info;
+}
+
+{
+  const all = fields();
+  check('欄がならぶ', all.length >= 14 ? 'はい' : `${all.length} 個`, 'はい');
+  check('帽子の欄はかたまり自身のもの',
+    all.filter((f) => f.owner === 'scripts[0]' && f.arg === 'event').length, 1);
+  check('えらぶ欄と打ちこみ欄を見分ける',
+    findField('scripts[0].blocks[0]', 'nl').kind + '/'
+    + findField('scripts[0].blocks[0]', 'text').kind, 'dropdown/input');
+}
+
+// えらぶ欄
+{
+  const nl = field(findField('scripts[0].blocks[0]', 'nl'));
+  check('えらぶ欄のいまの中身', nl['いま'], '1');
+  check('えらぶ欄は見出しを出す', nl['見出し'], '改行する');
+  check('えらべるものが出る',
+    nl.choices.map(([l, v]) => `${l}=${v}`).join(' '), '改行する=1 改行しない=0');
+
+  const nl2 = field(findField('scripts[0].blocks[0]', 'nl'), '0');
+  check('えらぶと ghost.json が変わる', nl2.json.scripts[0].blocks[0].nl, '0');
+}
+
+// イベント名の欄
+{
+  const ev = field(findField('scripts[0]', 'event'));
+  check('イベント名の欄', `${ev['やりかた']} ${ev['いま']}`, 'eventname OnBoot');
+  check('イベントの見出しがつく',
+    ev.choices.some(([l, v]) => v === 'OnBoot' && l === '起動したとき') ? 'はい' : 'いいえ', 'はい');
+  check('「その他（自分で書く）」もある',
+    ev.choices.some(([, v]) => v === '__custom__') ? 'はい' : 'いいえ', 'はい');
+  check('えらべるイベントの数', ev.choices.length, 27);
+}
+
+// 変数の名前の欄（ghost.json に書いてある変数から作る）
+{
+  const v = field(findField('scripts[2].blocks[1]', 'name'));
+  check('変数の欄', v['やりかた'], 'varname');
+  check('その ghost の変数がならぶ',
+    v.choices.map(([, val]) => val).join(','), 'カウンタ,きぶん');
+}
+
+// 打ちこみの欄
+{
+  const t = findField('scripts[0].blocks[0]', 'text');
+  const r = field(t, 'こんばんは');
+  check('打ちこむと ghost.json が変わる',
+    r.json.scripts[0].blocks[0].text, 'こんばんは');
+
+  // 数の欄は、数として入れる（文字にしない）
+  const ms = findField('scripts[2].blocks[0]', 'ms');
+  const r2 = field(ms, '250');
+  check('数の欄は数のまま入る', typeof r2.json.scripts[2].blocks[0].ms, 'number');
+  check('数の欄の中身', r2.json.scripts[2].blocks[0].ms, 250);
+
+  const r3 = field(ms, 'すうじでない');
+  check('数にならないものは文字のまま', typeof r3.json.scripts[2].blocks[0].ms, 'string');
+}
+
+// 欄でないところ
+{
+  const said = run([fixture, '--field', '900', '700']);
+  check('何もないところ', said.trim(), 'そこには何もありません');
+}
+
+// 欄を押したときは、ブロックが動かないこと（押しわけができているか）
+{
+  const before = JSON.parse(fs.readFileSync(fixture, 'utf8'));
+  const f = findField('scripts[0].blocks[0]', 'text');
+  const r = drag('slotgrab', { x1: f.x + 5, y1: f.y + (f.h >> 1), x2: 760, y2: 700 });
+  check('欄を押しても、ブロックは動かない',
+    summary(r.json.scripts[0]), summary(before.scripts[0]));
+  check('欄を押しても、かたまりはふえない',
+    r.json.scripts.length, before.scripts.length);
 }
 
 // ---------------------------------------------------------------------- 結果

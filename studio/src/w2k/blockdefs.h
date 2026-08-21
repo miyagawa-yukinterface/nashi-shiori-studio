@@ -87,6 +87,9 @@ const ArgDef* FindArg(const BlockDef& d, const std::string& name);
 /** パレットに出すならび。 */
 const PaletteRow* Palette(int* count);
 
+/** イベントの名前のならび（「〜されたとき」でえらべるもの）。 */
+const OptionDef* AllEvents(int* count);
+
 /** 表ぜんぶ（点検やテスト用）。 */
 const BlockDef* AllBlocks(int* count);
 const CategoryDef* AllCategories(int* count);

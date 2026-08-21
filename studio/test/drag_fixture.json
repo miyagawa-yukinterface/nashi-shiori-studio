@@ -8,9 +8,21 @@
       "x": 40,
       "y": 40,
       "blocks": [
-        { "type": "say", "who": "sakura", "text": "はじめ", "nl": "1" },
-        { "type": "end" },
-        { "type": "say", "who": "sakura", "text": "ここには来ない", "nl": "1" }
+        {
+          "type": "say",
+          "who": "sakura",
+          "text": "はじめ",
+          "nl": "1"
+        },
+        {
+          "type": "end"
+        },
+        {
+          "type": "say",
+          "who": "sakura",
+          "text": "ここには来ない",
+          "nl": "1"
+        }
       ]
     },
     {
@@ -20,8 +32,49 @@
       "x": 40,
       "y": 300,
       "blocks": [
-        { "type": "if", "cond": null, "then": [] }
+        {
+          "type": "if",
+          "cond": null,
+          "then": []
+        }
       ]
+    },
+    {
+      "id": "d_field",
+      "kind": "event",
+      "event": "OnMouseClick",
+      "x": 40,
+      "y": 460,
+      "blocks": [
+        {
+          "type": "wait",
+          "ms": 500
+        },
+        {
+          "type": "set",
+          "name": "カウンタ",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "d_talk",
+      "kind": "talk",
+      "name": "あいさつ",
+      "weight": 1,
+      "x": 600,
+      "y": 40,
+      "blocks": []
+    }
+  ],
+  "variables": [
+    {
+      "name": "カウンタ",
+      "value": 0
+    },
+    {
+      "name": "きぶん",
+      "value": "ふつう"
     }
   ]
 }

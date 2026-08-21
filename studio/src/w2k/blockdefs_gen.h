@@ -519,4 +519,36 @@ static const PaletteRow kPalette[] = {
 };
 static const int kPaletteCount = 61;
 
+// イベントの名前。N.EVENTS と同じです。
+static const OptionDef kEvents[] = {
+    { "起動したとき", "OnBoot" },
+    { "はじめて起動したとき", "OnFirstBoot" },
+    { "終了するとき", "OnClose" },
+    { "ダブルクリックされたとき", "OnMouseDoubleClick" },
+    { "クリックされたとき", "OnMouseClick" },
+    { "なでられたとき", "OnNadeNade" },
+    { "マウスが動いたとき", "OnMouseMove" },
+    { "ホイールを回されたとき", "OnMouseWheel" },
+    { "1時間ごと", "OnHourChange" },
+    { "1分ごと", "OnMinuteChange" },
+    { "ずっとくりかえす", "OnSecondChange" },
+    { "選択肢がえらばれたとき", "OnChoiceSelect" },
+    { "話しかけられたとき", "OnCommunicate" },
+    { "他のゴーストから来たとき", "OnGhostChanged" },
+    { "他のゴーストへ行くとき", "OnGhostChanging" },
+    { "キーが押されたとき", "OnKeyPress" },
+    { "サーフェスがもどったとき", "OnSurfaceRestore" },
+    { "最小化されたとき", "OnWindowStateMinimize" },
+    { "最小化からもどったとき", "OnWindowStateRestore" },
+    { "更新をはじめたとき", "OnUpdateBegin" },
+    { "更新するものが見つかったとき", "OnUpdateReady" },
+    { "更新がおわったとき", "OnUpdateComplete" },
+    { "更新に失敗したとき", "OnUpdateFailure" },
+    { "SAORI の答えがとどいたとき", "OnSaoriDone" },
+    { "答えが返ってきたとき", "OnUserInput" },
+    { "答えをやめたとき", "OnUserInputCancel" },
+    { "その他（自分で書く）", "__custom__" },
+};
+static const int kEventCount = 27;
+
 // clang-format on

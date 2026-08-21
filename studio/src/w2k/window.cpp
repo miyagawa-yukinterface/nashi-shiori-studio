@@ -2,6 +2,7 @@
 
 #include <commdlg.h>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -70,6 +71,13 @@ struct Editor {
 
     JValue undo;                     // ひとつ前の姿（つまむ直前に取っておく）
     bool hasUndo = false;
+
+    // ---- 欄に打ちこんでいるあいだ
+    HWND edit = NULL;                // 欄に重ねて出す、打ちこみ用の小さな窓
+    JPath editOwner;                 // どのブロックの
+    std::string editArg;             // どの欄か
+    bool editNumber = false;         // 数だけの欄か
+    bool editing = false;
 };
 
 Editor g;
@@ -346,10 +354,252 @@ bool SplitLast(const JPath& p, JPath* listPath, int* index) {
     return true;
 }
 
+// -------------------------------------------------------------- 欄をさわる
+
+const int kEditId = 1001;
+const int kMenuBase = 2000;
+
+/**
+ * 打ちこまれた文字を、その欄に入れる値にします。
+ * 数の欄で、ちゃんと数になっていれば数として入れます（blocks.js と同じ）。
+ * 「1.5あ」のように途中までしか数でないものは、文字のままにします。
+ */
+JValue ValueForField(bool isNumber, const std::string& text) {
+    if (isNumber && !text.empty()) {
+        char* end = NULL;
+        const double num = strtod(text.c_str(), &end);
+        if (end && *end == 0) return JValue::makeNum(num);
+    }
+    return JValue::makeStr(text);
+}
+
+/** いま打ちこんでいる中身を、ghost.json に書きこむ。 */
+void CommitEdit(bool keep) {
+    if (!g.editing) return;
+    g.editing = false;
+
+    HWND edit = g.edit;
+    g.edit = NULL;
+    if (!edit) return;
+
+    if (keep) {
+        wchar_t buf[1024];
+        const int n = GetWindowTextW(edit, buf, 1024);
+        buf[(n >= 0 && n < 1024) ? n : 0] = 0;
+        const std::string text = WideToUtf8(buf);
+
+        JValue* owner = JResolve(g.project, g.editOwner);
+        if (owner && owner->isObj()) {
+            owner->set(g.editArg, ValueForField(g.editNumber, text));
+            MarkDirty();
+        }
+    }
+    DestroyWindow(edit);
+    Refresh();
+}
+
+/** その欄の上に、打ちこみ用の小さな窓を出す。 */
+void BeginEdit(const JPath& ownerPath, const ArgDef& arg, const Piece& slot, int ox, int oy) {
+    CommitEdit(true);
+    if (!g.hwnd) return;
+
+    const JValue* owner = JResolve(g.project, ownerPath);
+    if (!owner) return;
+    const std::wstring text = Utf8ToWide(SlotText(*owner, arg));
+
+    const int x = slot.x - ox;
+    const int y = slot.y - oy;
+    g.edit = CreateWindowExW(0, L"EDIT", text.c_str(),
+                             WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
+                             x, y, slot.w > 40 ? slot.w : 40, slot.h,
+                             g.hwnd, (HMENU)(INT_PTR)kEditId, g.inst, NULL);
+    if (!g.edit) return;
+    SendMessageW(g.edit, WM_SETFONT, (WPARAM)g.tools.slotFont, TRUE);
+    SendMessageW(g.edit, EM_SETSEL, 0, -1);
+    SetFocus(g.edit);
+
+    g.editOwner = ownerPath;
+    g.editArg = arg.name;
+    g.editNumber = (arg.mode == ArgMode::Number);
+    g.editing = true;
+}
+
+/** その欄でえらべるものを集める。値と見出しの組でならべます。 */
+void GatherOptions(const JValue& owner, const ArgDef& arg,
+                   std::vector<std::pair<std::string, std::string> >* out) {
+    out->clear();
+    int n = 0;
+
+    if (arg.kind == ArgKind::Dropdown) {
+        const OptionDef* opts = ArgOptions(arg, &n);
+        for (int i = 0; i < n; i++) out->push_back(std::make_pair(opts[i].label, opts[i].value));
+        return;
+    }
+
+    if (arg.kind == ArgKind::EventName) {
+        const OptionDef* ev = AllEvents(&n);
+        for (int i = 0; i < n; i++) out->push_back(std::make_pair(ev[i].label, ev[i].value));
+        return;
+    }
+
+    if (arg.kind == ArgKind::AreaName) {
+        const OptionDef* opts = ArgOptions(arg, &n);
+        for (int i = 0; i < n; i++) out->push_back(std::make_pair(opts[i].label, opts[i].value));
+        // うごきに書いてある当たり判定の名前も足す
+        const JValue& anims = g.project["animations"];
+        for (size_t i = 0; i < anims.size(); i++) {
+            const JValue& cols = anims.at(i)["collisions"];
+            for (size_t k = 0; k < cols.size(); k++) {
+                const std::string name = cols.at(k)["name"].asStr();
+                if (name.empty()) continue;
+                bool seen = false;
+                for (size_t j = 0; j < out->size(); j++) if ((*out)[j].second == name) seen = true;
+                if (!seen) out->push_back(std::make_pair(name, name));
+            }
+        }
+        return;
+    }
+
+    if (arg.kind == ArgKind::VarName) {
+        const JValue& vars = g.project["variables"];
+        for (size_t i = 0; i < vars.size(); i++) {
+            const std::string name = vars.at(i)["name"].asStr();
+            if (!name.empty()) out->push_back(std::make_pair(name, name));
+        }
+        if (out->empty()) out->push_back(std::make_pair("（変数がありません）", ""));
+        return;
+    }
+
+    if (arg.kind == ArgKind::FuncName) {
+        const JValue& scripts = g.project["scripts"];
+        for (size_t i = 0; i < scripts.size(); i++) {
+            const std::string kind = scripts.at(i)["kind"].asStr();
+            if (kind != "talk" && kind != "function") continue;
+            const std::string name = scripts.at(i)["name"].asStr();
+            if (name.empty()) continue;
+            bool seen = false;
+            for (size_t j = 0; j < out->size(); j++) if ((*out)[j].second == name) seen = true;
+            if (!seen) out->push_back(std::make_pair(name, name));
+        }
+        if (out->empty()) out->push_back(std::make_pair("（トークがありません）", ""));
+        return;
+    }
+    (void)owner;
+}
+
+/** えらぶ欄を押されたときに出す、小さなならび。 */
+void ShowChoices(const JPath& ownerPath, const ArgDef& arg, const Piece& slot, int ox, int oy) {
+    const JValue* owner = JResolve(g.project, ownerPath);
+    if (!owner || !g.hwnd) return;
+
+    std::vector<std::pair<std::string, std::string> > opts;
+    GatherOptions(*owner, arg, &opts);
+    if (opts.empty()) return;
+
+    const std::string now = (*owner)[arg.name].asStr();
+    HMENU menu = CreatePopupMenu();
+    if (!menu) return;
+    for (size_t i = 0; i < opts.size(); i++) {
+        const std::wstring label = Utf8ToWide(opts[i].first);
+        UINT flags = MF_STRING;
+        if (opts[i].second == now) flags |= MF_CHECKED;
+        AppendMenuW(menu, flags, kMenuBase + (UINT)i, label.c_str());
+    }
+
+    POINT pt;
+    pt.x = slot.x - ox;
+    pt.y = slot.y - oy + slot.h;
+    ClientToScreen(g.hwnd, &pt);
+    const int picked = (int)TrackPopupMenu(menu, TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD,
+                                           pt.x, pt.y, 0, g.hwnd, NULL);
+    DestroyMenu(menu);
+    if (picked < kMenuBase) return;
+
+    const size_t idx = (size_t)(picked - kMenuBase);
+    if (idx >= opts.size()) return;
+
+    PushUndo();
+    JValue* target = JResolve(g.project, ownerPath);
+    if (!target) return;
+
+    if (opts[idx].second == "__custom__") {
+        // 「その他（自分で書く）」は、打ちこみに切りかえます
+        target->set(arg.name, JValue::makeStr(""));
+        MarkDirty();
+        Refresh();
+        BeginEdit(ownerPath, arg, slot, ox, oy);
+        return;
+    }
+    target->set(arg.name, JValue::makeStr(opts[idx].second));
+    MarkDirty();
+    Refresh();
+}
+
+bool ResolveSlot(int scriptIndex, int piece, JPath* ownerPath, const ArgDef** argOut) {
+    const Layout& lay = g.layouts[(size_t)scriptIndex];
+    const Piece& p = lay.pieces[(size_t)piece];
+    if (p.kind != PieceKind::Slot || p.childCount > 0 || !p.node) return false;
+    if (!FindPath(scriptIndex, p.node, ownerPath)) return false;
+
+    const JValue* owner = JResolve(g.project, *ownerPath);
+    if (!owner) return false;
+
+    // 帽子の欄は、そのかたまり自身が持ちものです（type を持たないので定義を選びなおします）
+    const BlockDef* def = FindBlockFor((*owner)["type"].asStr(), (*owner)["op"].asStr());
+    if (!def) {
+        const int blk = lay.BlockAt(piece);
+        if (blk >= 0) def = lay.pieces[(size_t)blk].def;
+    }
+    if (!def) return false;
+    const ArgDef* arg = FindArg(*def, p.argName);
+    if (!arg) return false;
+    if (argOut) *argOut = arg;
+    return true;
+}
+
+/**
+ * 押されたのが欄なら、そこをさわって true。
+ * scriptIndex は、その欄がどのかたまりの中にあるか。
+ */
+bool TouchSlot(int scriptIndex, int piece, int ox, int oy) {
+    const Layout& lay = g.layouts[(size_t)scriptIndex];
+    const Piece& p = lay.pieces[(size_t)piece];
+    JPath ownerPath;
+    const ArgDef* arg = NULL;
+    if (!ResolveSlot(scriptIndex, piece, &ownerPath, &arg)) return false;
+    const JValue* owner = JResolve(g.project, ownerPath);
+    if (!owner) return false;
+
+    if (arg->kind == ArgKind::Input) {
+        if (arg->mode == ArgMode::Bool) return false;   // 空の六角の欄は打ちこめません
+        PushUndo();
+        BeginEdit(ownerPath, *arg, p, ox, oy);
+        return true;
+    }
+
+    // 「その他」を書きこんであるイベント名は、そのまま打ちなおせるようにします
+    if (arg->kind == ArgKind::EventName) {
+        const std::string now = (*owner)[arg->name].asStr();
+        int n = 0;
+        const OptionDef* ev = AllEvents(&n);
+        bool known = false;
+        for (int i = 0; i < n; i++) if (now == ev[i].value) known = true;
+        if (!known && !now.empty()) {
+            PushUndo();
+            BeginEdit(ownerPath, *arg, p, ox, oy);
+            return true;
+        }
+    }
+
+    ShowChoices(ownerPath, *arg, p, ox, oy);
+    return true;
+}
+
 // ------------------------------------------------------------------ マウス
 
 /** 押されたところにあるものを見て、つまむ。 */
 void OnLeftDown(int sx, int sy) {
+    CommitEdit(true);           // 別のところを押したら、打ちこみは決まったことにします
     if (g.hwnd) SetFocus(g.hwnd);
 
     // ---- 左のブロック置き場から
@@ -408,6 +658,10 @@ void OnLeftDown(int sx, int sy) {
     for (size_t i = 0; i < g.layouts.size(); i++) {
         int piece = g.layouts[i].HitTest(c.x, c.y);
         if (piece < 0) continue;
+
+        // 欄を押したときは、動かさずに打ちこみ・えらびに入ります
+        if (TouchSlot((int)i, piece, g.scrollX - kPaletteW, g.scrollY)) return;
+
         int blk = g.layouts[i].BlockAt(piece);
         if (blk < 0) continue;
 
@@ -738,6 +992,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             return 0;
         }
 
+        case WM_COMMAND:
+            if (LOWORD(wp) == kEditId && HIWORD(wp) == EN_KILLFOCUS) CommitEdit(true);
+            return 0;
+
         case WM_KEYDOWN:
             if (wp == 'S' && GetKeyState(VK_CONTROL) < 0) {
                 if (!SaveGhost()) {
@@ -747,6 +1005,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 DoOpen();
             } else if (wp == 'Z' && GetKeyState(VK_CONTROL) < 0) {
                 DoUndo();
+            } else if (wp == VK_ESCAPE && g.editing) {
+                CommitEdit(false);
             } else if (wp == VK_ESCAPE && g.dragging) {
                 DoUndo();
                 GrabMouse(false);
@@ -898,6 +1158,105 @@ bool ProbeEditor(const EditorProbe& probe, std::string* png, std::string* json) 
     return ok;
 }
 
+bool ProbeField(const FieldProbe& probe, std::string* info, std::string* json) {
+    if (!SetUpHeadless(probe.ghostPath, probe.width, probe.height, 0, 0)) return false;
+
+    const POINT c = ToCanvas(probe.x, probe.y);
+    int si = -1, piece = -1;
+    for (size_t i = 0; i < g.layouts.size(); i++) {
+        const int hit = g.layouts[i].HitTest(c.x, c.y);
+        if (hit < 0) continue;
+        si = (int)i;
+        piece = hit;
+        break;
+    }
+
+    std::string out;
+    if (si < 0) {
+        out = "そこには何もありません\n";
+    } else {
+        JPath ownerPath;
+        const ArgDef* arg = NULL;
+        if (!ResolveSlot(si, piece, &ownerPath, &arg)) {
+            out = "そこは欄ではありません\n";
+        } else {
+            const JValue* owner = JResolve(g.project, ownerPath);
+            const char* kindName = "input";
+            switch (arg->kind) {
+                case ArgKind::Dropdown:  kindName = "dropdown"; break;
+                case ArgKind::EventName: kindName = "eventname"; break;
+                case ArgKind::AreaName:  kindName = "areaname"; break;
+                case ArgKind::FuncName:  kindName = "funcname"; break;
+                case ArgKind::VarName:   kindName = "varname"; break;
+                default: break;
+            }
+            out += std::string("欄 ") + arg->name + "\n";
+            out += std::string("やりかた ") + kindName + "\n";
+            out += std::string("見出し ") + SlotText(*owner, *arg) + "\n";
+            out += std::string("いま ") + (*owner)[arg->name].asStr() + "\n";
+            out += std::string("どこ ") + ownerPath.ToString() + "\n";
+
+            if (arg->kind != ArgKind::Input) {
+                std::vector<std::pair<std::string, std::string> > opts;
+                GatherOptions(*owner, *arg, &opts);
+                for (size_t i = 0; i < opts.size(); i++) {
+                    out += "えらべる " + opts[i].first + " = " + opts[i].second + "\n";
+                }
+            }
+
+            if (probe.set) {
+                JValue* target = JResolve(g.project, ownerPath);
+                if (target) {
+                    target->set(arg->name,
+                                ValueForField(arg->mode == ArgMode::Number, probe.value));
+                }
+            }
+        }
+    }
+    if (info) *info = out;
+    if (json) *json = g.project.dump(2);
+    g.tools.Free();
+    return true;
+}
+
+bool EditorFieldSpots(const std::wstring& ghostPath, int width, int height,
+                      std::vector<FieldSpot>* out) {
+    if (!out) return false;
+    if (!SetUpHeadless(ghostPath, width, height, 0, 0)) return false;
+    out->clear();
+
+    const int ox = g.scrollX - kPaletteW;
+    const int oy = g.scrollY;
+    for (size_t i = 0; i < g.layouts.size(); i++) {
+        const Layout& lay = g.layouts[i];
+        for (size_t k = 0; k < lay.pieces.size(); k++) {
+            if (lay.pieces[k].kind != PieceKind::Slot) continue;
+            JPath ownerPath;
+            const ArgDef* arg = NULL;
+            if (!ResolveSlot((int)i, (int)k, &ownerPath, &arg)) continue;
+
+            FieldSpot sp;
+            sp.owner = ownerPath.ToString();
+            sp.arg = arg->name;
+            switch (arg->kind) {
+                case ArgKind::Dropdown:  sp.kind = "dropdown"; break;
+                case ArgKind::EventName: sp.kind = "eventname"; break;
+                case ArgKind::AreaName:  sp.kind = "areaname"; break;
+                case ArgKind::FuncName:  sp.kind = "funcname"; break;
+                case ArgKind::VarName:   sp.kind = "varname"; break;
+                default:                 sp.kind = "input"; break;
+            }
+            sp.x = lay.pieces[k].x - ox;
+            sp.y = lay.pieces[k].y - oy;
+            sp.w = lay.pieces[k].w;
+            sp.h = lay.pieces[k].h;
+            out->push_back(sp);
+        }
+    }
+    g.tools.Free();
+    return true;
+}
+
 bool EditorPaletteSpots(int width, int height, std::vector<PaletteSpot>* out) {
     if (!out) return false;
     if (!SetUpHeadless(L"", width, height, 0, 0)) return false;
@@ -969,6 +1328,11 @@ int RunEditor(HINSTANCE hInstance, const std::wstring& ghostPath) {
 
     MSG msg;
     while (GetMessageW(&msg, NULL, 0, 0) > 0) {
+        // 打ちこみの小さな窓は、Enter で決める・Esc でやめる
+        if (msg.message == WM_KEYDOWN && g.editing && msg.hwnd == g.edit) {
+            if (msg.wParam == VK_RETURN) { CommitEdit(true); continue; }
+            if (msg.wParam == VK_ESCAPE) { CommitEdit(false); continue; }
+        }
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }

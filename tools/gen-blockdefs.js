@@ -186,6 +186,14 @@ const paletteCount = N.CATEGORIES.reduce(
   (n, c) => n + (N.PALETTE[c.id] || []).filter((x) => typeof x === 'string').length, 0);
 w(`static const int kPaletteCount = ${paletteCount};`);
 w('');
+// ---- イベントの名前（「〜されたとき」でえらべるもの）
+w('// イベントの名前。N.EVENTS と同じです。');
+w('static const OptionDef kEvents[] = {');
+for (const [label, value] of N.EVENTS) w(`    { ${cstr(label)}, ${cstr(value)} },`);
+w('};');
+w(`static const int kEventCount = ${N.EVENTS.length};`);
+w('');
+
 w('// clang-format on');
 w('');
 

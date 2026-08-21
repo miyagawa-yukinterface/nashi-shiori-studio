@@ -80,6 +80,11 @@ const BlockDef* AllBlocks(int* count) {
     return kBlocks;
 }
 
+const OptionDef* AllEvents(int* count) {
+    if (count) *count = kEventCount;
+    return kEvents;
+}
+
 const CategoryDef* AllCategories(int* count) {
     if (count) *count = kCategoryCount;
     return kCategories;
