@@ -78,7 +78,7 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 
 ---
 
-## テスト 8 本と、それぞれが守っているもの
+## テスト 9 本と、それぞれが守っているもの
 
 | 走らせかた | 守っているもの |
 |---|---|
@@ -90,12 +90,14 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 | `node ui\test\modules.js` | `ui\js\*.js` が読みこめて、`N.Xxx.yyy()` の呼び先がそろっているか |
 | `node tools\check-imports.js` | `nashi.dll` が Windows 2000 から読みこめるか（輸入表を直に読む） |
 | `node studio\test\layout.js` | ネイティブ版のブロックの置き場所・つまみかた・描画（`studio\src\w2k`） |
+| `node studio\test\image.js` | PNG の読み書きと inflate（`pngread.cpp` / `inflate.cpp`） |
 
 `parity` と `behavior` は `shiori\dist\test_host.exe` を、`parity` はさらに
 `studio\test\preview_host.exe` を使うので、**先にビルドが要ります**（`.\build.ps1 -Test`）。
 `check-imports` も出来あがった `nashi.dll` を見るので、ビルドが要ります。
 `check-blocks` と `editor` と `modules` はビルド無しで走ります。
 `layout` は `studio\test\layout_host.exe` と `render_host.exe` を使います。
+`image` は `studio\test\png_host.exe` を使います。
 
 書き出しかたをわざと変えたときは、出てきたものを**目で確かめてから**
 `node studio\test\export.js --update` で期待値を作りなおします。
@@ -172,6 +174,38 @@ WebView2 は Windows 10 からしか動かないので、画面は Win32 と GDI
 * 「ここでおわる」ブロックの後ろにはつなげない
 * 六角の欄には六角のブロックだけ、丸いブロックは空いている**打ちこみ**欄だけ
 * つまむと、その下にあるものもついてくる
+
+## 絵の読み書き（`studio\src`）
+
+外の物に頼らない決まりなので、PNG も zlib も自前です。
+
+| ファイル | 何をするか |
+|---|---|
+| `deflate.cpp` | 縮める（LZ77 ＋ 決まりきったハフマン）。ZIP と PNG の両方が使います |
+| `inflate.cpp` | ほどく。**そのまま・決まりきった・その場で作った**の 3 とおりぜんぶ |
+| `image.cpp` | PNG を書く。絵を描く道具（`Canvas`）も |
+| `pngread.cpp` | PNG を読む。RGBA にして返します |
+
+読むほうは、シェルの絵を出すために要ります。世の中の PNG は書きかたがまちまちなので、
+出てくるものはひととおり扱います。
+
+* 色の入れかた 0（灰）/ 2（RGB）/ 3（色見本）/ 4（灰＋透け）/ 6（RGBA）
+* 1 色あたり 1, 2, 4, 8, 16 ビット（16 ビットは上の 8 ビットだけ使います）
+* 行の下ごしらえ 0〜4（なし・左・上・平均・Paeth）
+* とびとびの並べかた（Adam7）
+* `tRNS`（灰・RGB・色見本の、透ける色の指定）
+
+扱わないのは、動く PNG（APNG は 1 枚目だけ）と `gAMA` などの色あわせです。
+
+見本の PNG は `studio\test\image.js` が**その場で組み立てます**。ファイルとして
+置いていないのは、「どう作ったか」がテストに書いてあるほうが直しやすいからです。
+確かめかたは、コンソールからも呼べます。
+
+```powershell
+.\studio\test\png_host.exe --info  なにか.png
+.\studio\test\png_host.exe --pixel なにか.png 3 5
+.\studio\test\png_host.exe --round なにか.png    # 読む → 書く → また読む
+```
 
 ## 栞は、C ランタイムを使わずに組んでいます
 

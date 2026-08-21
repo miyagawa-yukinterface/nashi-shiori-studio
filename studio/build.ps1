@@ -94,6 +94,8 @@ $sources = @(
     (Join-Path $src 'sstp.cpp'),
     (Join-Path $src 'exporter.cpp'),
     (Join-Path $src 'image.cpp'),
+    (Join-Path $src 'pngread.cpp'),
+    (Join-Path $src 'inflate.cpp'),
     (Join-Path $src 'zip.cpp'),
     (Join-Path $src 'deflate.cpp'),
     (Join-Path $src 'fsutil.cpp'),
@@ -215,6 +217,8 @@ if ($Test) {
         (Join-Path $src 'w2k\drag.cpp'),
         (Join-Path $src 'w2k\paint.cpp'),
         (Join-Path $src 'image.cpp'),
+        (Join-Path $src 'pngread.cpp'),
+        (Join-Path $src 'inflate.cpp'),
         (Join-Path $src 'deflate.cpp'),
         (Join-Path $repo 'shiori\src\json.cpp'),
         (Join-Path $repo 'shiori\src\util.cpp')
@@ -234,6 +238,32 @@ if ($Test) {
         'kernel32.lib' 'user32.lib' 'gdi32.lib' 'shell32.lib' 'shlwapi.lib' 'advapi32.lib' 'ole32.lib'
     if ($LASTEXITCODE -ne 0) { throw '描画テスト用コンソールのリンクに失敗しました。' }
     Write-Host "[studio] OK -> $renExe" -ForegroundColor Green
+
+    # PNG の読み書きを、窓を出さずに確かめるコンソール
+    Write-Host '[studio] PNG テスト用コンソールをビルド中...' -ForegroundColor Cyan
+    $pngObj = Join-Path $obj 'png'
+    New-Item -ItemType Directory -Force -Path $pngObj | Out-Null
+    $pngSources = @(
+        (Join-Path $root 'test\png_host.cpp'),
+        (Join-Path $src 'pngread.cpp'),
+        (Join-Path $src 'inflate.cpp'),
+        (Join-Path $src 'image.cpp'),
+        (Join-Path $src 'deflate.cpp')
+    )
+    $pngCl = @(
+        '/nologo', '/c', '/O2', '/MT', '/EHsc', '/W3', '/std:c++17', '/utf-8',
+        '/DNDEBUG', '/DWIN32', '/DUNICODE', '/D_UNICODE', '/D_CRT_SECURE_NO_WARNINGS',
+        "/I$src", "/I$repo\shiori\src", "/Fo:$pngObj\"
+    ) + $pngSources
+    & cl @pngCl
+    if ($LASTEXITCODE -ne 0) { throw 'PNG テスト用コンソールのコンパイルに失敗しました。' }
+    $pngObjs = $pngSources | ForEach-Object {
+        Join-Path $pngObj ([System.IO.Path]::GetFileNameWithoutExtension($_) + '.obj')
+    }
+    $pngExe = Join-Path $root 'test\png_host.exe'
+    & link '/nologo' "/OUT:$pngExe" '/SUBSYSTEM:CONSOLE' @pngObjs 'kernel32.lib' 'user32.lib'
+    if ($LASTEXITCODE -ne 0) { throw 'PNG テスト用コンソールのリンクに失敗しました。' }
+    Write-Host "[studio] OK -> $pngExe" -ForegroundColor Green
 
     Write-Host '[studio] プレビューテスト用コンソールをビルド中...' -ForegroundColor Cyan
     $prevObj = Join-Path $obj 'preview'

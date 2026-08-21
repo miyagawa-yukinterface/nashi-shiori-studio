@@ -38,4 +38,9 @@ std::string EncodePng(int width, int height, const std::vector<unsigned char>& r
 // PNG のヘッダから大きさだけ読む。PNG でなければ false。
 bool PngSize(const std::string& data, int* width, int* height);
 
+// PNG をほどいて RGBA にする（pngread.cpp）。読めなければ false。
+// 灰・RGB・色見本・RGBA、1〜16 ビット、とびとび（Adam7）まで扱います。
+bool DecodePng(const std::string& data, int* width, int* height,
+               std::vector<unsigned char>* rgba);
+
 } // namespace nashi
