@@ -25,6 +25,12 @@ namespace w2k {
 int RunEditor(HINSTANCE hInstance, const std::wstring& ghostPath);
 
 /**
+ * 書き出しに使う栞（nashi.dll）の中身を渡しておきます。
+ * exe のリソースから取り出すのは main.cpp の役目です（ここはそれを知りません）。
+ */
+void SetShioriDll(const std::string& bytes);
+
+/**
  * 窓を出さずに、いまの画面をそのまま PNG にします（確かめ用）。
  * render_host と同じ考えで、画面まわりも目で見られるようにしておきます。
  */
@@ -76,6 +82,7 @@ struct PanelProbe {
     int tab = 2;
     std::string query;        // 「さがす言葉」
     std::string clickId;      // 押す部品（"var.add" など）
+    std::string exportDir;    // 書き出しのたなで使う、出す先
     std::string typeValue;    // 打ちこむ欄なら、この中身にします
     bool type = false;
 };

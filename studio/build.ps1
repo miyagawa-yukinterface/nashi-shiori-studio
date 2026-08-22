@@ -231,6 +231,13 @@ if ($Test) {
         (Join-Path $src 'pngread.cpp'),
         (Join-Path $src 'inflate.cpp'),
         (Join-Path $src 'deflate.cpp'),
+        # 「ためす」と「書き出し」は、本体と同じものを使います
+        (Join-Path $src 'preview.cpp'),
+        (Join-Path $src 'exporter.cpp'),
+        (Join-Path $src 'fsutil.cpp'),
+        (Join-Path $src 'zip.cpp'),
+        (Join-Path $repo 'shiori\src\interp.cpp'),
+        (Join-Path $repo 'shiori\src\program.cpp'),
         (Join-Path $repo 'shiori\src\json.cpp'),
         (Join-Path $repo 'shiori\src\util.cpp')
     )

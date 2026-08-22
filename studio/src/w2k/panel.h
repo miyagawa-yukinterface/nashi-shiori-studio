@@ -58,9 +58,20 @@ struct PanelItem {
 /** たなを組み立てるときの、いまのようす。 */
 struct PanelState {
     Tab tab = Tab::Vars;
-    std::string query;      // さがす言葉
+    std::string query;                 // さがす言葉
     int scroll = 0;
+
+    // ---- ためす
+    std::string runTitle;              // さいごに動かしたかたまり
+    std::vector<std::string> runOut;   // 出てきたさくらスクリプト（行ごと）
+
+    // ---- 書き出し
+    std::string exportDir;             // 出す先
+    std::vector<std::string> exportOut;
 };
+
+/** かたまりに id が無ければ付けます（「ためす」で 1 つえらぶのに要ります）。 */
+void EnsureScriptIds(JValue& project);
 
 /** 右の作業だなの中身を組み立てます。x は左端、width は幅。 */
 void BuildPanel(const JValue& project, const PanelState& state,

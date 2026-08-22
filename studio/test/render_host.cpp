@@ -9,7 +9,7 @@
 //   render_host.exe <ghost.json> --summary
 //                                        かたまり・ブロックの言いあらわし
 //   render_host.exe <ghost.json> --panel <たなの番号> [--q 言葉]
-//                                        [--click 目じるし [打ちこむ中身]]
+//                                        [--click 目じるし [打ちこむ中身]] [--dir 出す先]
 //                                        右の作業だなを調べる／押してみる
 //   render_host.exe <ghost.json> --fields
 //                                        画面に出ている欄をぜんぶならべる
@@ -189,6 +189,7 @@ int wmain(int argc, wchar_t** argv) {
         for (int i = 4; i < argc; i++) {
             const std::wstring a = argv[i];
             if (a == L"--q" && i + 1 < argc) { probe.query = WideToUtf8Arg(argv[++i]); }
+            else if (a == L"--dir" && i + 1 < argc) { probe.exportDir = WideToUtf8Arg(argv[++i]); }
             else if (a == L"--click" && i + 1 < argc) {
                 probe.clickId = WideToUtf8Arg(argv[++i]);
                 if (i + 1 < argc && std::wstring(argv[i + 1]).compare(0, 2, L"--") != 0) {

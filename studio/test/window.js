@@ -50,6 +50,8 @@ function run(args) {
   } catch (e) {
     // 作りたての exe は、スマートアプリコントロールに止められることがあります
     // （docs\maintenance.md の「つまずきやすいところ」）。CI にはこの仕組みがありません。
+    // うまくいかなかったときも、言い分は返してもらう（何が起きたか見えるように）
+    if (e.stdout) return String(e.stdout);
     if (String(e.code) === 'UNKNOWN'
         || /Application Control|アプリケーション制御/.test(String(e.message))) {
       console.log(`${C.dim}  ――  render_host.exe を起動できませんでした`

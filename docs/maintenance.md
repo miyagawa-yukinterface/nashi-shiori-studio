@@ -214,17 +214,40 @@ WebView2 は Windows 10 からしか動かないので、画面は Win32 と GDI
 それを描いて、押されたところを探します。部品には `var.del.2` のような目じるしが
 付いていて、テストはこれで押す場所を言います（見た目が変わっても壊れません）。
 
+たなは 7 つあります。番号はこの順です。
+
+| 番号 | たな | いまのようす |
+|---|---|---|
+| 0 | ためす | かたまりを押すと、**栞そのもの**で動かして、さくらスクリプトを出します |
+| 1 | ゴースト | 名前・作者・更新のありか・ランダムトークの設定（立ち絵とうごきはまだ） |
+| 2 | 変数 | つくる・けす・名前とはじめの値 |
+| 3 | さがす | セリフ・変数・トーク名から引く |
+| 4 | チェック | `lint.cpp` の結果 |
+| 5 | 書き出し | フォルダ／`.nar`。栞は `SetShioriDll` で渡してもらいます |
+| 6 | ヘルプ | まだ |
+
 ```powershell
-# 変数のたなを見る（0=ためす 1=ゴースト 2=変数 3=さがす 4=チェック 5=書き出し 6=ヘルプ）
+# たなを見る
 .\studio\test\render_host.exe .\studio\test\drag_fixture.json --panel 2
 
 # ボタンを押してみる。うしろに字を足すと、その欄に打ちこみます
 .\studio\test\render_host.exe .\studio\test\drag_fixture.json --panel 2 --click var.add
 .\studio\test\render_host.exe .\studio\test\drag_fixture.json --panel 2 --click var.name.0 すきど
 
-# さがす
+# さがす／動かす／書き出す
 .\studio\test\render_host.exe .\studio\test\drag_fixture.json --panel 3 --q はじめ
+.\studio\test\render_host.exe .\shiori\test\parity\ghost.json --panel 0 --click run.go.0
+.\studio\test\render_host.exe .\studio\test\drag_fixture.json --panel 5 --dir C:\out --click export.folder
+
+# たなを開いた画面を、絵にする（さいごの数がたなの番号）
+.\studio\test\render_host.exe .\shiori\test\parity\ghost.json --window out.png 1200 760 4
 ```
+
+「ためす」と「書き出し」は、**中身を移していません**。どちらも
+`studio\src\preview.cpp` と `studio\src\exporter.cpp` を呼ぶだけです
+（WebView2 版も同じものを呼んでいます）。`window.cpp` が exe のリソースを
+直に見ないのは、テストからも動かせるようにするためです。栞（`nashi.dll`）は
+`SetShioriDll` で渡してもらい、`main.cpp` がそれを入れます。
 
 ### 二重になっているあいだの見張り
 

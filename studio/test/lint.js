@@ -46,6 +46,8 @@ function run(args) {
   try {
     return execFileSync(host, args, { encoding: 'utf8', maxBuffer: 1 << 24 });
   } catch (e) {
+    // うまくいかなかったときも、言い分は返してもらう（何が起きたか見えるように）
+    if (e.stdout) return String(e.stdout);
     if (String(e.code) === 'UNKNOWN'
         || /Application Control|アプリケーション制御/.test(String(e.message))) {
       console.log(`${C.dim}  ――  render_host.exe を起動できませんでした`

@@ -142,6 +142,68 @@ void BuildSearch(Builder& b, const JValue& project, const PanelState& state) {
     }
 }
 
+// -------------------------------------------------------------- ためすたな
+void BuildRun(Builder& b, const JValue& project, const PanelState& state) {
+    b.Head("ためす");
+    b.Hint("かたまりを押すと、その場で動かしてみます。");
+
+    const JValue& scripts = project["scripts"];
+    if (scripts.size() == 0) {
+        b.Text("（まだ、かたまりがありません）");
+    }
+    for (size_t i = 0; i < scripts.size(); i++) {
+        b.Row("run.go." + IntToStr((int)i), ScriptTitle(scripts.at(i)),
+              scripts.at(i)["id"].asStr(), 0);
+    }
+
+    if (state.runOut.empty()) return;
+    b.Head("さくらスクリプト");
+    if (!state.runTitle.empty()) b.Hint(state.runTitle);
+    for (size_t i = 0; i < state.runOut.size(); i++) b.Text(state.runOut[i]);
+}
+
+// ------------------------------------------------------------ ゴーストのたな
+void BuildGhost(Builder& b, const JValue& project) {
+    const JValue& meta = project["meta"];
+    const JValue& st = project["settings"];
+
+    b.Head("ゴーストの設定");
+    b.Field("meta.name", "ゴースト名", meta["name"].asStr());
+    b.Field("meta.sakuraName", "本体の名前", meta["sakuraName"].asStr());
+    b.Field("meta.keroName", "相方の名前", meta["keroName"].asStr());
+    b.Field("meta.craftman", "作者名", meta["craftman"].asStr());
+    b.Field("meta.craftmanUrl", "作者URL", meta["craftmanUrl"].asStr());
+    b.Field("meta.homeUrl", "更新のありか", meta["homeUrl"].asStr());
+    b.Hint("ネットワーク更新に使う URL です。うしろに / を付けます。");
+    b.Field("meta.version", "バージョン", meta["version"].asStr());
+    b.Field("meta.description", "説明", meta["description"].asStr());
+
+    b.Head("ランダムトーク");
+    const bool on = !(st["randomTalkEnabled"].type == JType::Bool
+                      && !st["randomTalkEnabled"].b);
+    b.Button("settings.randomTalkEnabled",
+             on ? "自動でしゃべる：する" : "自動でしゃべる：しない");
+    b.Field("settings.randomTalkInterval", "しゃべる間隔（秒）",
+            st["randomTalkInterval"].asStr());
+    b.Field("settings.noRepeatCount", "同じを避ける数",
+            st["noRepeatCount"].asStr());
+    b.Hint("0 ならおまかせ（トーク数の半分・最大 8）です。");
+
+    b.Head("立ち絵・うごき");
+    b.Hint("ここはまだ作っていません。WebView2 版でお使いください。");
+}
+
+// ------------------------------------------------------------ 書き出しのたな
+void BuildExport(Builder& b, const PanelState& state) {
+    b.Head("書き出し");
+    b.Hint("SSP に入れられる形で書き出します。");
+    b.Field("export.dir", "出す先", state.exportDir);
+    b.Button("export.folder", "フォルダに書き出す");
+    b.Button("export.nar", ".nar にまとめる");
+
+    for (size_t i = 0; i < state.exportOut.size(); i++) b.Text(state.exportOut[i]);
+}
+
 // ------------------------------------------------------------ チェックのたな
 void BuildCheck(Builder& b, const JValue& project) {
     b.Head("チェック");
@@ -337,10 +399,41 @@ JValue* Sub(JValue& obj, const char* key) {
 
 } // namespace
 
+void EnsureScriptIds(JValue& project) {
+    JValue* scripts = NULL;
+    for (size_t i = 0; i < project.obj.size(); i++) {
+        if (project.obj[i].first == "scripts") { scripts = &project.obj[i].second; break; }
+    }
+    if (!scripts || !scripts->isArr()) return;
+
+    std::vector<std::string> used;
+    for (size_t i = 0; i < scripts->arr.size(); i++) {
+        const std::string id = scripts->arr[i]["id"].asStr();
+        if (!id.empty()) used.push_back(id);
+    }
+    for (size_t i = 0; i < scripts->arr.size(); i++) {
+        JValue& s = scripts->arr[i];
+        if (!s.isObj() || !s["id"].asStr().empty()) continue;
+        for (int n = (int)i; ; n++) {
+            const std::string candidate = "s" + IntToStr(n);
+            bool taken = false;
+            for (size_t k = 0; k < used.size(); k++) {
+                if (used[k] == candidate) { taken = true; break; }
+            }
+            if (taken) continue;
+            s.set("id", JValue::makeStr(candidate));
+            used.push_back(candidate);
+            break;
+        }
+    }
+}
+
 void NormalizeProject(JValue& project) {
     if (!project.isObj()) return;
     if (!project.has("scripts")) project.set("scripts", JValue::makeArr());
     if (!project.has("variables")) project.set("variables", JValue::makeArr());
+
+    EnsureScriptIds(project);
 
     // ---- ゴーストの情報（ui\js\model.js の newProject と同じ既定値）
     if (JValue* meta = Sub(project, "meta")) {
@@ -474,6 +567,9 @@ void BuildPanel(const JValue& project, const PanelState& state,
         case Tab::Vars:   BuildVars(b, project); break;
         case Tab::Search: BuildSearch(b, project, state); break;
         case Tab::Check:  BuildCheck(b, project); break;
+        case Tab::Run:    BuildRun(b, project, state); break;
+        case Tab::Ghost:  BuildGhost(b, project); break;
+        case Tab::Export: BuildExport(b, state); break;
         default:
             b.Head(TabName(state.tab));
             b.Hint("このたなは、まだ作っていません。");

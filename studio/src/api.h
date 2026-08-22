@@ -21,9 +21,11 @@ public:
     JValue LoadConfig() const;
     void SaveConfig(const std::string& key, const JValue& value);
 
+    // 書き出しに使う栞。ネイティブ版の画面にも渡します。
+    std::string DllBytes() const;
+
 private:
     void HandleApi(const HttpRequest& req, HttpResponse& res);
-    std::string DllBytes() const;
     std::wstring DefaultOutDir() const;
     SspInfo Ssp() const;
 

@@ -15,6 +15,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
@@ -45,6 +46,8 @@ function run(args) {
   try {
     return execFileSync(host, args, { encoding: 'utf8', maxBuffer: 1 << 24 });
   } catch (e) {
+    // うまくいかなかったときも、言い分は返してもらう（何が起きたか見えるように）
+    if (e.stdout) return String(e.stdout);
     if (String(e.code) === 'UNKNOWN'
         || /Application Control|アプリケーション制御/.test(String(e.message))) {
       console.log(`${C.dim}  ――  render_host.exe を起動できませんでした`
@@ -197,7 +200,111 @@ console.log(`${C.dim}-- さがすたな${C.off}`);
     (title.match(/^row search\.hit\.\d+ /gm) || []).length >= 1 ? 'はい' : 'いいえ', 'はい');
 }
 
-// ---------------------------------------------------- 4. たなの切りかえ
+// ---------------------------------------------------- 4. ためすたな
+console.log(`${C.dim}-- ためすたな${C.off}`);
+{
+  const parity = path.join(root, 'shiori', 'test', 'parity', 'ghost.json');
+  const said = run([parity, '--panel', '0']);
+  check('かたまりがならぶ',
+    (said.match(/^row run\.go\.\d+ /gm) || []).length >= 10 ? 'はい' : 'いいえ', 'はい');
+  check('まだ動かしていなければ、何も出ない',
+    /さくらスクリプト/.test(said) ? 'いいえ' : 'はい', 'はい');
+
+  // 押すと、栞そのものでブロックが動きます。
+  // 同じものを preview_host.exe でも動かして、出てきたものをくらべます。
+  const ran = run([parity, '--panel', '0', '--click', 'run.go.0']);
+  const lines = ran.split(/\r?\n/);
+  const head = lines.findIndex((l) => /^head .* さくらスクリプト$/.test(l));
+  check('動かすと、さくらスクリプトが出る', head >= 0 ? 'はい' : 'いいえ', 'はい');
+
+  const out = [];
+  for (let i = head + 2; i < lines.length; i++) {
+    const m = lines[i].match(/^text - \([^)]*\)\s+\d+x\d+\s+(.*)$/);
+    if (!m) break;
+    out.push(m[1]);
+  }
+  const got = out.join('');
+
+  const previewHost = path.join(root, 'studio', 'test', 'preview_host.exe');
+  if (fs.existsSync(previewHost)) {
+    let want = '';
+    try {
+      const said2 = execFileSync(previewHost, [parity, 'p01'], { encoding: 'utf8' });
+      want = ((said2.match(/^Value: (.*)$/m) || [])[1] || '').replace(/\r$/, '');
+    } catch (e) { want = '(preview_host を動かせませんでした)'; }
+    check('栞そのもので動かした結果と同じ', got, want);
+  } else {
+    check('それらしいものが出る', /いちぎょうめ/.test(got) ? 'はい' : got, 'はい');
+  }
+}
+
+// ---------------------------------------------------- 5. ゴーストのたな
+console.log(`${C.dim}-- ゴーストのたな${C.off}`);
+{
+  const said = run([fixture, '--panel', '1']);
+  check('ゴーストの欄がならぶ',
+    (said.match(/^field meta\.\w+ /gm) || []).length, 8);
+  check('ランダムトークの欄もある',
+    (said.match(/^field settings\.\w+ /gm) || []).length, 2);
+  check('自動でしゃべるの入り切り',
+    /button settings\.randomTalkEnabled .*自動でしゃべる：する/.test(said) ? 'する' : said,
+    'する');
+
+  const named = run([fixture, '--panel', '1', '--click', 'meta.name', 'ためしゴースト']);
+  const j1 = JSON.parse(named.slice(named.indexOf('---- ghost.json') + 15));
+  check('ゴースト名を打ちかえられる', j1.meta.name, 'ためしゴースト');
+
+  const secs = run([fixture, '--panel', '1', '--click', 'settings.randomTalkInterval', '300']);
+  const j2 = JSON.parse(secs.slice(secs.indexOf('---- ghost.json') + 15));
+  check('しゃべる間隔は数で入る', typeof j2.settings.randomTalkInterval, 'number');
+  check('しゃべる間隔の中身', j2.settings.randomTalkInterval, 300);
+
+  const off = run([fixture, '--panel', '1', '--click', 'settings.randomTalkEnabled']);
+  const j3 = JSON.parse(off.slice(off.indexOf('---- ghost.json') + 15));
+  check('自動でしゃべるを切れる', j3.settings.randomTalkEnabled, false);
+  check('切ったら見た目も変わる',
+    /button settings\.randomTalkEnabled .*自動でしゃべる：しない/.test(off) ? 'はい' : 'いいえ',
+    'はい');
+}
+
+// ---------------------------------------------------- 6. 書き出しのたな
+console.log(`${C.dim}-- 書き出しのたな${C.off}`);
+{
+  const said = run([fixture, '--panel', '5']);
+  check('出す先とボタンがある',
+    /field export\.dir /.test(said) && /button export\.folder /.test(said)
+      && /button export\.nar /.test(said) ? 'はい' : 'いいえ', 'はい');
+
+  // 書き出しには栞が要ります。となりに置いてから動かします。
+  const dll = path.join(root, 'shiori', 'dist', 'nashi.dll');
+  const beside = path.join(root, 'studio', 'test', 'nashi.dll');
+  if (fs.existsSync(dll)) {
+    fs.copyFileSync(dll, beside);
+    const out = fs.mkdtempSync(path.join(os.tmpdir(), 'nashi-out-'));
+    try {
+      const done = run([fixture, '--panel', '5', '--dir', out, '--click', 'export.folder']);
+      check('書き出せた', /書き出しました/.test(done) ? 'はい' : done.trim(), 'はい');
+
+      const folder = fs.readdirSync(out)[0];
+      const files = fs.readdirSync(path.join(out, folder, 'ghost', 'master'));
+      check('栞と設計図が入っている',
+        files.includes('nashi.dll') && files.includes('ghost.json')
+          && files.includes('descript.txt') ? 'はい' : files.join(','), 'はい');
+
+      const nar = run([fixture, '--panel', '5', '--dir', out, '--click', 'export.nar']);
+      check('.nar にもまとめられる', /書き出しました/.test(nar) ? 'はい' : nar.trim(), 'はい');
+      check('.nar ができている',
+        fs.readdirSync(out).some((f) => f.endsWith('.nar')) ? 'はい' : 'いいえ', 'はい');
+    } finally {
+      fs.rmSync(out, { recursive: true, force: true });
+      fs.rmSync(beside, { force: true });
+    }
+  } else {
+    console.log(`${C.dim}  ――  nashi.dll が無いので、書き出しは飛ばします${C.off}`);
+  }
+}
+
+// ---------------------------------------------------- 7. たなの切りかえ
 console.log(`${C.dim}-- たなの切りかえ${C.off}`);
 {
   const names = [];
@@ -207,7 +314,7 @@ console.log(`${C.dim}-- たなの切りかえ${C.off}`);
   check('たなは 7 つ', names.join(','),
     'ためす,ゴースト,変数,さがす,チェック,書き出し,ヘルプ');
 
-  const notYet = run([fixture, '--panel', '0']);
+  const notYet = run([fixture, '--panel', '6']);
   check('まだ作っていないたなは、そう言う',
     /まだ作っていません/.test(notYet) ? 'はい' : 'いいえ', 'はい');
 }

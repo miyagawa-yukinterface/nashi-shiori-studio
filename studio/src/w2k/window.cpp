@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <shlobj.h>
 #include <string>
 #include <vector>
 
@@ -12,9 +13,12 @@
 #include "layout.h"
 #include "paint.h"
 #include "panel.h"
+#include "../exporter.h"
+#include "../preview.h"
 #include "../image.h"
 #include "../../../shiori/src/json.h"
 #include "../../../shiori/src/util.h"
+#include "../fsutil.h"
 
 namespace nashi {
 namespace w2k {
@@ -84,6 +88,8 @@ struct Editor {
     bool editNumber = false;         // 数だけの欄か
     bool editing = false;
     bool editToQuery = false;        // 「さがす言葉」を打ちこんでいるか
+
+    std::string shioriDll;           // 書き出しに使う栞（exe に入れてあるもの）
 
     // ---- 右の作業だな
     PanelState panel;
@@ -683,6 +689,117 @@ std::string FreshVarName() {
     return "へんすう";
 }
 
+/** 字を、たなの幅に合わせて何行かに切る（さくらスクリプトを出すのに使います）。 */
+void SplitLines(const std::string& text, size_t width, std::vector<std::string>* out) {
+    out->clear();
+    std::string line;
+    size_t cells = 0;
+    for (size_t i = 0; i < text.size();) {
+        const unsigned char c = (unsigned char)text[i];
+        const int len = c < 0x80 ? 1 : (c < 0xE0 ? 2 : (c < 0xF0 ? 3 : 4));
+        const size_t w = (len == 1) ? 1 : 2;
+        if (c == '\n') {
+            out->push_back(line);
+            line.clear();
+            cells = 0;
+            i++;
+            continue;
+        }
+        if (cells + w > width) {
+            out->push_back(line);
+            line.clear();
+            cells = 0;
+        }
+        line.append(text, i, (size_t)len);
+        cells += w;
+        i += (size_t)len;
+    }
+    if (!line.empty()) out->push_back(line);
+    if (out->empty()) out->push_back("（何も出ませんでした）");
+}
+
+/** そのかたまりを、栞そのもので動かしてみる。 */
+void RunOne(int scriptIndex) {
+    const JValue& scripts = g.project["scripts"];
+    if (scriptIndex < 0 || scriptIndex >= (int)scripts.size()) return;
+    const JValue& s = scripts.at((size_t)scriptIndex);
+
+    PreviewRequest req;
+    req.project = g.project;
+    req.scriptId = s["id"].asStr();
+    req.ghostName = g.project["meta"]["name"].asStr();
+    req.shellName = "master";
+    req.boots = 1;
+
+    const PreviewResult res = RunPreview(req);
+    g.panel.runTitle = ScriptTitle(s);
+    if (!res.ok) {
+        g.panel.runOut.clear();
+        g.panel.runOut.push_back("うまく動きませんでした");
+        g.panel.runOut.push_back(res.error);
+        return;
+    }
+    SplitLines(res.script, 34, &g.panel.runOut);
+}
+
+/** 書き出す先をえらんでもらう。 */
+std::wstring AskFolder() {
+    if (!g.hwnd) return std::wstring();   // 窓が無いとき（テスト）は、たずねません
+
+    // Windows 2000 から使える、古いほうの選びかた
+    wchar_t path[MAX_PATH];
+    path[0] = 0;
+    BROWSEINFOW bi;
+    ZeroMemory(&bi, sizeof(bi));
+    bi.hwndOwner = g.hwnd;
+    bi.pszDisplayName = path;
+    bi.lpszTitle = L"書き出す先のフォルダをえらんでください";
+    bi.ulFlags = BIF_RETURNONLYFSDIRS;
+    LPITEMIDLIST id = SHBrowseForFolderW(&bi);
+    if (!id) return std::wstring();
+    wchar_t full[MAX_PATH];
+    const bool ok = SHGetPathFromIDListW(id, full) != FALSE;
+    CoTaskMemFree(id);
+    return ok ? std::wstring(full) : std::wstring();
+}
+
+/** 書き出す。nar なら 1 つのファイルにまとめます。 */
+void DoExport(bool nar) {
+    if (g.panel.exportDir.empty()) {
+        const std::wstring picked = AskFolder();
+        if (picked.empty()) return;
+        g.panel.exportDir = WideToUtf8(picked);
+    }
+    const std::wstring dir = Utf8ToWide(g.panel.exportDir);
+
+    // 栞は、となりに置いてあればそれ、無ければ渡されたもの（exe に入れてある分）
+    // を使います。ここが exe のリソースを直に見ないのは、テストからも動かせるように
+    // しておくためです。
+    std::string dllData;
+    if (!ReadBinaryFile(PathJoin(ExeDir(), L"nashi.dll"), dllData) || dllData.empty()) {
+        dllData = g.shioriDll;
+    }
+    if (dllData.empty()) {
+        g.panel.exportOut.clear();
+        g.panel.exportOut.push_back("栞（nashi.dll）が見つかりません");
+        return;
+    }
+
+    const ExportResult res = nar ? ExportToNar(g.project, dir, dllData, true)
+                                 : ExportToDir(g.project, dir, dllData, true, false);
+    g.panel.exportOut.clear();
+    if (!res.ok) {
+        g.panel.exportOut.push_back("書き出せませんでした");
+        g.panel.exportOut.push_back(res.error);
+        return;
+    }
+    g.panel.exportOut.push_back("書き出しました");
+    g.panel.exportOut.push_back(WideToUtf8(res.root));
+    char buf[64];
+    sprintf(buf, "%d 個のファイル", (int)res.written.size());
+    g.panel.exportOut.push_back(buf);
+}
+
 /** 作業だなの中を押されたとき。押した場所は窓の中の座標。 */
 void OnPanelClick(int sx, int sy) {
     // ---- 見出し（たなを切りかえる）
@@ -732,6 +849,56 @@ void OnPanelClick(int sx, int sy) {
                       isName ? "name" : "value",
                       vars.at(i)[isName ? "name" : "value"].asStr(),
                       false, it.x, it.y, it.w, it.h);
+        return;
+    }
+
+    // ---- ためすたな
+    if (StartsWith(it.id, "run.go.")) {
+        RunOne(IdIndex(it.id));
+        Refresh();
+        return;
+    }
+
+    // ---- ゴーストのたな
+    if (StartsWith(it.id, "meta.") || StartsWith(it.id, "settings.")) {
+        const size_t dot = it.id.find('.');
+        const std::string group = it.id.substr(0, dot);
+        const std::string key = it.id.substr(dot + 1);
+
+        if (it.kind == ItemKind::Button) {
+            // 「自動でしゃべる」の入り切り
+            PushUndo();
+            JValue* st = JResolve(g.project, JPath().Then(JStep::Key(group)));
+            if (st && st->isObj()) {
+                const bool on = !((*st)[key.c_str()].type == JType::Bool
+                                  && !(*st)[key.c_str()].b);
+                st->set(key, JValue::makeBool(!on));
+                MarkDirty();
+            }
+            Refresh();
+            return;
+        }
+        const JValue* owner = JResolve(g.project, JPath().Then(JStep::Key(group)));
+        if (!owner) return;
+        const bool isNumber = (key == "randomTalkInterval" || key == "noRepeatCount");
+        PushUndo();
+        BeginEditRect(JPath().Then(JStep::Key(group)), key,
+                      (*owner)[key.c_str()].asStr(), isNumber, it.x, it.y, it.w, it.h);
+        return;
+    }
+
+    // ---- 書き出しのたな
+    if (it.id == "export.dir") {
+        const std::wstring picked = AskFolder();
+        if (!picked.empty()) {
+            g.panel.exportDir = WideToUtf8(picked);
+            Refresh();
+        }
+        return;
+    }
+    if (it.id == "export.folder" || it.id == "export.nar") {
+        DoExport(it.id == "export.nar");
+        Refresh();
         return;
     }
 
@@ -1560,6 +1727,7 @@ bool ProbePanel(const PanelProbe& probe, std::string* items, std::string* json) 
 
     g.panel.tab = TabAt(probe.tab);
     g.panel.query = probe.query;
+    g.panel.exportDir = probe.exportDir;
     g.panel.scroll = 0;
     Relayout();
 
@@ -1690,6 +1858,8 @@ bool RenderEditor(const std::wstring& ghostPath, int width, int height,
     probe.tab = tab;
     return ProbeEditor(probe, png, NULL);
 }
+
+void SetShioriDll(const std::string& bytes) { g.shioriDll = bytes; }
 
 int RunEditor(HINSTANCE hInstance, const std::wstring& ghostPath) {
     g.inst = hInstance;

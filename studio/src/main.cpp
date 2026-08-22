@@ -157,6 +157,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
                 if (std::wstring(argv[i]) != L"--w2k") continue;
                 std::wstring ghost = (i + 1 < argc) ? argv[i + 1] : L"";
                 LocalFree(argv);
+                g_api.Init();
+                w2k::SetShioriDll(g_api.DllBytes());   // 書き出しに使います
                 return w2k::RunEditor(hInstance, ghost);
             }
             LocalFree(argv);
