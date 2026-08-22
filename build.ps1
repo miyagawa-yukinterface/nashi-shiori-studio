@@ -94,8 +94,7 @@ if ($Release) {
 
     Copy-Item (Join-Path $root 'nashi-studio.exe') $stage
     # LICENSE は「あれば入れる」ではなく、無かったら止めます。
-    # 同梱している WebView2 SDK が、配るときに著作権表示を求めているためです
-    # （その本文は LICENSE の後ろに入れてあります）。
+    # 配るものに、使ってよい条件が書いていないと困るためです。
     foreach ($f in @('README.md', 'CHANGELOG.md', 'LICENSE')) {
         $p = Join-Path $root $f
         if (-not (Test-Path $p)) { throw "$f がありません。配布物に入れるものです。" }
