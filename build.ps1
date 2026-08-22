@@ -76,6 +76,7 @@ if ($Test) {
                          'studio\test\export.js', 'studio\test\layout.js',
                          'studio\test\image.js', 'studio\test\window.js',
                          'studio\test\panel.js', 'studio\test\lint.js',
+                         'studio\test\normalize.js',
                          'ui\test\editor.js', 'ui\test\modules.js')) {
             & node (Join-Path $root $t)
             if ($LASTEXITCODE -ne 0) { throw "$([System.IO.Path]::GetFileName($t)) が失敗しました。" }

@@ -3,6 +3,7 @@
 #include "lint.h"
 
 #include <cstdio>
+#include <cstdlib>
 
 namespace nashi {
 namespace w2k {
@@ -581,6 +582,127 @@ JValue* Sub(JValue& obj, const char* key) {
     return NULL;
 }
 
+/** obj["key"] のならびを取り出す（無ければ作る）。 */
+JValue* SubArr(JValue& obj, const char* key) {
+    if (!obj[key].isArr()) obj.set(key, JValue::makeArr());
+    for (size_t i = 0; i < obj.obj.size(); i++) {
+        if (obj.obj[i].first == key) return &obj.obj[i].second;
+    }
+    return NULL;
+}
+
+/** 前後の空白を落とす。 */
+std::string Strip(const std::string& s) {
+    size_t a = 0, b = s.size();
+    while (a < b && (s[a] == ' ' || s[a] == '\t' || s[a] == '\r' || s[a] == '\n')) a++;
+    while (b > a && (s[b - 1] == ' ' || s[b - 1] == '\t'
+                     || s[b - 1] == '\r' || s[b - 1] == '\n')) b--;
+    return s.substr(a, b - a);
+}
+
+/** その値が、表にある値か。 */
+bool IsOneOf(const std::string& v, const OptionDef* opts, int count) {
+    for (int i = 0; i < count; i++) if (v == opts[i].value) return true;
+    return false;
+}
+
+/** 数として読む（読めなければ既定値）。 */
+double NumOr(const JValue& v, double def) {
+    if (v.type == JType::Num) return v.num;
+    if (v.type == JType::Str) {
+        const char* p = v.str.c_str();
+        char* end = NULL;
+        const double d = strtod(p, &end);
+        if (end && *end == 0 && end != p) return d;
+    }
+    return def;
+}
+
+/**
+ * 変数のならびをととのえる。
+ * 名前のないものは落とし、値が無ければ 0 にします（model.js と同じ）。
+ */
+void NormalizeVariables(JValue& project) {
+    JValue* vars = SubArr(project, "variables");
+    if (!vars) return;
+    JValue out = JValue::makeArr();
+    for (size_t i = 0; i < vars->arr.size(); i++) {
+        const JValue& v = vars->arr[i];
+        if (!v.isObj()) continue;
+        const std::string name = v["name"].asStr();
+        if (name.empty()) continue;
+        JValue one = JValue::makeObj();
+        one.set("name", JValue::makeStr(name));
+        one.set("value", v["value"].isNull() ? JValue::makeNum(0) : v["value"]);
+        out.arr.push_back(one);
+    }
+    project.set("variables", out);
+}
+
+/**
+ * うごきのならびをととのえる。
+ * 知らない重ねかたは「土台をとりかえる」に、知らないかたちは「四角」に倒し、
+ * 名前のない当たり判定は落とします（model.js と同じ）。
+ */
+void NormalizeAnimations(JValue& project) {
+    JValue* anims = SubArr(project, "animations");
+    if (!anims) return;
+
+    int nMethod = 0, nShape = 0;
+    const OptionDef* methods = AllAnimMethods(&nMethod);
+    const OptionDef* shapes = AllAnimShapes(&nShape);
+
+    JValue out = JValue::makeArr();
+    for (size_t i = 0; i < anims->arr.size(); i++) {
+        const JValue& a = anims->arr[i];
+        JValue one = JValue::makeObj();
+        one.set("id", JValue::makeNum(NumOr(a["id"], (double)i)));
+        one.set("base", JValue::makeNum(NumOr(a["base"], 0)));
+        one.set("interval", JValue::makeStr(a["interval"].asStr().empty()
+                                            ? "never" : a["interval"].asStr()));
+        double every = NumOr(a["every"], 4);
+        if (every == 0) every = 4;
+        one.set("every", JValue::makeNum(every));
+
+        JValue patterns = JValue::makeArr();
+        const JValue& ps = a["patterns"];
+        for (size_t k = 0; k < ps.size(); k++) {
+            const JValue& p = ps.at(k);
+            JValue q = JValue::makeObj();
+            q.set("surface", JValue::makeNum(NumOr(p["surface"], 0)));
+            q.set("wait", JValue::makeNum(NumOr(p["wait"], 200)));
+            const std::string m = p["method"].asStr();
+            q.set("method", JValue::makeStr(IsOneOf(m, methods, nMethod) ? m : "base"));
+            q.set("x", JValue::makeNum(NumOr(p["x"], 0)));
+            q.set("y", JValue::makeNum(NumOr(p["y"], 0)));
+            q.set("file", JValue::makeStr(p["file"].asStr()));
+            patterns.arr.push_back(q);
+        }
+        one.set("patterns", patterns);
+
+        JValue cols = JValue::makeArr();
+        const JValue& cs = a["collisions"];
+        for (size_t k = 0; k < cs.size(); k++) {
+            const JValue& c = cs.at(k);
+            const std::string name = Strip(c["name"].asStr());
+            if (name.empty()) continue;
+            JValue q = JValue::makeObj();
+            q.set("name", JValue::makeStr(name));
+            const std::string sh = c["shape"].asStr();
+            q.set("shape", JValue::makeStr(IsOneOf(sh, shapes, nShape) ? sh : "rect"));
+            q.set("x1", JValue::makeNum(NumOr(c["x1"], 0)));
+            q.set("y1", JValue::makeNum(NumOr(c["y1"], 0)));
+            q.set("x2", JValue::makeNum(NumOr(c["x2"], 0)));
+            q.set("y2", JValue::makeNum(NumOr(c["y2"], 0)));
+            q.set("points", JValue::makeStr(c["points"].asStr()));
+            cols.arr.push_back(q);
+        }
+        one.set("collisions", cols);
+        out.arr.push_back(one);
+    }
+    project.set("animations", out);
+}
+
 } // namespace
 
 void EnsureScriptIds(JValue& project) {
@@ -618,6 +740,8 @@ void NormalizeProject(JValue& project) {
     if (!project.has("variables")) project.set("variables", JValue::makeArr());
 
     EnsureScriptIds(project);
+    NormalizeVariables(project);
+    NormalizeAnimations(project);
 
     // ---- ゴーストの情報（ui\js\model.js の newProject と同じ既定値）
     if (JValue* meta = Sub(project, "meta")) {

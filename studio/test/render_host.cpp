@@ -4,6 +4,10 @@
 //   render_host.exe <ghost.json> --all <出す先のフォルダ>
 //   render_host.exe <ghost.json> --window <out.png> [幅 高さ [たなの番号]]
 //                                        編集の画面ぜんぶ（窓を出さずに）
+//   render_host.exe <ghost.json> --normalize
+//                                        読みこんだときの下ごしらえの結果
+//   render_host.exe <ghost.json> --titles
+//                                        かたまりの見出しをならべる
 //   render_host.exe <ghost.json> --lint
 //                                        チェックの結果
 //   render_host.exe <ghost.json> --summary
@@ -147,6 +151,23 @@ int wmain(int argc, wchar_t** argv) {
     if (!JsonParse(text, project, err)) {
         printf("JSON parse error: %s\n", err.c_str());
         return 3;
+    }
+
+    // 読みこんだときの下ごしらえの結果を出す
+    if (std::wstring(argv[2]) == L"--normalize") {
+        NormalizeProject(project);
+        printf("%s\n", project.dump(2).c_str());
+        return 0;
+    }
+
+    // かたまりの見出しだけを出す（1 つずつ確かめるため）
+    if (std::wstring(argv[2]) == L"--titles") {
+        NormalizeProject(project);
+        const JValue& scripts = project["scripts"];
+        for (size_t i = 0; i < scripts.size(); i++) {
+            printf("%s\n", ScriptTitle(scripts.at(i)).c_str());
+        }
+        return 0;
     }
 
     // チェックの結果を出す（JavaScript 版とくらべるため）

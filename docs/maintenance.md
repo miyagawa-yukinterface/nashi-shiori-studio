@@ -78,7 +78,7 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 
 ---
 
-## テスト 12 本と、それぞれが守っているもの
+## テスト 13 本と、それぞれが守っているもの
 
 | 走らせかた | 守っているもの |
 |---|---|
@@ -94,6 +94,7 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 | `node studio\test\window.js` | ネイティブ版の編集画面（つまむ・つなぐ・すてる・欄に打ちこむ。`window.cpp`） |
 | `node studio\test\panel.js` | 右の作業だな。**言いあらわしが JavaScript 版と同じか**も見ます |
 | `node studio\test\lint.js` | チェック。**JavaScript 版と同じことを言うか**を 1 件ずつくらべます |
+| `node studio\test\normalize.js` | 読みこんだときの下ごしらえ（`NormalizeProject`）とかたまりの見出し |
 
 `parity` と `behavior` は `shiori\dist\test_host.exe` を、`parity` はさらに
 `studio\test\preview_host.exe` を使うので、**先にビルドが要ります**（`.\build.ps1 -Test`）。
