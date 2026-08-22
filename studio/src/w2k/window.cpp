@@ -89,6 +89,7 @@ struct Editor {
     bool editNumber = false;         // 数だけの欄か
     bool editing = false;
     bool editToQuery = false;        // 「さがす言葉」を打ちこんでいるか
+    std::string choiceItem;          // えらぶ欄を、窓なしで打ちこんでいるとき
 
     std::string shioriDll;           // 書き出しに使う栞（exe に入れてあるもの）
 
@@ -400,6 +401,12 @@ const int kEditId = 1001;
 const int kMenuBase = 2000;
 
 void ForgetShellPics();   // 下で書いています（立ち絵の見本を作りなおさせる）
+void SetPanelValue(const std::string& id, const std::string& value);
+JValue* AnimList();
+JValue* AnimSub(JValue& anim, const char* key);
+JValue MakePattern();
+JValue MakeCollision(int n);
+JValue MakeAnimation(int id);
 
 /**
  * 打ちこまれた文字を、その欄に入れる値にします。
@@ -415,6 +422,29 @@ JValue ValueForField(bool isNumber, const std::string& text) {
     return JValue::makeStr(text);
 }
 
+/**
+ * 打ちこんだ字を、いまの打ちこみ先に入れます。
+ * 窓を出しているときも、テストから直に入れるときも、ここを通します。
+ */
+void ApplyEditText(const std::string& text) {
+    ForgetShellPics();      // 色を打ちかえたときのために
+
+    if (g.editToQuery) {
+        g.panel.query = text;      // 「さがす言葉」は ghost.json には入れません
+        return;
+    }
+    if (!g.choiceItem.empty()) {
+        SetPanelValue(g.choiceItem, text);
+        MarkDirty();
+        return;
+    }
+    JValue* owner = JResolve(g.project, g.editOwner);
+    if (owner && owner->isObj()) {
+        owner->set(g.editArg, ValueForField(g.editNumber, text));
+        MarkDirty();
+    }
+}
+
 /** いま打ちこんでいる中身を、ghost.json に書きこむ。 */
 void CommitEdit(bool keep) {
     if (!g.editing) return;
@@ -424,28 +454,19 @@ void CommitEdit(bool keep) {
     g.edit = NULL;
     if (!edit) {              // 窓を出していないとき（テスト）は、覚えていた先を忘れます
         g.editToQuery = false;
+        g.choiceItem.clear();
         g.editArg.clear();
         return;
     }
 
     if (keep) {
-        ForgetShellPics();      // 色を打ちかえたときのために
         wchar_t buf[1024];
         const int n = GetWindowTextW(edit, buf, 1024);
         buf[(n >= 0 && n < 1024) ? n : 0] = 0;
-        const std::string text = WideToUtf8(buf);
-
-        if (g.editToQuery) {
-            g.panel.query = text;      // 「さがす言葉」は ghost.json には入れません
-        } else {
-            JValue* owner = JResolve(g.project, g.editOwner);
-            if (owner && owner->isObj()) {
-                owner->set(g.editArg, ValueForField(g.editNumber, text));
-                MarkDirty();
-            }
-        }
+        ApplyEditText(WideToUtf8(buf));
     }
     g.editToQuery = false;
+    g.choiceItem.clear();
     DestroyWindow(edit);
     Refresh();
 }
@@ -655,6 +676,29 @@ bool TouchSlot(int scriptIndex, int piece, int ox, int oy) {
 
 // ------------------------------------------------------- 作業だなを押す
 
+/** "anim.0.pattern.2.wait" を、"anim" "0" "pattern" "2" "wait" に切る。 */
+void SplitId(const std::string& id, std::vector<std::string>* out) {
+    out->clear();
+    size_t start = 0;
+    for (;;) {
+        const size_t dot = id.find('.', start);
+        if (dot == std::string::npos) { out->push_back(id.substr(start)); break; }
+        out->push_back(id.substr(start, dot - start));
+        start = dot + 1;
+    }
+}
+
+/** その字が数なら、その数。ちがえば -1。 */
+int NumOf(const std::string& s) {
+    if (s.empty()) return -1;
+    int v = 0;
+    for (size_t i = 0; i < s.size(); i++) {
+        if (s[i] < '0' || s[i] > '9') return -1;
+        v = v * 10 + (s[i] - '0');
+    }
+    return v;
+}
+
 /** "var.del.3" のような目じるしから、うしろの数を取り出す。無ければ -1。 */
 int IdIndex(const std::string& id) {
     const size_t dot = id.rfind('.');
@@ -670,6 +714,60 @@ int IdIndex(const std::string& id) {
 bool StartsWith(const std::string& s, const char* head) {
     const size_t n = strlen(head);
     return s.size() >= n && s.compare(0, n, head) == 0;
+}
+
+/** うごきのならびを、無ければ作って返す。 */
+JValue* AnimList() {
+    if (!g.project["animations"].isArr()) {
+        g.project.set("animations", JValue::makeArr());
+    }
+    for (size_t i = 0; i < g.project.obj.size(); i++) {
+        if (g.project.obj[i].first == "animations") return &g.project.obj[i].second;
+    }
+    return NULL;
+}
+
+/** うごきの中の「こま」「当たり判定」のならびを、無ければ作って返す。 */
+JValue* AnimSub(JValue& anim, const char* key) {
+    if (!anim[key].isArr()) anim.set(key, JValue::makeArr());
+    for (size_t i = 0; i < anim.obj.size(); i++) {
+        if (anim.obj[i].first == key) return &anim.obj[i].second;
+    }
+    return NULL;
+}
+
+JValue MakePattern() {
+    JValue p = JValue::makeObj();
+    p.set("surface", JValue::makeNum(0));
+    p.set("wait", JValue::makeNum(200));
+    p.set("method", JValue::makeStr("base"));
+    p.set("x", JValue::makeNum(0));
+    p.set("y", JValue::makeNum(0));
+    return p;
+}
+
+JValue MakeCollision(int n) {
+    char name[32];
+    sprintf(name, "Area%d", n);
+    JValue c = JValue::makeObj();
+    c.set("name", JValue::makeStr(name));
+    c.set("shape", JValue::makeStr("rect"));
+    c.set("x1", JValue::makeNum(0));
+    c.set("y1", JValue::makeNum(0));
+    c.set("x2", JValue::makeNum(0));
+    c.set("y2", JValue::makeNum(0));
+    return c;
+}
+
+JValue MakeAnimation(int id) {
+    JValue a = JValue::makeObj();
+    a.set("id", JValue::makeNum(id));
+    a.set("base", JValue::makeNum(0));
+    a.set("interval", JValue::makeStr("never"));
+    a.set("every", JValue::makeNum(4));
+    a.set("patterns", JValue::makeArr());
+    a.set("collisions", JValue::makeArr());
+    return a;
 }
 
 /** 立ち絵の割りあてを入れかえる（path が空なら、はずす）。 */
@@ -911,6 +1009,29 @@ void DoExport(bool nar) {
     g.panel.exportOut.push_back(buf);
 }
 
+/** えらぶ欄でえらんだ値を、ghost.json に入れる。 */
+void SetPanelValue(const std::string& id, const std::string& value) {
+    std::vector<std::string> part;
+    SplitId(id, &part);
+    if (part.empty() || part[0] != "anim") return;
+
+    JValue* anims = AnimList();
+    const int ai = (part.size() >= 2) ? NumOf(part[1]) : -1;
+    if (!anims || ai < 0 || ai >= (int)anims->arr.size()) return;
+
+    if (part.size() == 3) {
+        anims->arr[(size_t)ai].set(part[2], JValue::makeStr(value));
+        return;
+    }
+    if (part.size() == 5) {
+        const char* listKey = (part[2] == "pattern") ? "patterns" : "collisions";
+        JValue* list = AnimSub(anims->arr[(size_t)ai], listKey);
+        const int k = NumOf(part[3]);
+        if (!list || k < 0 || k >= (int)list->arr.size()) return;
+        list->arr[(size_t)k].set(part[4], JValue::makeStr(value));
+    }
+}
+
 /** 作業だなの中を押されたとき。押した場所は窓の中の座標。 */
 void OnPanelClick(int sx, int sy) {
     // ---- 見出し（たなを切りかえる）
@@ -995,6 +1116,119 @@ void OnPanelClick(int sx, int sy) {
         PushUndo();
         BeginEditRect(JPath().Then(JStep::Key(group)), key,
                       (*owner)[key.c_str()].asStr(), isNumber, it.x, it.y, it.w, it.h);
+        return;
+    }
+
+    // ---- 決まった中からえらぶ欄
+    if (it.kind == ItemKind::Choice) {
+        std::string picked;
+        if (g.hwnd) {
+            HMENU menu = CreatePopupMenu();
+            if (!menu) return;
+            for (size_t i = 0; i < it.options.size(); i++) {
+                UINT flags = MF_STRING;
+                if (it.options[i].first == it.value) flags |= MF_CHECKED;
+                AppendMenuW(menu, flags, kMenuBase + (UINT)i,
+                            Utf8ToWide(it.options[i].first).c_str());
+            }
+            POINT pt;
+            pt.x = it.x;
+            pt.y = it.y + it.h;
+            ClientToScreen(g.hwnd, &pt);
+            const int got = (int)TrackPopupMenu(menu,
+                TPM_LEFTALIGN | TPM_TOPALIGN | TPM_RETURNCMD, pt.x, pt.y, 0, g.hwnd, NULL);
+            DestroyMenu(menu);
+            if (got < kMenuBase) return;
+            const size_t idx = (size_t)(got - kMenuBase);
+            if (idx >= it.options.size()) return;
+            picked = it.options[idx].second;
+        } else {
+            // 窓が無いとき（テスト）は、打ちこみと同じ道を通します
+            g.choiceItem = it.id;
+            BeginEditRect(JPath(), it.id, it.value, false, it.x, it.y, it.w, it.h);
+            return;
+        }
+        PushUndo();
+        SetPanelValue(it.id, picked);
+        MarkDirty();
+        Refresh();
+        return;
+    }
+
+    // ---- うごきのたな
+    if (StartsWith(it.id, "anim.")) {
+        std::vector<std::string> part;
+        SplitId(it.id, &part);
+        JValue* anims = AnimList();
+        if (!anims) return;
+
+        if (part.size() == 2 && part[1] == "add") {
+            PushUndo();
+            anims->arr.push_back(MakeAnimation((int)anims->arr.size()));
+            MarkDirty();
+            Refresh();
+            return;
+        }
+        const int ai = (part.size() >= 2) ? NumOf(part[1]) : -1;
+        if (ai < 0 || ai >= (int)anims->arr.size()) return;
+        JValue& anim = anims->arr[(size_t)ai];
+
+        if (part.size() == 3 && part[2] == "del") {
+            PushUndo();
+            anims->arr.erase(anims->arr.begin() + ai);
+            MarkDirty();
+            Refresh();
+            return;
+        }
+        if (part.size() == 4 && part[2] == "pattern" && part[3] == "add") {
+            PushUndo();
+            JValue* list = AnimSub(anim, "patterns");
+            if (list) list->arr.push_back(MakePattern());
+            MarkDirty();
+            Refresh();
+            return;
+        }
+        if (part.size() == 4 && part[2] == "area" && part[3] == "add") {
+            PushUndo();
+            JValue* list = AnimSub(anim, "collisions");
+            if (list) list->arr.push_back(MakeCollision((int)list->arr.size()));
+            MarkDirty();
+            Refresh();
+            return;
+        }
+        if (part.size() == 5 && part[4] == "del") {
+            const char* key = (part[2] == "pattern") ? "patterns" : "collisions";
+            JValue* list = AnimSub(anim, key);
+            const int k = NumOf(part[3]);
+            if (!list || k < 0 || k >= (int)list->arr.size()) return;
+            PushUndo();
+            list->arr.erase(list->arr.begin() + k);
+            MarkDirty();
+            Refresh();
+            return;
+        }
+
+        // ---- 欄を打ちかえる
+        PushUndo();
+        JPath path = JPath().Then(JStep::Key("animations")).Then(JStep::Index(ai));
+        std::string key;
+        if (part.size() == 3) {
+            key = part[2];
+        } else if (part.size() == 5) {
+            const int k = NumOf(part[3]);
+            const char* listKey = (part[2] == "pattern") ? "patterns" : "collisions";
+            path = path.Then(JStep::Key(listKey)).Then(JStep::Index(k));
+            key = part[4];
+        } else {
+            return;
+        }
+        const JValue* owner = JResolve(g.project, path);
+        if (!owner) return;
+        // 数の欄かどうか（名前・かたち・きっかけ・かどのならび だけが字です）
+        const bool text = (key == "name" || key == "shape" || key == "interval"
+                           || key == "points");
+        BeginEditRect(path, key, (*owner)[key.c_str()].asStr(), !text,
+                      it.x, it.y, it.w, it.h);
         return;
     }
 
@@ -1501,6 +1735,7 @@ void PaintPanel(HDC dc) {
                 SelectObject(dc, of);
                 break;
             }
+            case ItemKind::Choice:
             case ItemKind::Field: {
                 RECT label = rc;
                 label.right = rc.left + 96;
@@ -1522,6 +1757,20 @@ void PaintPanel(HDC dc) {
 
                 RECT inner = box;
                 inner.left += 5;
+                if (it.kind == ItemKind::Choice) {
+                    inner.right -= 14;
+                    // 右はしに、えらべる印（▼）
+                    const int cx = box.right - 9;
+                    const int cy = (box.top + box.bottom) / 2;
+                    POINT tri[3] = { { cx - 4, cy - 2 }, { cx + 4, cy - 2 }, { cx, cy + 3 } };
+                    HBRUSH t = CreateSolidBrush(RGB(0x5a, 0x62, 0x74));
+                    HGDIOBJ ob = SelectObject(dc, t);
+                    HGDIOBJ op2 = SelectObject(dc, GetStockObject(NULL_PEN));
+                    Polygon(dc, tri, 3);
+                    SelectObject(dc, op2);
+                    SelectObject(dc, ob);
+                    DeleteObject(t);
+                }
                 SetTextColor(dc, RGB(0x22, 0x26, 0x33));
                 std::wstring v = Utf8ToWide(it.value);
                 DrawTextW(dc, v.c_str(), -1, &inner,
@@ -2016,18 +2265,12 @@ bool ProbePanel(const PanelProbe& probe, std::string* items, std::string* json) 
         OnPanelClick(it.x + 4, it.y + it.h / 2);
 
         // 打ちこむ欄なら、窓が無くても中身を入れられるようにします
-        if (probe.type) {
-            if (g.editToQuery) {
-                g.panel.query = probe.typeValue;
-                g.editToQuery = false;
-            } else if (!g.editArg.empty()) {
-                JValue* owner = JResolve(g.project, g.editOwner);
-                if (owner && owner->isObj()) {
-                    owner->set(g.editArg, ValueForField(g.editNumber, probe.typeValue));
-                    MarkDirty();
-                }
-            }
+        // （入れ先の決めかたは、窓を出しているときと同じ ApplyEditText を通ります）
+        if (probe.type && (g.editing || g.editToQuery)) {
+            ApplyEditText(probe.typeValue);
             g.editing = false;
+            g.editToQuery = false;
+            g.choiceItem.clear();
             g.editArg.clear();
         }
         Relayout();
@@ -2046,6 +2289,7 @@ bool ProbePanel(const PanelProbe& probe, std::string* items, std::string* json) 
                 case ItemKind::Row:    kind = "row"; break;
                 case ItemKind::Color:  kind = "color"; break;
                 case ItemKind::Image:  kind = "image"; break;
+                case ItemKind::Choice: kind = "choice"; break;
                 default: break;
             }
             char buf[64];

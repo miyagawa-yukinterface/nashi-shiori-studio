@@ -22,7 +22,7 @@ const int kImageH = 96;       // 立ち絵の見本の高さ
 const int kLabelW = 96;       // Field の見出しの幅
 
 const char* const kTabNames[kTabCount] = {
-    "ためす", "ゴースト", "立ち絵", "変数", "さがす", "チェック", "書き出し", "ヘルプ",
+    "ためす", "ゴースト", "立ち絵", "うごき", "変数", "さがす", "チェック", "書き出し", "ヘルプ",
 };
 
 /** 大文字を小文字にする（半角のぶんだけ。字を引くのに使います）。 */
@@ -100,6 +100,20 @@ struct Builder {
                int surface) {
         Add(ItemKind::Image, id, label, kImageH, path);
         (*out)[out->size() - 1].surface = surface;
+    }
+    /** 決まった中からえらぶ欄。いまの値に合う見出しを出します。 */
+    void Choice(const std::string& id, const std::string& label, const std::string& value,
+                const OptionDef* opts, int count) {
+        std::string shown = value;
+        for (int i = 0; i < count; i++) {
+            if (value == opts[i].value) { shown = opts[i].label; break; }
+        }
+        Add(ItemKind::Choice, id, label, kFieldH, shown);
+        PanelItem& it = (*out)[out->size() - 1];
+        for (int i = 0; i < count; i++) {
+            it.options.push_back(std::make_pair(std::string(opts[i].label),
+                                                std::string(opts[i].value)));
+        }
     }
 };
 
@@ -206,8 +220,8 @@ void BuildGhost(Builder& b, const JValue& project) {
             st["noRepeatCount"].asStr());
     b.Hint("0 ならおまかせ（トーク数の半分・最大 8）です。");
 
-    b.Head("立ち絵");
-    b.Hint("「立ち絵」のたなでえらべます。うごきは、まだ WebView2 版でお使いください。");
+    b.Head("立ち絵・うごき");
+    b.Hint("それぞれ「立ち絵」「うごき」のたなにあります。");
 }
 
 // -------------------------------------------------------------- 立ち絵のたな
@@ -240,6 +254,106 @@ void BuildShell(Builder& b, const JValue& project) {
     b.Button("shell.balloonEnabled", on ? "バルーンも作る：する" : "バルーンも作る：しない");
     b.Color("shell.balloonColor", "バルーンの色", sh["balloonColor"].asStr());
     b.Hint("作らないときは、使う人が持っているバルーンで出ます。");
+}
+
+// ---------------------------------------------------------------- うごきのたな
+void BuildAnim(Builder& b, const JValue& project) {
+    b.Head("うごき");
+    b.Hint("立ち絵をパラパラ切りかえて動かします。「うごき N を再生する」で呼べます。");
+    b.Button("anim.add", "＋ うごきを作る");
+
+    const JValue& anims = project["animations"];
+    if (anims.size() == 0) {
+        b.Text("（まだ、うごきはありません）");
+        return;
+    }
+
+    int nInterval = 0, nMethod = 0, nShape = 0;
+    const OptionDef* intervals = AllAnimIntervals(&nInterval);
+    const OptionDef* methods = AllAnimMethods(&nMethod);
+    const OptionDef* shapes = AllAnimShapes(&nShape);
+
+    for (size_t i = 0; i < anims.size(); i++) {
+        const JValue& a = anims.at(i);
+        const std::string n = IntToStr((int)i);
+
+        b.Head("うごき " + a["id"].asStr("0"));
+        b.Field("anim." + n + ".id", "番号", a["id"].asStr("0"));
+        b.Field("anim." + n + ".base", "土台の立ち絵", a["base"].asStr("0"));
+        b.Choice("anim." + n + ".interval", "きっかけ",
+                 a["interval"].asStr("never"), intervals, nInterval);
+        b.Field("anim." + n + ".every", "◯のところ", a["every"].asStr("4"));
+        b.Button("anim." + n + ".del", "このうごきをけす");
+
+        // ---- こま
+        b.Hint("こま（上から順に出します）");
+        const JValue& patterns = a["patterns"];
+        for (size_t k = 0; k < patterns.size(); k++) {
+            const JValue& p = patterns.at(k);
+            const std::string pk = "anim." + n + ".pattern." + IntToStr((int)k);
+            b.Field(pk + ".surface", "立ち絵の番号", p["surface"].asStr("0"));
+            b.Choice(pk + ".method", "重ねかた", p["method"].asStr("base"), methods, nMethod);
+            b.Field(pk + ".wait", "待つ（ミリ秒）", p["wait"].asStr("200"));
+            b.Field(pk + ".x", "よこの位置", p["x"].asStr("0"));
+            b.Field(pk + ".y", "たての位置", p["y"].asStr("0"));
+            b.Button(pk + ".del", "このこまをけす");
+        }
+        b.Button("anim." + n + ".pattern.add", "＋ こまを足す");
+
+        // ---- このうごきの間だけの当たり判定
+        b.Hint("このうごきの間だけの当たり判定");
+        const JValue& cols = a["collisions"];
+        for (size_t k = 0; k < cols.size(); k++) {
+            const JValue& c = cols.at(k);
+            const std::string ck = "anim." + n + ".area." + IntToStr((int)k);
+            b.Field(ck + ".name", "名前", c["name"].asStr());
+            b.Choice(ck + ".shape", "かたち", c["shape"].asStr("rect"), shapes, nShape);
+            if (c["shape"].asStr("rect") == "polygon") {
+                b.Field(ck + ".points", "かどのならび", c["points"].asStr());
+            } else {
+                b.Field(ck + ".x1", "左上 よこ", c["x1"].asStr("0"));
+                b.Field(ck + ".y1", "左上 たて", c["y1"].asStr("0"));
+                b.Field(ck + ".x2", "右下 よこ", c["x2"].asStr("0"));
+                b.Field(ck + ".y2", "右下 たて", c["y2"].asStr("0"));
+            }
+            b.Button(ck + ".del", "この当たり判定をけす");
+        }
+        b.Button("anim." + n + ".area.add", "＋ 当たり判定を足す");
+    }
+}
+
+// ------------------------------------------------------------------ ヘルプのたな
+void BuildHelp(Builder& b) {
+    b.Head("なしスタジオ");
+    b.Hint("ブロックを組んで、伺かのゴーストを作る道具です。");
+
+    b.Head("つかいかた");
+    b.Text("・左の置き場からブロックをつまんで、まん中に置きます");
+    b.Text("・帽子（◯◯されたとき）につなげると動きます");
+    b.Text("・ブロックの左のはしをつかむと、下のものもついてきます");
+    b.Text("・置き場へもどすと、すてられます");
+    b.Text("・欄を押すと、打ちこみ・えらびになります");
+
+    b.Head("キー");
+    b.Text("Ctrl+S  保存する");
+    b.Text("Ctrl+O  ひらく");
+    b.Text("Ctrl+Z  ひとつ前にもどす（もう一度でやりなおし）");
+    b.Text("Esc     つまんでいるのをやめる");
+    b.Text("矢印    画面を動かす（ホイールでも動きます）");
+
+    b.Head("たな");
+    b.Text("ためす   その場で動かして、さくらスクリプトを見ます");
+    b.Text("ゴースト 名前や作者、ランダムトークの設定");
+    b.Text("立ち絵   絵をえらぶ／色を決める");
+    b.Text("うごき   立ち絵をパラパラ切りかえる");
+    b.Text("変数     ゴーストが覚えておく値");
+    b.Text("さがす   セリフや名前から引く");
+    b.Text("チェック あぶないところを言います");
+    b.Text("書き出し SSP に入れられる形にします");
+
+    b.Head("こまったら");
+    b.Text("docs\\ の中に、作りかたの手引きがあります。");
+    b.Text("チェックのたなを見ると、たいていの原因が分かります。");
 }
 
 // ------------------------------------------------------------ 書き出しのたな
@@ -619,6 +733,8 @@ void BuildPanel(const JValue& project, const PanelState& state,
         case Tab::Run:    BuildRun(b, project, state); break;
         case Tab::Ghost:  BuildGhost(b, project); break;
         case Tab::Shell:  BuildShell(b, project); break;
+        case Tab::Anim:   BuildAnim(b, project); break;
+        case Tab::Help:   BuildHelp(b); break;
         case Tab::Export: BuildExport(b, state); break;
         default:
             b.Head(TabName(state.tab));
@@ -633,7 +749,7 @@ int PanelHitTest(const std::vector<PanelItem>& items, int px, int py) {
         const PanelItem& it = items[i];
         if (it.kind != ItemKind::Button && it.kind != ItemKind::Field
             && it.kind != ItemKind::Row && it.kind != ItemKind::Color
-            && it.kind != ItemKind::Image) continue;
+            && it.kind != ItemKind::Image && it.kind != ItemKind::Choice) continue;
         if (px < it.x || px >= it.x + it.w || py < it.y || py >= it.y + it.h) continue;
         return (int)i;
     }

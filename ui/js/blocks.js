@@ -60,6 +60,45 @@ window.NASHI = window.NASHI || {};
   ];
   N.WHO_ANY = [['どちらか', -1], ['さくら', 0], ['うにゅう', 1]];
 
+  // うごき（SERIKO のアニメーション）の言葉。
+  // ネイティブ版の画面も同じ表を使うので、ここに置いてあります。
+  N.ANIM_INTERVALS = [
+    ['呼んだときだけ', 'never'],
+    ['いつも', 'always'],
+    ['ときどき', 'sometimes'],
+    ['まれに', 'rarely'],
+    ['◯秒に一度くらい', 'random'],
+    ['◯回しゃべるごと', 'talk'],
+    ['起動時に一度だけ', 'runonce'],
+  ];
+
+  // こまの重ねかた（SERIKO の描画メソッド）。名前は surfaces.txt にそのまま出ます。
+  N.ANIM_METHODS = [
+    ['かさねる', 'overlay'],
+    ['かさねる（速い）', 'overlayfast'],
+    ['土台をとりかえる', 'base'],
+    ['すきとおりごと上書き', 'replace'],
+    ['すきまだけ重ねる', 'interpolate'],
+    ['すきとおりを無視する', 'asis'],
+    ['すきとおりをけずる', 'reduce'],
+    ['位置だけ動かす', 'move'],
+    ['かけあわせ', 'blend-multiply'],
+    ['スクリーン', 'blend-screen'],
+    ['オーバーレイ', 'blend-overlay'],
+    ['足しあわせ', 'blend-add'],
+    ['ほかのうごきを動かす', 'start'],
+    ['ほかのうごきを止める', 'stop'],
+    ['動く絵を差しこむ', 'import'],
+  ];
+
+  // 当たり判定のかたち
+  N.ANIM_SHAPES = [
+    ['四角', 'rect'],
+    ['だ円', 'ellipse'],
+    ['丸', 'circle'],
+    ['多角形', 'polygon'],
+  ];
+
   // Reference の意味（実行パネルのヒント用）
   N.EVENT_REFS = {
     OnBoot: ['シェル名'],

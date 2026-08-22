@@ -22,6 +22,7 @@ enum class Tab {
     Run,       // ためす
     Ghost,     // ゴースト
     Shell,     // 立ち絵
+    Anim,      // うごき
     Vars,      // 変数
     Search,    // さがす
     Check,     // チェック
@@ -29,7 +30,7 @@ enum class Tab {
     Help,      // ヘルプ
 };
 
-const int kTabCount = 8;
+const int kTabCount = 9;
 
 /** たなの見出し（"ためす" など）。 */
 const char* TabName(Tab tab);
@@ -46,6 +47,7 @@ enum class ItemKind {
     Row,       // ならびの 1 行（押すとその場所へ飛ぶ）
     Color,     // 色の欄（右はしに、その色の四角を出す）
     Image,     // 立ち絵（絵は window.cpp が描きます。ここは場所だけ決めます）
+    Choice,    // 決まった中からえらぶ欄（押すとならびが出ます）
 };
 
 struct PanelItem {
@@ -57,6 +59,9 @@ struct PanelItem {
     int x = 0, y = 0, w = 0, h = 0;
     int mark = 0;        // Row のとき 0=ふつう 1=注意 2=まちがい
     int surface = -1;    // Image のとき、立ち絵の番号
+
+    // Choice のとき、えらべるもの（見出しと値）
+    std::vector<std::pair<std::string, std::string> > options;
 };
 
 /** たなを組み立てるときの、いまのようす。 */

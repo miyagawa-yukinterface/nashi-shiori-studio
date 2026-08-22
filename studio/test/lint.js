@@ -307,7 +307,7 @@ console.log(`${C.dim}-- チェックのたなに出るか${C.off}`);
   const file = path.join(tmp, 'tab.json');
   fs.writeFileSync(file, JSON.stringify(project), 'utf8');
 
-  const said = run([file, '--panel', '5']);
+  const said = run([file, '--panel', '6']);
   check('たなの名前', (said.match(/^たな (.*)$/m) || [])[1], 'チェック');
   check('見つけたものが行になる',
     (said.match(/^row check\.hit\.\d+ /gm) || []).length >= 1 ? 'はい' : 'いいえ', 'はい');
@@ -320,7 +320,7 @@ console.log(`${C.dim}-- チェックのたなに出るか${C.off}`);
     settings: { randomTalkEnabled: false },
     scripts: [{ kind: 'event', event: 'OnBoot', blocks: [say('こんにちは')] }],
   }), 'utf8');
-  const ok = run([clean, '--panel', '5']);
+  const ok = run([clean, '--panel', '6']);
   check('何も無ければ、そう言う',
     /気になるところはありません/.test(ok) ? 'はい' : 'いいえ', 'はい');
 }

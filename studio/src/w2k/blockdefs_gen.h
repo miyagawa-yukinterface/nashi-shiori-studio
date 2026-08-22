@@ -580,4 +580,45 @@ static const OptionDef kWhoAny[] = {
 };
 static const int kWhoAnyCount = 3;
 
+// うごきの表。N.ANIM_INTERVALS と同じです。
+static const OptionDef kAnimIntervals[] = {
+    { "呼んだときだけ", "never" },
+    { "いつも", "always" },
+    { "ときどき", "sometimes" },
+    { "まれに", "rarely" },
+    { "◯秒に一度くらい", "random" },
+    { "◯回しゃべるごと", "talk" },
+    { "起動時に一度だけ", "runonce" },
+};
+static const int kAnimIntervalsCount = 7;
+
+// うごきの表。N.ANIM_METHODS と同じです。
+static const OptionDef kAnimMethods[] = {
+    { "かさねる", "overlay" },
+    { "かさねる（速い）", "overlayfast" },
+    { "土台をとりかえる", "base" },
+    { "すきとおりごと上書き", "replace" },
+    { "すきまだけ重ねる", "interpolate" },
+    { "すきとおりを無視する", "asis" },
+    { "すきとおりをけずる", "reduce" },
+    { "位置だけ動かす", "move" },
+    { "かけあわせ", "blend-multiply" },
+    { "スクリーン", "blend-screen" },
+    { "オーバーレイ", "blend-overlay" },
+    { "足しあわせ", "blend-add" },
+    { "ほかのうごきを動かす", "start" },
+    { "ほかのうごきを止める", "stop" },
+    { "動く絵を差しこむ", "import" },
+};
+static const int kAnimMethodsCount = 15;
+
+// うごきの表。N.ANIM_SHAPES と同じです。
+static const OptionDef kAnimShapes[] = {
+    { "四角", "rect" },
+    { "だ円", "ellipse" },
+    { "丸", "circle" },
+    { "多角形", "polygon" },
+};
+static const int kAnimShapesCount = 4;
+
 // clang-format on

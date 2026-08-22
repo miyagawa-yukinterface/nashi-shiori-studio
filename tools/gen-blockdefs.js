@@ -217,6 +217,18 @@ w('};');
 w(`static const int kWhoAnyCount = ${N.WHO_ANY.length};`);
 w('');
 
+// ---- うごき（SERIKO）の言葉
+for (const [name, table] of [['kAnimIntervals', N.ANIM_INTERVALS],
+                             ['kAnimMethods', N.ANIM_METHODS],
+                             ['kAnimShapes', N.ANIM_SHAPES]]) {
+  w(`// うごきの表。N.${name.replace('kAnim', 'ANIM_').toUpperCase()} と同じです。`);
+  w(`static const OptionDef ${name}[] = {`);
+  for (const [label, value] of table) w(`    { ${cstr(label)}, ${cstr(value)} },`);
+  w('};');
+  w(`static const int ${name}Count = ${table.length};`);
+  w('');
+}
+
 w('// clang-format on');
 w('');
 

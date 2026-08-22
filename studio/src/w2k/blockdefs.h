@@ -93,6 +93,11 @@ const OptionDef* AllEvents(int* count);
 /** そのイベントは、マウス系（どこを・だれを でしぼり込めるもの）か。 */
 bool IsMouseEvent(const std::string& event);
 
+/** うごき（SERIKO）の言葉。きっかけ・こまの重ねかた・当たり判定のかたち。 */
+const OptionDef* AllAnimIntervals(int* count);
+const OptionDef* AllAnimMethods(int* count);
+const OptionDef* AllAnimShapes(int* count);
+
 /** 当たり判定の名前と、だれの当たり判定か。 */
 const OptionDef* AllAreas(int* count);
 const OptionDef* AllWho(int* count);

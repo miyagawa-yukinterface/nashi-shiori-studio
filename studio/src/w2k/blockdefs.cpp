@@ -92,6 +92,21 @@ bool IsMouseEvent(const std::string& event) {
     return false;
 }
 
+const OptionDef* AllAnimIntervals(int* count) {
+    if (count) *count = kAnimIntervalsCount;
+    return kAnimIntervals;
+}
+
+const OptionDef* AllAnimMethods(int* count) {
+    if (count) *count = kAnimMethodsCount;
+    return kAnimMethods;
+}
+
+const OptionDef* AllAnimShapes(int* count) {
+    if (count) *count = kAnimShapesCount;
+    return kAnimShapes;
+}
+
 const OptionDef* AllAreas(int* count) {
     if (count) *count = kAreaCount;
     return kAreas;

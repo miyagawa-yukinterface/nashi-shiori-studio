@@ -79,43 +79,12 @@
     renderAnimList();
   }
 
-  // うごき（SERIKO のアニメーション）
-  const ANIM_INTERVALS = [
-    ['呼んだときだけ', 'never'],
-    ['いつも', 'always'],
-    ['ときどき', 'sometimes'],
-    ['まれに', 'rarely'],
-    ['◯秒に一度くらい', 'random'],
-    ['◯回しゃべるごと', 'talk'],
-    ['起動時に一度だけ', 'runonce'],
-  ];
+  // うごき（SERIKO のアニメーション）の言葉は blocks.js にあります
+  // （ネイティブ版の画面も同じ表を使うため）。
+  const ANIM_INTERVALS = N.ANIM_INTERVALS;
 
-  // こまの重ねかた（SERIKO の描画メソッド）。名前は surfaces.txt にそのまま出ます。
-  const ANIM_METHODS = [
-    ['かさねる', 'overlay'],
-    ['かさねる（速い）', 'overlayfast'],
-    ['土台をとりかえる', 'base'],
-    ['すきとおりごと上書き', 'replace'],
-    ['すきまだけ重ねる', 'interpolate'],
-    ['すきとおりを無視する', 'asis'],
-    ['すきとおりをけずる', 'reduce'],
-    ['位置だけ動かす', 'move'],
-    ['かけあわせ', 'blend-multiply'],
-    ['スクリーン', 'blend-screen'],
-    ['オーバーレイ', 'blend-overlay'],
-    ['足しあわせ', 'blend-add'],
-    ['ほかのうごきを動かす', 'start'],
-    ['ほかのうごきを止める', 'stop'],
-    ['動く絵を差しこむ', 'import'],
-  ];
-
-  // 当たり判定のかたち
-  const ANIM_SHAPES = [
-    ['四角', 'rect'],
-    ['だ円', 'ellipse'],
-    ['丸', 'circle'],
-    ['多角形', 'polygon'],
-  ];
+  const ANIM_METHODS = N.ANIM_METHODS;
+  const ANIM_SHAPES = N.ANIM_SHAPES;
 
   function renderAnimList() {
     const box = $('#anim-list');
