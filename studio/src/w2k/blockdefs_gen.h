@@ -1,5 +1,5 @@
 // このファイルは tools\gen-blockdefs.js が作ります。直接なおさないでください。
-// ブロックの「正」は ui\js\blocks.js です。そちらを直して、.\build.ps1 を走らせてください。
+// ブロックの「正」は tools\blocks.js です。そちらを直して、.\build.ps1 を走らせてください。
 //
 // blockdefs.cpp の中（namespace nashi::w2k）に取りこまれる断片です。
 // 自分では名前空間を開きません。

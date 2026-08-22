@@ -48,7 +48,7 @@ const lines = [];
 const w = (s) => lines.push(s);
 
 w('// このファイルは tools\\gen-blockdefs.js が作ります。直接なおさないでください。');
-w('// ブロックの「正」は ui\\js\\blocks.js です。そちらを直して、.\\build.ps1 を走らせてください。');
+w('// ブロックの「正」は tools\\blocks.js です。そちらを直して、.\\build.ps1 を走らせてください。');
 w('//');
 w('// blockdefs.cpp の中（namespace nashi::w2k）に取りこまれる断片です。');
 w('// 自分では名前空間を開きません。');
@@ -240,7 +240,7 @@ const current = fs.existsSync(outPath) ? fs.readFileSync(outPath, 'utf8') : null
 
 if (check) {
   if (current === text) {
-    console.log(`${C.green}[生成] blockdefs_gen.h は ui\\js\\blocks.js と合っています。${C.off}`);
+    console.log(`${C.green}[生成] blockdefs_gen.h は tools\\blocks.js と合っています。${C.off}`);
     process.exit(0);
   }
   console.error(`${C.red}[生成] blockdefs_gen.h が古いです。`

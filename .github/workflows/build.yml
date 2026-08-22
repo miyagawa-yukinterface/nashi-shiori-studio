@@ -32,13 +32,10 @@ jobs:
       - name: ブロックのそろい
         run: node tools\check-blocks.js
 
-      - name: エディタ（整形とチェックタブ）
-        run: node ui\test\editor.js
+      - name: ブロックの表が blocks.js と合っているか
+        run: node tools\gen-blockdefs.js --check
 
-      - name: 画面のファイル（読みこみと呼び先）
-        run: node ui\test\modules.js
-
-  # 栞（32bit DLL）とスタジオ（64bit EXE）を作って、テスト 7 本を通す。
+  # 栞（32bit DLL）とスタジオ（64bit EXE）を作って、テストを通す。
   build:
     name: ビルドとテスト
     runs-on: windows-latest
@@ -49,8 +46,8 @@ jobs:
         with:
           node-version: '20'
 
-      # MSVC も Windows SDK もランナーに入っています。WebView2 の SDK は
-      # studio/third_party に置いてあるので、落としてくるものはありません。
+      # MSVC も Windows SDK もランナーに入っています。
+      # 外の物には何も頼っていないので、落としてくるものはありません。
       - name: ビルドしてテスト
         shell: pwsh
         run: |
