@@ -57,6 +57,41 @@ const SINCE = {
     '_vsnprintf', '_snprintf', 'sprintf',
     'strtod', 'strtol', 'atoi',
     'floor', 'ceil', 'fabs', 'fmod', 'pow', '_CIfmod',
+    // なしスタジオ（exe）が msvcrt.dll から借りているぶん
+    '_vsnprintf_s', '_wcsicmp', 'strtoul', 'qsort', 'abort', 'exit',
+
+    // --- 窓・絵・ファイル（なしスタジオが使うぶん）---------------------
+    // どれも Windows 2000 の時点であるものです。
+    // 窓
+    'RegisterClassExW', 'CreateWindowExW', 'DestroyWindow', 'DefWindowProcW',
+    'GetMessageW', 'TranslateMessage', 'DispatchMessageW', 'PostQuitMessage',
+    'SendMessageW', 'FindWindowW', 'IsIconic', 'ShowWindow', 'UpdateWindow',
+    'SetForegroundWindow', 'SetFocus', 'SetCapture', 'ReleaseCapture',
+    'InvalidateRect', 'BeginPaint', 'EndPaint', 'GetClientRect',
+    'GetWindowPlacement', 'GetWindowTextW', 'SetWindowTextW',
+    'ScreenToClient', 'ClientToScreen', 'MessageBoxW', 'LoadCursorW',
+    'LoadImageW', 'SystemParametersInfoW', 'GetKeyState',
+    'CreatePopupMenu', 'AppendMenuW', 'TrackPopupMenu', 'DestroyMenu',
+    'GetDC', 'ReleaseDC', 'FillRect', 'FrameRect', 'InflateRect', 'DrawTextW',
+    // 絵（GDI）
+    'CreateCompatibleDC', 'CreateCompatibleBitmap', 'DeleteDC', 'DeleteObject',
+    'SelectObject', 'GetStockObject', 'CreateSolidBrush', 'CreatePen',
+    'CreateFontW', 'CreateRectRgn', 'SelectClipRgn', 'SetBkMode', 'SetTextColor',
+    'SetViewportOrgEx', 'MoveToEx', 'LineTo', 'Polygon', 'BitBlt',
+    'StretchDIBits', 'SetStretchBltMode', 'GetDeviceCaps',
+    'GetTextExtentPoint32W', 'MulDiv',
+    // ファイル・フォルダ・リソース
+    'FindFirstFileW', 'DeleteFileW', 'CreateDirectoryW',
+    'ExpandEnvironmentStringsW', 'FindResourceW', 'LoadResource',
+    'LockResource', 'SizeofResource', 'LocalFree', 'CreateMutexW',
+    'CommandLineToArgvW', 'CoTaskMemFree',
+    // ファイルとフォルダをえらぶ窓・色えらび
+    'GetOpenFileNameW', 'SHBrowseForFolderW', 'SHGetPathFromIDListW', 'ChooseColorW',
+    // ほかのアプリを探す（SSP）
+    'CreateToolhelp32Snapshot', 'Process32FirstW', 'Process32NextW', 'OpenProcess',
+    // ハッシュ（updates2.dau の照合表）
+    'CryptAcquireContextW', 'CryptCreateHash', 'CryptHashData',
+    'CryptGetHashParam', 'CryptDestroyHash', 'CryptReleaseContext',
   ],
   // --- Windows XP (5.1) から ---
   '5.1': [
@@ -167,68 +202,86 @@ function readPe(buf) {
 }
 
 // ---------------------------------------------------------------------- 本体
-const target = process.argv[2] || path.join(root, 'shiori', 'dist', 'nashi.dll');
-if (!fs.existsSync(target)) {
-  console.error(`${C.red}[輸入] ${target} がありません。先に .\\build.ps1 を実行してください。${C.off}`);
-  process.exit(2);
+// 何も言われなければ、栞（nashi.dll）と なしスタジオ（nashi-studio.exe）の両方を見ます。
+const targets = process.argv.length > 2 ? process.argv.slice(2) : [
+  path.join(root, 'shiori', 'dist', 'nashi.dll'),
+  path.join(root, 'nashi-studio.exe'),
+];
+
+let allOk = true;
+for (const target of targets) {
+  if (!fs.existsSync(target)) {
+    console.error(`${C.red}[輸入] ${target} がありません。`
+      + ` 先に .\\build.ps1 を実行してください。${C.off}`);
+    process.exit(2);
+  }
+  if (!look(target)) allOk = false;
 }
 
-let pe;
-try {
-  pe = readPe(fs.readFileSync(target));
-} catch (e) {
-  console.error(`${C.red}[輸入] ${target} を読めません: ${e.message}${C.off}`);
-  process.exit(2);
-}
+if (!allOk) process.exit(1);
+console.log(`${C.green}[輸入] ${TARGET.name} 以降で動きます。${C.off}`);
 
-const rel = path.relative(root, target) || target;
-console.log('');
-console.log(`  ${rel}  ${C.dim}(${pe.pe32plus ? '64bit' : '32bit'})${C.off}`);
+/** その 1 つを見て、よければ true。 */
+function look(target) {
+  let pe;
+  try {
+    pe = readPe(fs.readFileSync(target));
+  } catch (e) {
+    console.error(`${C.red}[輸入] ${target} を読めません: ${e.message}${C.off}`);
+    process.exit(2);
+  }
 
-const declared = `${pe.subMajor}.${String(pe.subMinor).padStart(2, '0')}`;
-const wantDeclared = pe.subMajor < TARGET.major
-  || (pe.subMajor === TARGET.major && pe.subMinor <= TARGET.minor);
-console.log(`  ヘッダが名乗る最低 OS : ${declared}`
-  + `（${verName[`${pe.subMajor}.${pe.subMinor}`] || '?'}）`
-  + (wantDeclared ? ` ${C.green}OK${C.off}` : ` ${C.red}← ${TARGET.name} は ${TARGET.major}.0${C.off}`));
+  const rel = path.relative(root, target) || target;
+  console.log('');
+  console.log(`  ${rel}  ${C.dim}(${pe.pe32plus ? '64bit' : '32bit'})${C.off}`);
 
-const bad = [];
-const unknown = [];
-let total = 0;
-for (const imp of pe.imports) {
-  for (const fn of imp.fns) {
-    total++;
-    if (fn.startsWith('#')) continue;
-    const info = since.get(fn);
-    if (!info) { unknown.push(`${imp.dll} : ${fn}`); continue; }
-    if (info.major > TARGET.major || (info.major === TARGET.major && info.minor > TARGET.minor)) {
-      bad.push({ dll: imp.dll, fn, ver: info.ver });
+  const declared = `${pe.subMajor}.${String(pe.subMinor).padStart(2, '0')}`;
+  const wantDeclared = pe.subMajor < TARGET.major
+    || (pe.subMajor === TARGET.major && pe.subMinor <= TARGET.minor);
+  console.log(`  ヘッダが名乗る最低 OS : ${declared}`
+    + `（${verName[`${pe.subMajor}.${pe.subMinor}`] || '?'}）`
+    + (wantDeclared ? ` ${C.green}OK${C.off}` : ` ${C.red}← ${TARGET.name} は ${TARGET.major}.0${C.off}`));
+
+  const bad = [];
+  const unknown = [];
+  let total = 0;
+  for (const imp of pe.imports) {
+    for (const fn of imp.fns) {
+      total++;
+      if (fn.startsWith('#')) continue;
+      const info = since.get(fn);
+      if (!info) { unknown.push(`${imp.dll} : ${fn}`); continue; }
+      if (info.major > TARGET.major
+          || (info.major === TARGET.major && info.minor > TARGET.minor)) {
+        bad.push({ dll: imp.dll, fn, ver: info.ver });
+      }
     }
   }
-}
 
-console.log(`  輸入している API      : ${total} 個`
-  + `（${pe.imports.map((i) => i.dll).join(' / ')}）`);
-console.log('');
+  console.log(`  輸入している API      : ${total} 個`
+    + `（${pe.imports.map((i) => i.dll).join(' / ')}）`);
+  console.log('');
 
-if (bad.length) {
-  console.log(`${C.red}  ${TARGET.name} に無い API が ${bad.length} 個あります${C.off}`);
-  const byVer = {};
-  for (const b of bad) (byVer[b.ver] = byVer[b.ver] || []).push(b.fn);
-  for (const ver of Object.keys(byVer).sort()) {
-    console.log(`    ${verName[ver] || ver} から: ${byVer[ver].sort().join(', ')}`);
+  if (bad.length) {
+    console.log(`${C.red}  ${TARGET.name} に無い API が ${bad.length} 個あります${C.off}`);
+    const byVer = {};
+    for (const b of bad) (byVer[b.ver] = byVer[b.ver] || []).push(b.fn);
+    for (const ver of Object.keys(byVer).sort()) {
+      console.log(`    ${verName[ver] || ver} から: ${byVer[ver].sort().join(', ')}`);
+    }
+    console.log('');
   }
-  console.log('');
-}
-if (unknown.length) {
-  console.log(`${C.yellow}  要確認（早見表に無い API）${C.off}`);
-  for (const u of unknown) console.log(`    ${u}`);
-  console.log(`    ${C.dim}tools\\check-imports.js の SINCE に、入った Windows を書き足してください${C.off}`);
-  console.log('');
-}
+  if (unknown.length) {
+    console.log(`${C.yellow}  要確認（早見表に無い API）${C.off}`);
+    for (const u of unknown) console.log(`    ${u}`);
+    console.log(`    ${C.dim}tools\\check-imports.js の SINCE に、`
+      + `入った Windows を書き足してください${C.off}`);
+    console.log('');
+  }
 
-if (bad.length || unknown.length || !wantDeclared) {
-  console.log(`${C.red}[輸入] ${TARGET.name} では動きません。${C.off}`);
-  process.exit(1);
+  if (bad.length || unknown.length || !wantDeclared) {
+    console.log(`${C.red}[輸入] ${rel} は ${TARGET.name} では動きません。${C.off}`);
+    return false;
+  }
+  return true;
 }
-console.log(`${C.green}[輸入] ${TARGET.name} 以降で動きます。${C.off}`);

@@ -187,6 +187,46 @@ SstpResult SstpNotify(const std::string& eventName, const std::vector<std::strin
 
 // ------------------------------------------------------------- SSP の場所
 
+/**
+ * その番号のアプリの、exe の道すじ。
+ *
+ * QueryFullProcessImageNameW（Vista から）が使えればそれを、
+ * 無ければ GetModuleFileNameExW（Windows 2000 の psapi.dll）を使います。
+ * どちらも**その場で探して**呼びます。輸入表に載せると、
+ * 古い Windows では起動そのものができなくなるためです。
+ */
+static std::wstring ExePathOf(DWORD pid) {
+    HANDLE proc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+    if (!proc) {
+        // Vista からは、もっと弱い権限でも聞けます
+        proc = OpenProcess(0x1000 /* PROCESS_QUERY_LIMITED_INFORMATION */, FALSE, pid);
+        if (!proc) return std::wstring();
+    }
+
+    wchar_t path[MAX_PATH * 2];
+    path[0] = 0;
+    DWORD size = MAX_PATH * 2;
+
+    typedef BOOL (WINAPI *QueryFn)(HANDLE, DWORD, LPWSTR, PDWORD);
+    HMODULE k32 = GetModuleHandleW(L"kernel32.dll");
+    QueryFn query = k32 ? (QueryFn)GetProcAddress(k32, "QueryFullProcessImageNameW") : NULL;
+    if (query && query(proc, 0, path, &size)) {
+        CloseHandle(proc);
+        return std::wstring(path, size);
+    }
+
+    typedef DWORD (WINAPI *ModFn)(HANDLE, HMODULE, LPWSTR, DWORD);
+    HMODULE psapi = LoadLibraryW(L"psapi.dll");
+    DWORD n = 0;
+    if (psapi) {
+        ModFn mod = (ModFn)GetProcAddress(psapi, "GetModuleFileNameExW");
+        if (mod) n = mod(proc, NULL, path, MAX_PATH * 2);
+        FreeLibrary(psapi);
+    }
+    CloseHandle(proc);
+    return n ? std::wstring(path, n) : std::wstring();
+}
+
 static std::wstring FindRunningSsp() {
     HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (snap == INVALID_HANDLE_VALUE) return std::wstring();
@@ -197,12 +237,7 @@ static std::wstring FindRunningSsp() {
     if (Process32FirstW(snap, &entry)) {
         do {
             if (_wcsicmp(entry.szExeFile, L"ssp.exe") != 0) continue;
-            HANDLE proc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, entry.th32ProcessID);
-            if (!proc) continue;
-            wchar_t path[MAX_PATH * 2];
-            DWORD size = MAX_PATH * 2;
-            if (QueryFullProcessImageNameW(proc, 0, path, &size)) found.assign(path, size);
-            CloseHandle(proc);
+            found = ExePathOf(entry.th32ProcessID);
             if (!found.empty()) break;
         } while (Process32NextW(snap, &entry));
     }

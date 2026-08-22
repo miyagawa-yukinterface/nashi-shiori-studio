@@ -98,6 +98,102 @@ extern "C" int __cdecl __stdio_common_vsprintf_s(
     return n;
 }
 
+// sprintf（_s の付かないほう）。なしスタジオが使います。
+extern "C" int __cdecl __stdio_common_vsprintf(
+        unsigned __int64 options, char* buf, size_t count,
+        const char* fmt, void* locale, va_list args) {
+    (void)options; (void)locale;
+    if (!fmt) return -1;
+    if (!buf || count == 0) return _vsnprintf(NULL, 0, fmt, args);
+    const int n = _vsnprintf(buf, count, fmt, args);
+    if (n < 0) { buf[count - 1] = 0; return -1; }
+    if ((size_t)n < count) buf[n] = 0; else buf[count - 1] = 0;
+    return n;
+}
+
+// 配列のはしをこえたときに呼ばれます（/GS）。来たらバグなので、その場で終わります。
+extern "C" __declspec(noreturn) void __cdecl __report_rangecheckfailure() {
+    Die("nashi: range check\n");
+}
+
+// std::function を、中身が空のまま呼んだとき。これもバグです。
+namespace std {
+__declspec(noreturn) void __cdecl _Xbad_function_call() {
+    Die("nashi: bad function call\n");
+}
+}
+
+// ------------------------------------------------- コンパイラが呼ぶ小物
+//
+// 大きな配列をスタックに取ると、コンパイラが「そのぶん、ページに触っておく」
+// ための呼び出し（_chkstk）を入れます。ふだんは CRT が持っています。
+extern "C" __declspec(naked) void __cdecl _chkstk() {
+    __asm {
+        push    ecx
+        lea     ecx, [esp + 8]        // 触っていくところ（戻り先のぶんを飛ばす）
+        sub     ecx, eax
+        sbb     eax, eax
+        not     eax
+        and     ecx, eax              // 借りすぎたら 0 に丸める
+        mov     eax, esp
+        and     eax, 0xfffff000
+    probe:
+        cmp     ecx, eax
+        jae     done
+        sub     eax, 0x1000
+        test    dword ptr [eax], eax  // 1 ページずつ触る
+        jmp     probe
+    done:
+        pop     ecx
+        ret
+    }
+}
+
+// 平方根。SSE2 の命令を 1 つ使うだけです。
+// 値は xmm0 で受けとり、xmm0 で返す決まりなので、素のまま書きます。
+extern "C" __declspec(naked) void __cdecl _libm_sse2_sqrt_precise() {
+    __asm {
+        sqrtsd  xmm0, xmm0
+        ret
+    }
+}
+
+// double と long long の行き来（x86 の 32bit では、CRT の小物が受けもちます）。
+extern "C" __declspec(naked) void __cdecl _dtol3() {
+    __asm {
+        sub     esp, 8
+        fstp    qword ptr [esp]
+        movsd   xmm0, qword ptr [esp]
+        cvttsd2si eax, xmm0           // まず 32bit ぶん
+        cvtsi2sd xmm1, eax
+        subsd   xmm0, xmm1
+        cvttsd2si edx, xmm0
+        add     esp, 8
+        ret
+    }
+}
+
+extern "C" __declspec(naked) void __cdecl _ltod3() {
+    __asm {
+        push    edx
+        push    eax
+        fild    qword ptr [esp]
+        add     esp, 8
+        ret
+    }
+}
+
+// 大文字小文字を区別しない、ワイド文字のくらべ。
+extern "C" int __cdecl _wcsicmp(const wchar_t* a, const wchar_t* b) {
+    for (;;) {
+        wchar_t x = *a++, y = *b++;
+        if (x >= L'A' && x <= L'Z') x = (wchar_t)(x - L'A' + L'a');
+        if (y >= L'A' && y <= L'Z') y = (wchar_t)(y - L'A' + L'a');
+        if (x != y) return x < y ? -1 : 1;
+        if (x == 0) return 0;
+    }
+}
+
 // ------------------------------------------- はじめと終わりに呼ぶもの
 //
 // ふだんは CRT が、ファイルの外に置いた変数（g_logPath など）の**組み立て**を
@@ -186,6 +282,23 @@ void TinyCrtShutdown() {
 }
 
 } // namespace nashi
+
+// ------------------------------------------------------- exe の入り口
+//
+// なしスタジオ（exe）を CRT なしで組むときの入り口です。
+// ふだんは CRT の wWinMainCRTStartup が、変数の組み立て → wWinMain →
+// 後片づけ、の順にやってくれます。それを自分で書きます。
+// 栞（DLL）を組むときは通りません（NASHI_EXE を立てたときだけです）。
+#ifdef NASHI_EXE
+extern "C" int __stdcall wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int);
+
+extern "C" __declspec(safebuffers) void __stdcall wWinMainCRTStartup() {
+    nashi::TinyCrtStartup();
+    const int code = wWinMain(GetModuleHandleW(NULL), NULL, GetCommandLineW(), SW_SHOWNORMAL);
+    nashi::TinyCrtShutdown();
+    ExitProcess((UINT)code);
+}
+#endif
 
 // ------------------------------------------------------------ 例外のかわり
 // 栞は例外を投げません（投げるはずの場面は、上限で先に止めてあります）。

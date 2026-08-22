@@ -35,6 +35,26 @@ function fail(msg) {
   process.exit(2);
 }
 
+/** その exe が 32bit か 64bit か（PE のヘッダを見るだけ）。 */
+function bitsOf(file) {
+  const buf = fs.readFileSync(file);
+  const pe = buf.readUInt32LE(0x3c);
+  return buf.readUInt16LE(pe + 4) === 0x8664 ? 64 : 32;
+}
+
+// **ほんとうに、ちがうビット幅をくらべているか。**
+// どちらも同じ幅で作ってしまうと、テストは通るのに何も見ていない、
+// という形で静かに効かなくなります（一度そうなりました）。
+if (fs.existsSync(host.testHost) && fs.existsSync(host.previewHost)) {
+  const a = bitsOf(host.testHost);
+  const b = bitsOf(host.previewHost);
+  if (a === b) {
+    fail(`どちらも ${a}bit です（test_host と preview_host）。`
+      + ' これでは、ビット幅のちがいを見られません。'
+      + ' studio\\build.ps1 -Test が 64bit で作っているか見てください。');
+  }
+}
+
 if (!cases.length) fail('ghost.json に OnP** のかたまりがありません。');
 const noId = cases.filter((s) => !s.id);
 if (noId.length) {

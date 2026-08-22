@@ -1,12 +1,12 @@
 # なしスタジオ - 単体 exe をビルドする
 #
 #   .\build.ps1              64bit の nashi-studio.exe を作る
-#   .\build.ps1 -Arch x86    32bit 版
+#   .\build.ps1 -Arch x64    64bit 版（テスト用のコンソールは、こちらで作ります）
 #
 [CmdletBinding()]
 param(
     [ValidateSet('x86', 'x64')]
-    [string]$Arch = 'x64',
+    [string]$Arch = 'x86',
     [switch]$Clean,
     # 書き出しの中身を見るコンソール（studio\test\export_host.cpp）も作る
     [switch]$Test,
@@ -109,11 +109,22 @@ $sources = @(
     (Join-Path $repo 'shiori\src\interp.cpp'),
     (Join-Path $repo 'shiori\src\program.cpp'),
     (Join-Path $repo 'shiori\src\json.cpp'),
-    (Join-Path $repo 'shiori\src\util.cpp')
+    (Join-Path $repo 'shiori\src\util.cpp'),
+    # Windows 2000 でも動くように、C ランタイムは自前のものを積みます
+    (Join-Path $repo 'shiori\src\tinycrt.cpp')
 )
 
+# 新しい C ランタイムは Windows XP や Vista からの API を呼ぶので、そのままでは
+# 古い Windows で動きません。栞と同じく CRT を外し（/NODEFAULTLIB）、
+# Windows に最初から入っている msvcrt.dll につなぎます。
+$msvcrtLib = Join-Path $obj 'msvcrt.lib'
+$machine = if ($Arch -eq 'x64') { 'X64' } else { 'X86' }
+& lib /nologo "/DEF:$repo\shiori\src\msvcrt.def" "/OUT:$msvcrtLib" "/MACHINE:$machine" | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'msvcrt.lib を作れませんでした。' }
+
 $clArgs = @(
-    '/nologo', '/c', '/O2', '/MT', '/EHsc', '/W3', '/GS', '/std:c++17', '/utf-8',
+    '/nologo', '/c', '/O2', '/MT', '/EHsc', '/W3', '/GS', '/GR-', '/std:c++17', '/utf-8',
+    '/Zc:threadSafeInit-', '/D_USE_STD_VECTOR_ALGORITHMS=0', '/DNASHI_EXE',
     '/DNDEBUG', '/DWIN32', '/D_WINDOWS', '/DUNICODE', '/D_UNICODE', '/D_CRT_SECURE_NO_WARNINGS',
     "/I$src", "/I$repo\shiori\src", "/I$obj",
     "/Fo:$obj\"
@@ -126,8 +137,9 @@ if ($LASTEXITCODE -ne 0) { throw 'コンパイルに失敗しました。' }
 # 前のビルドで残った .obj を混ぜないよう、今回のソースから直接 obj 名を作る
 $objs = $sources | ForEach-Object { Join-Path $obj ([System.IO.Path]::GetFileNameWithoutExtension($_) + '.obj') }
 $linkArgs = @(
-    '/nologo', "/OUT:$exeOut", '/SUBSYSTEM:WINDOWS', '/OPT:REF', '/OPT:ICF'
-) + $objs + @((Join-Path $obj 'assets.res')) +
+    '/nologo', "/OUT:$exeOut", '/SUBSYSTEM:WINDOWS', '/OPT:REF', '/OPT:ICF',
+    '/NODEFAULTLIB', '/ENTRY:wWinMainCRTStartup', '/SAFESEH:NO'
+) + $objs + @((Join-Path $obj 'assets.res'), $msvcrtLib) +
     @('kernel32.lib', 'user32.lib', 'gdi32.lib', 'shell32.lib', 'shlwapi.lib',
       'comdlg32.lib', 'advapi32.lib', 'ole32.lib', 'oleaut32.lib', 'version.lib', 'ws2_32.lib')
 
@@ -135,11 +147,33 @@ Write-Host '[studio] リンク中...' -ForegroundColor Cyan
 & link @linkArgs
 if ($LASTEXITCODE -ne 0) { throw 'リンクに失敗しました。' }
 
+# ---- 名乗る最低 OS を Windows 2000 にする（栞と同じ直しかた）---------------
+# link.exe は 6.00（Vista）より下を受けつけないので、出来あがった PE の
+# 2 か所（OperatingSystemVersion と SubsystemVersion）を直に 5.00 に書きかえます。
+$bytes = [System.IO.File]::ReadAllBytes($exeOut)
+$pe = [System.BitConverter]::ToInt32($bytes, 0x3c)
+$opt = $pe + 24
+foreach ($off in @(0x28, 0x30)) {
+    $bytes[$opt + $off]     = 5
+    $bytes[$opt + $off + 1] = 0
+    $bytes[$opt + $off + 2] = 0
+    $bytes[$opt + $off + 3] = 0
+}
+[System.IO.File]::WriteAllBytes($exeOut, $bytes)
+
 # ---- テスト用コンソール ----------------------------------------------------
 # 画面を出さずに中身を見るためのもの。
 #   export_host  … 書き出されるファイル（surfaces.txt など）
 #   preview_host … 「ためす」の結果（一致テストが 32bit の栞と見くらべます）
 if ($Test) {
+    # テスト用のコンソールは **64bit** で作ります。
+    # 一致テスト（parity）は「32bit の栞と 64bit の栞が同じ答えを出すか」を
+    # 見るものなので、どちらも 32bit にすると、見ている意味が消えます。
+    $obj = Join-Path $root 'obj\x64'
+    New-Item -ItemType Directory -Force -Path $obj | Out-Null
+    Write-Host '[studio] テスト用コンソールは 64bit で作ります...' -ForegroundColor DarkGray
+    Import-VcVars 'x64'
+
     $testObj = Join-Path $obj 'test'
     New-Item -ItemType Directory -Force -Path $testObj | Out-Null
 

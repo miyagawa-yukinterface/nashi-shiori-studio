@@ -338,12 +338,9 @@ SSP の場所は設定（`nashi-studio.json` の `sspPath`）に覚えてある�
 ぜんぶ C++ にあります。JavaScript で残っているのは `tools/blocks.js`（ブロック定義の
 「正」）と、node で走らせるテストだけです。
 
-のこりの仕事:
-
-* **exe を 32bit で組みなおす**（いまは 64bit なので、そのままでは古い Windows で
-  動きません）
-* `tools\check-imports.js` を exe にも通して、Windows 2000 を機械で確かめる
-* `SetProcessDpiAwarenessContext` など、新しい Windows にしか無い呼び出しを落とす
+exe も **32bit・CRT なし**で組むようになりました。栞と同じやりかたです
+（下の「C ランタイムを使わずに組んでいます」を見てください）。
+`node tools\check-imports.js` が、栞と exe の**両方**を見ます。
 
 つなぎかたの決まりは `ui\js\drag.js` と同じにしてあります。片方だけ変えないでください。
 
@@ -384,7 +381,7 @@ SSP の場所は設定（`nashi-studio.json` の `sspPath`）に覚えてある�
 .\studio\test\png_host.exe --round なにか.png    # 読む → 書く → また読む
 ```
 
-## 栞は、C ランタイムを使わずに組んでいます
+## C ランタイムを使わずに組んでいます（栞も、なしスタジオも）
 
 SSP は **Windows 2000 以降**で動きます。栞は SSP に読みこまれる DLL なので、そこに合わせます。
 

@@ -11,7 +11,7 @@ param(
     [switch]$Clean,
     [switch]$Release,
     [ValidateSet('x86', 'x64')]
-    [string]$StudioArch = 'x64'
+    [string]$StudioArch = 'x86'
 )
 
 $ErrorActionPreference = 'Stop'
