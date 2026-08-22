@@ -31,6 +31,23 @@ if (!fs.existsSync(host)) {
 }
 
 let bad = 0;
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nashi-panel-'));
+
+// PNG の chunk を組むのに使います（studio\test\image.js と同じもの）
+const crcTable = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(buf) {
+  let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) c = crcTable[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
 function check(name, got, want) {
   const ok = String(got) === String(want);
   if (ok) console.log(`${C.green}  OK  ${C.off}${name}  ${C.dim}${got}${C.off}`);
@@ -143,7 +160,7 @@ for (const name of ['drag_fixture', 'parity', 'behavior']) {
 // ---------------------------------------------------- 2. 変数のたな
 console.log(`${C.dim}-- 変数のたな${C.off}`);
 {
-  const said = run([fixture, '--panel', '2']);
+  const said = run([fixture, '--panel', '3']);
   check('たなの名前', (said.match(/^たな (.*)$/m) || [])[1], '変数');
   check('変数がならぶ',
     (said.match(/^field var\.name\.\d+ .* = (.*)$/gm) || [])
@@ -155,24 +172,24 @@ console.log(`${C.dim}-- 変数のたな${C.off}`);
 
 {
   // ＋ を押すと 1 つふえる
-  const said = run([fixture, '--panel', '2', '--click', 'var.add']);
+  const said = run([fixture, '--panel', '3', '--click', 'var.add']);
   const json = JSON.parse(said.slice(said.indexOf('---- ghost.json') + 15));
   check('＋ でふえる', json.variables.length, 3);
   check('あたらしい名前がかぶらない',
     new Set(json.variables.map((v) => v.name)).size, 3);
 
   // けすと 1 つへる
-  const said2 = run([fixture, '--panel', '2', '--click', 'var.del.0']);
+  const said2 = run([fixture, '--panel', '3', '--click', 'var.del.0']);
   const json2 = JSON.parse(said2.slice(said2.indexOf('---- ghost.json') + 15));
   check('けすとへる', json2.variables.map((v) => v.name).join(','), 'きぶん');
 
   // 名前を打ちかえる
-  const said3 = run([fixture, '--panel', '2', '--click', 'var.name.0', 'すきど']);
+  const said3 = run([fixture, '--panel', '3', '--click', 'var.name.0', 'すきど']);
   const json3 = JSON.parse(said3.slice(said3.indexOf('---- ghost.json') + 15));
   check('名前を打ちかえられる', json3.variables[0].name, 'すきど');
 
   // はじめの値を打ちかえる
-  const said4 = run([fixture, '--panel', '2', '--click', 'var.value.1', 'ごきげん']);
+  const said4 = run([fixture, '--panel', '3', '--click', 'var.value.1', 'ごきげん']);
   const json4 = JSON.parse(said4.slice(said4.indexOf('---- ghost.json') + 15));
   check('はじめの値を打ちかえられる', json4.variables[1].value, 'ごきげん');
 }
@@ -180,10 +197,10 @@ console.log(`${C.dim}-- 変数のたな${C.off}`);
 // ---------------------------------------------------- 3. さがすたな
 console.log(`${C.dim}-- さがすたな${C.off}`);
 {
-  const empty = run([fixture, '--panel', '3']);
+  const empty = run([fixture, '--panel', '4']);
   check('言葉が空なら、うながす', /さがす言葉を入れてください/.test(empty) ? 'はい' : 'いいえ', 'はい');
 
-  const said = run([fixture, '--panel', '3', '--q', 'はじめ']);
+  const said = run([fixture, '--panel', '4', '--q', 'はじめ']);
   const rows = (said.match(/^row search\.hit\.\d+ .*$/gm) || []);
   check('見つかる', rows.length, 1);
   const first = rows[0] || '（1 つも見つかりませんでした）';
@@ -191,11 +208,11 @@ console.log(`${C.dim}-- さがすたな${C.off}`);
     (first.match(/\d+x\d+\s+(.*?) \/ /) || [])[1], 'sakura が はじめ と話す 改行する');
   check('どのかたまりか出る', /\/ 起動したとき$/.test(first) ? 'はい' : first, 'はい');
 
-  const none = run([fixture, '--panel', '3', '--q', 'あるはずのない言葉']);
+  const none = run([fixture, '--panel', '4', '--q', 'あるはずのない言葉']);
   check('無いときは、そう言う', /見つかりませんでした/.test(none) ? 'はい' : 'いいえ', 'はい');
 
   // かたまりの見出しでも見つかる
-  const title = run([fixture, '--panel', '3', '--q', 'ランダムトーク']);
+  const title = run([fixture, '--panel', '4', '--q', 'ランダムトーク']);
   check('かたまりの見出しでも見つかる',
     (title.match(/^row search\.hit\.\d+ /gm) || []).length >= 1 ? 'はい' : 'いいえ', 'はい');
 }
@@ -270,7 +287,7 @@ console.log(`${C.dim}-- ゴーストのたな${C.off}`);
 // ---------------------------------------------------- 6. 書き出しのたな
 console.log(`${C.dim}-- 書き出しのたな${C.off}`);
 {
-  const said = run([fixture, '--panel', '5']);
+  const said = run([fixture, '--panel', '6']);
   check('出す先とボタンがある',
     /field export\.dir /.test(said) && /button export\.folder /.test(said)
       && /button export\.nar /.test(said) ? 'はい' : 'いいえ', 'はい');
@@ -282,7 +299,7 @@ console.log(`${C.dim}-- 書き出しのたな${C.off}`);
     fs.copyFileSync(dll, beside);
     const out = fs.mkdtempSync(path.join(os.tmpdir(), 'nashi-out-'));
     try {
-      const done = run([fixture, '--panel', '5', '--dir', out, '--click', 'export.folder']);
+      const done = run([fixture, '--panel', '6', '--dir', out, '--click', 'export.folder']);
       check('書き出せた', /書き出しました/.test(done) ? 'はい' : done.trim(), 'はい');
 
       const folder = fs.readdirSync(out)[0];
@@ -291,7 +308,7 @@ console.log(`${C.dim}-- 書き出しのたな${C.off}`);
         files.includes('nashi.dll') && files.includes('ghost.json')
           && files.includes('descript.txt') ? 'はい' : files.join(','), 'はい');
 
-      const nar = run([fixture, '--panel', '5', '--dir', out, '--click', 'export.nar']);
+      const nar = run([fixture, '--panel', '6', '--dir', out, '--click', 'export.nar']);
       check('.nar にもまとめられる', /書き出しました/.test(nar) ? 'はい' : nar.trim(), 'はい');
       check('.nar ができている',
         fs.readdirSync(out).some((f) => f.endsWith('.nar')) ? 'はい' : 'いいえ', 'はい');
@@ -304,22 +321,117 @@ console.log(`${C.dim}-- 書き出しのたな${C.off}`);
   }
 }
 
-// ---------------------------------------------------- 7. たなの切りかえ
+// ---------------------------------------------------- 7. 立ち絵のたな
+console.log(`${C.dim}-- 立ち絵のたな${C.off}`);
+{
+  const said = run([fixture, '--panel', '2']);
+  check('立ち絵の枠が 6 つ',
+    (said.match(/^image shell\.pick\.\d+ /gm) || []).length, 6);
+  check('番号のならび',
+    (said.match(/^image shell\.pick\.(\d+) /gm) || [])
+      .map((l) => l.match(/(\d+)/)[1]).join(','), '0,1,2,10,11,12');
+  check('色の欄が 5 つ', (said.match(/^color shell\.\w+ /gm) || []).length, 5);
+  check('はじめは、どれも色から作る',
+    /button shell\.clear\./.test(said) ? 'いいえ' : 'はい', 'はい');
+
+  // 色を打ちかえる
+  const dyed = run([fixture, '--panel', '2', '--click', 'shell.sakuraColor', '#123456']);
+  const j1 = JSON.parse(dyed.slice(dyed.indexOf('---- ghost.json') + 15));
+  check('髪の色を打ちかえられる', j1.shell.sakuraColor, '#123456');
+
+  // バルーンの入り切り
+  const bal = run([fixture, '--panel', '2', '--click', 'shell.balloonEnabled']);
+  const j2 = JSON.parse(bal.slice(bal.indexOf('---- ghost.json') + 15));
+  check('バルーンを作るようにできる', j2.shell.balloonEnabled, true);
+  check('入れたら見た目も変わる',
+    /バルーンも作る：する/.test(bal) ? 'はい' : 'いいえ', 'はい');
+}
+
+// 用意した絵を割りあてたときは、それを出す
+{
+  const withImage = path.join(tmp, 'shell.json');
+  const png = path.join(tmp, 'sakura.png');
+
+  // 見本の PNG は、その場で作ります（png_host が読めるものと同じ組みかた）
+  const zlib = require('zlib');
+  const chunk = (type, body) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(body.length);
+    const head = Buffer.concat([Buffer.from(type, 'ascii'), body]);
+    const crc = Buffer.alloc(4);
+    crc.writeInt32BE(crc32(head) | 0);
+    return Buffer.concat([len, head, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(4, 0);
+  ihdr.writeUInt32BE(3, 4);
+  ihdr[8] = 8; ihdr[9] = 6;
+  const rows = [];
+  for (let y = 0; y < 3; y++) {
+    const r = Buffer.alloc(1 + 4 * 4);
+    for (let x = 0; x < 4; x++) r.set([200, 30, 40, 255], 1 + x * 4);
+    rows.push(r);
+  }
+  fs.writeFileSync(png, Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', zlib.deflateSync(Buffer.concat(rows))),
+    chunk('IEND', Buffer.alloc(0)),
+  ]));
+
+  const project = JSON.parse(fs.readFileSync(fixture, 'utf8'));
+  project.shell = { images: [{ id: 0, path: png, name: 'sakura.png' }] };
+  fs.writeFileSync(withImage, JSON.stringify(project), 'utf8');
+
+  const said = run([withImage, '--panel', '2']);
+  check('割りあてた絵の道が出る',
+    /^image shell\.pick\.0 .* = /m.test(said) ? 'はい' : 'いいえ', 'はい');
+  check('はずすボタンが出る',
+    (said.match(/^button shell\.clear\.\d+ /gm) || []).length, 1);
+
+  const off = run([withImage, '--panel', '2', '--click', 'shell.clear.0']);
+  const j = JSON.parse(off.slice(off.indexOf('---- ghost.json') + 15));
+  check('はずせる', (j.shell.images || []).length, 0);
+
+  // 絵が読めているか。読んで、描いて、また読む、まで通します。
+  // （見本の PNG は「まっ赤」1 色なので、その色が画面に出ていれば通っています）
+  const shot = path.join(tmp, 'shell.png');
+  const shotSaid = run([withImage, '--window', shot, '900', '760', '2']);
+  check('絵つきでも描ける', /画面\s+900 x 760/.test(shotSaid) ? 'はい' : shotSaid.trim(), 'はい');
+
+  const pngHost = path.join(root, 'studio', 'test', 'png_host.exe');
+  if (fs.existsSync(pngHost) && fs.existsSync(shot)) {
+    // 立ち絵の枠は、たなの左はしから 4px のところ。窓は 900 幅、たなは 320 幅。
+    const spot = (said.match(/^image shell\.pick\.0 \(\s*\d+,\s*(\d+)\)/m) || [])[1];
+    const x = 900 - 320 + 12 + 8;          // たなの左 ＋ 余白 ＋ 枠の中
+    const y = Number(spot) + 20;
+    let pixel = '';
+    try {
+      pixel = execFileSync(pngHost, ['--pixel', shot, String(x), String(y)],
+        { encoding: 'utf8' }).trim();
+    } catch (e) { pixel = String(e.message); }
+    check('割りあてた絵の色が、画面に出ている', pixel, '200 30 40 255');
+  }
+}
+
+// ---------------------------------------------------- 8. たなの切りかえ
 console.log(`${C.dim}-- たなの切りかえ${C.off}`);
 {
   const names = [];
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < 8; i++) {
     names.push((run([fixture, '--panel', String(i)]).match(/^たな (.*)$/m) || [])[1]);
   }
-  check('たなは 7 つ', names.join(','),
-    'ためす,ゴースト,変数,さがす,チェック,書き出し,ヘルプ');
+  check('たなは 8 つ', names.join(','),
+    'ためす,ゴースト,立ち絵,変数,さがす,チェック,書き出し,ヘルプ');
 
-  const notYet = run([fixture, '--panel', '6']);
+  const notYet = run([fixture, '--panel', '7']);
   check('まだ作っていないたなは、そう言う',
     /まだ作っていません/.test(notYet) ? 'はい' : 'いいえ', 'はい');
 }
 
 // ---------------------------------------------------------------------- 結果
+try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) { /* 消せなくても構わない */ }
+
 console.log('');
 if (bad) {
   console.log(`${C.red}[たな] ${bad} か所ちがいます。${C.off}`);

@@ -18,10 +18,11 @@ const int kTextH = 20;
 const int kButtonH = 26;
 const int kFieldH = 24;
 const int kRowH = 36;
+const int kImageH = 96;       // 立ち絵の見本の高さ
 const int kLabelW = 96;       // Field の見出しの幅
 
 const char* const kTabNames[kTabCount] = {
-    "ためす", "ゴースト", "変数", "さがす", "チェック", "書き出し", "ヘルプ",
+    "ためす", "ゴースト", "立ち絵", "変数", "さがす", "チェック", "書き出し", "ヘルプ",
 };
 
 /** 大文字を小文字にする（半角のぶんだけ。字を引くのに使います）。 */
@@ -92,7 +93,23 @@ struct Builder {
     void Row(const std::string& id, const std::string& text, const std::string& sub, int mark) {
         Add(ItemKind::Row, id, text, kRowH, "", sub, mark);
     }
+    void Color(const std::string& id, const std::string& label, const std::string& value) {
+        Add(ItemKind::Color, id, label, kFieldH, value);
+    }
+    void Image(const std::string& id, const std::string& label, const std::string& path,
+               int surface) {
+        Add(ItemKind::Image, id, label, kImageH, path);
+        (*out)[out->size() - 1].surface = surface;
+    }
 };
+
+// 立ち絵の番号と、その名前
+struct ShellSlot { int id; const char* name; };
+const ShellSlot kShellSlots[] = {
+    { 0, "さくら／通常" }, { 1, "さくら／笑顔" }, { 2, "さくら／驚き" },
+    { 10, "うにゅう／通常" }, { 11, "うにゅう／笑顔" }, { 12, "うにゅう／驚き" },
+};
+const int kShellSlotCount = 6;
 
 std::string IntToStr(int v) {
     char buf[24];
@@ -189,8 +206,40 @@ void BuildGhost(Builder& b, const JValue& project) {
             st["noRepeatCount"].asStr());
     b.Hint("0 ならおまかせ（トーク数の半分・最大 8）です。");
 
-    b.Head("立ち絵・うごき");
-    b.Hint("ここはまだ作っていません。WebView2 版でお使いください。");
+    b.Head("立ち絵");
+    b.Hint("「立ち絵」のたなでえらべます。うごきは、まだ WebView2 版でお使いください。");
+}
+
+// -------------------------------------------------------------- 立ち絵のたな
+void BuildShell(Builder& b, const JValue& project) {
+    const JValue& sh = project["shell"];
+
+    b.Head("立ち絵の画像");
+    b.Hint("用意した PNG を割りあてられます。えらばなかった番号は、下の色で作ります。");
+
+    const JValue& images = sh["images"];
+    for (int i = 0; i < kShellSlotCount; i++) {
+        const int id = kShellSlots[i].id;
+        std::string path;
+        for (size_t k = 0; k < images.size(); k++) {
+            if (images.at(k)["id"].asInt(-1) == id) { path = images.at(k)["path"].asStr(); break; }
+        }
+        b.Image("shell.pick." + IntToStr(id), kShellSlots[i].name, path, id);
+        if (!path.empty()) b.Button("shell.clear." + IntToStr(id), "はずす");
+    }
+
+    b.Head("見た目（仮シェル）");
+    b.Hint("絵を用意していないときは、この色でかんたんな立ち絵を作ります。");
+    b.Color("shell.sakuraColor", "さくらの髪", sh["sakuraColor"].asStr());
+    b.Color("shell.sakuraCloth", "さくらの服", sh["sakuraCloth"].asStr());
+    b.Color("shell.keroColor", "うにゅうの髪", sh["keroColor"].asStr());
+    b.Color("shell.keroCloth", "うにゅうの服", sh["keroCloth"].asStr());
+
+    b.Head("バルーン");
+    const bool on = sh["balloonEnabled"].asBool(false);
+    b.Button("shell.balloonEnabled", on ? "バルーンも作る：する" : "バルーンも作る：しない");
+    b.Color("shell.balloonColor", "バルーンの色", sh["balloonColor"].asStr());
+    b.Hint("作らないときは、使う人が持っているバルーンで出ます。");
 }
 
 // ------------------------------------------------------------ 書き出しのたな
@@ -569,6 +618,7 @@ void BuildPanel(const JValue& project, const PanelState& state,
         case Tab::Check:  BuildCheck(b, project); break;
         case Tab::Run:    BuildRun(b, project, state); break;
         case Tab::Ghost:  BuildGhost(b, project); break;
+        case Tab::Shell:  BuildShell(b, project); break;
         case Tab::Export: BuildExport(b, state); break;
         default:
             b.Head(TabName(state.tab));
@@ -582,7 +632,8 @@ int PanelHitTest(const std::vector<PanelItem>& items, int px, int py) {
     for (size_t i = 0; i < items.size(); i++) {
         const PanelItem& it = items[i];
         if (it.kind != ItemKind::Button && it.kind != ItemKind::Field
-            && it.kind != ItemKind::Row) continue;
+            && it.kind != ItemKind::Row && it.kind != ItemKind::Color
+            && it.kind != ItemKind::Image) continue;
         if (px < it.x || px >= it.x + it.w || py < it.y || py >= it.y + it.h) continue;
         return (int)i;
     }

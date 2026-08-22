@@ -21,6 +21,7 @@ namespace w2k {
 enum class Tab {
     Run,       // ためす
     Ghost,     // ゴースト
+    Shell,     // 立ち絵
     Vars,      // 変数
     Search,    // さがす
     Check,     // チェック
@@ -28,7 +29,7 @@ enum class Tab {
     Help,      // ヘルプ
 };
 
-const int kTabCount = 7;
+const int kTabCount = 8;
 
 /** たなの見出し（"ためす" など）。 */
 const char* TabName(Tab tab);
@@ -43,6 +44,8 @@ enum class ItemKind {
     Button,    // 押せるもの
     Field,     // 打ちこむ欄（左に見出し、右に中身）
     Row,       // ならびの 1 行（押すとその場所へ飛ぶ）
+    Color,     // 色の欄（右はしに、その色の四角を出す）
+    Image,     // 立ち絵（絵は window.cpp が描きます。ここは場所だけ決めます）
 };
 
 struct PanelItem {
@@ -53,6 +56,7 @@ struct PanelItem {
     std::string sub;     // Row のときの、うしろに小さく出す字
     int x = 0, y = 0, w = 0, h = 0;
     int mark = 0;        // Row のとき 0=ふつう 1=注意 2=まちがい
+    int surface = -1;    // Image のとき、立ち絵の番号
 };
 
 /** たなを組み立てるときの、いまのようす。 */

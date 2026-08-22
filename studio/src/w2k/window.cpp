@@ -19,6 +19,7 @@
 #include "../../../shiori/src/json.h"
 #include "../../../shiori/src/util.h"
 #include "../fsutil.h"
+#include "../image.h"
 
 namespace nashi {
 namespace w2k {
@@ -398,6 +399,8 @@ bool SplitLast(const JPath& p, JPath* listPath, int* index) {
 const int kEditId = 1001;
 const int kMenuBase = 2000;
 
+void ForgetShellPics();   // 下で書いています（立ち絵の見本を作りなおさせる）
+
 /**
  * 打ちこまれた文字を、その欄に入れる値にします。
  * 数の欄で、ちゃんと数になっていれば数として入れます（blocks.js と同じ）。
@@ -426,6 +429,7 @@ void CommitEdit(bool keep) {
     }
 
     if (keep) {
+        ForgetShellPics();      // 色を打ちかえたときのために
         wchar_t buf[1024];
         const int n = GetWindowTextW(edit, buf, 1024);
         buf[(n >= 0 && n < 1024) ? n : 0] = 0;
@@ -668,6 +672,38 @@ bool StartsWith(const std::string& s, const char* head) {
     return s.size() >= n && s.compare(0, n, head) == 0;
 }
 
+/** 立ち絵の割りあてを入れかえる（path が空なら、はずす）。 */
+void SetShellImage(int surface, const std::string& path) {
+    JValue* sh = JResolve(g.project, JPath().Then(JStep::Key("shell")));
+    if (!sh || !sh->isObj()) return;
+    if (!(*sh)["images"].isArr()) sh->set("images", JValue::makeArr());
+
+    JValue* images = NULL;
+    for (size_t i = 0; i < sh->obj.size(); i++) {
+        if (sh->obj[i].first == "images") { images = &sh->obj[i].second; break; }
+    }
+    if (!images) return;
+
+    for (size_t i = 0; i < images->arr.size(); i++) {
+        if (images->arr[i]["id"].asInt(-1) != surface) continue;
+        if (path.empty()) images->arr.erase(images->arr.begin() + i);
+        else images->arr[i].set("path", JValue::makeStr(path));
+        return;
+    }
+    if (path.empty()) return;
+
+    // 名前は、ファイル名のところだけ取ります
+    std::string name = path;
+    const size_t cut = name.find_last_of("\\/");
+    if (cut != std::string::npos) name = name.substr(cut + 1);
+
+    JValue one = JValue::makeObj();
+    one.set("id", JValue::makeNum(surface));
+    one.set("path", JValue::makeStr(path));
+    one.set("name", JValue::makeStr(name));
+    images->arr.push_back(one);
+}
+
 /** 変数のならびを、無ければ作って返す。 */
 JValue* VariablesList() {
     if (!g.project.has("variables")) g.project.set("variables", JValue::makeArr());
@@ -687,6 +723,81 @@ std::string FreshVarName() {
         if (!used) return buf;
     }
     return "へんすう";
+}
+
+// ------------------------------------------------------------ 立ち絵の見本
+
+/** 描いた立ち絵。おなじ絵を何度も作らないよう、覚えておきます。 */
+struct ShellPic {
+    std::string key;      // どの絵か（番号と色、または読んだファイル）
+    int w = 0, h = 0;
+    std::vector<unsigned char> bgr;   // 下から上へならぶ 32bit（GDI に渡す形）
+};
+std::vector<ShellPic> g_shellPics;
+
+void ForgetShellPics() { g_shellPics.clear(); }
+
+/** その番号の立ち絵を、RGBA で用意する。 */
+bool MakeShellPic(int surface, const std::string& key, ShellPic* out) {
+    const JValue& sh = g.project["shell"];
+    std::string png;
+
+    const std::string path = ShellImagePath(g.project, surface);
+    if (!path.empty()) {
+        // 用意された PNG を読む（pngread.cpp）
+        if (!ReadBinaryFile(Utf8ToWide(path), png)) return false;
+    } else {
+        const bool kero = surface >= 10;
+        png = RenderSurfacePng(surface,
+                               sh[kero ? "keroColor" : "sakuraColor"].asStr(),
+                               sh[kero ? "keroCloth" : "sakuraCloth"].asStr());
+    }
+    if (png.empty()) return false;
+
+    int w = 0, h = 0;
+    std::vector<unsigned char> rgba;
+    if (!DecodePng(png, &w, &h, &rgba)) return false;
+    if (w <= 0 || h <= 0) return false;
+
+    out->key = key;
+    out->w = w;
+    out->h = h;
+    out->bgr.assign((size_t)w * h * 4, 0);
+    // GDI は下から上へならんだ BGRX を待っています。すきとおりは白地に混ぜます。
+    for (int y = 0; y < h; y++) {
+        const unsigned char* src = &rgba[(size_t)y * w * 4];
+        unsigned char* dst = &out->bgr[(size_t)(h - 1 - y) * w * 4];
+        for (int x = 0; x < w; x++) {
+            const int a = src[x * 4 + 3];
+            dst[x * 4 + 0] = (unsigned char)((src[x * 4 + 2] * a + 255 * (255 - a)) / 255);
+            dst[x * 4 + 1] = (unsigned char)((src[x * 4 + 1] * a + 255 * (255 - a)) / 255);
+            dst[x * 4 + 2] = (unsigned char)((src[x * 4 + 0] * a + 255 * (255 - a)) / 255);
+            dst[x * 4 + 3] = 255;
+        }
+    }
+    return true;
+}
+
+/** その番号の立ち絵を返す（無ければ作る）。 */
+const ShellPic* ShellPicFor(int surface) {
+    const JValue& sh = g.project["shell"];
+    const std::string path = ShellImagePath(g.project, surface);
+    char num[24];
+    sprintf(num, "%d|", surface);
+    const bool kero = surface >= 10;
+    const std::string key = std::string(num) + (path.empty()
+        ? (sh[kero ? "keroColor" : "sakuraColor"].asStr() + "|"
+           + sh[kero ? "keroCloth" : "sakuraCloth"].asStr())
+        : path);
+
+    for (size_t i = 0; i < g_shellPics.size(); i++) {
+        if (g_shellPics[i].key == key) return &g_shellPics[i];
+    }
+    ShellPic pic;
+    if (!MakeShellPic(surface, key, &pic)) return NULL;
+    if (g_shellPics.size() > 24) g_shellPics.clear();   // 覚えすぎない
+    g_shellPics.push_back(pic);
+    return &g_shellPics[g_shellPics.size() - 1];
 }
 
 /** 字を、たなの幅に合わせて何行かに切る（さくらスクリプトを出すのに使います）。 */
@@ -884,6 +995,83 @@ void OnPanelClick(int sx, int sy) {
         PushUndo();
         BeginEditRect(JPath().Then(JStep::Key(group)), key,
                       (*owner)[key.c_str()].asStr(), isNumber, it.x, it.y, it.w, it.h);
+        return;
+    }
+
+    // ---- 立ち絵のたな
+    if (StartsWith(it.id, "shell.")) {
+        JValue* sh = JResolve(g.project, JPath().Then(JStep::Key("shell")));
+        if (!sh || !sh->isObj()) return;
+        const std::string key = it.id.substr(6);
+
+        if (it.kind == ItemKind::Color) {
+            PushUndo();
+            if (g.hwnd) {
+                // 色えらび（Windows 2000 から使える、古いほうの窓）
+                COLORREF custom[16];
+                for (int i = 0; i < 16; i++) custom[i] = RGB(255, 255, 255);
+                CHOOSECOLORW cc;
+                ZeroMemory(&cc, sizeof(cc));
+                cc.lStructSize = sizeof(cc);
+                cc.hwndOwner = g.hwnd;
+                cc.lpCustColors = custom;
+                cc.rgbResult = ColorFromHex((*sh)[key.c_str()].asStr().c_str(),
+                                            RGB(255, 255, 255));
+                cc.Flags = CC_RGBINIT | CC_FULLOPEN;
+                if (!ChooseColorW(&cc)) return;
+                char buf[16];
+                sprintf(buf, "#%02x%02x%02x", GetRValue(cc.rgbResult),
+                        GetGValue(cc.rgbResult), GetBValue(cc.rgbResult));
+                sh->set(key, JValue::makeStr(buf));
+                MarkDirty();
+                ForgetShellPics();
+                Refresh();
+                return;
+            }
+            // 窓が無いとき（テスト）は、字として打ちこみます
+            BeginEditRect(JPath().Then(JStep::Key("shell")), key,
+                          (*sh)[key.c_str()].asStr(), false, it.x, it.y, it.w, it.h);
+            return;
+        }
+
+        if (key == "balloonEnabled") {
+            PushUndo();
+            sh->set(key, JValue::makeBool(!(*sh)["balloonEnabled"].asBool(false)));
+            MarkDirty();
+            Refresh();
+            return;
+        }
+
+        if (StartsWith(key, "pick.")) {
+            if (!g.hwnd) return;
+            const int surface = IdIndex(it.id);
+            wchar_t buf[MAX_PATH];
+            buf[0] = 0;
+            OPENFILENAMEW ofn;
+            ZeroMemory(&ofn, sizeof(ofn));
+            ofn.lStructSize = sizeof(ofn);
+            ofn.hwndOwner = g.hwnd;
+            ofn.lpstrFilter = L"立ち絵の画像 (*.png)\0*.png\0すべて\0*.*\0";
+            ofn.lpstrFile = buf;
+            ofn.nMaxFile = MAX_PATH;
+            ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+            if (!GetOpenFileNameW(&ofn)) return;
+            PushUndo();
+            SetShellImage(surface, WideToUtf8(buf));
+            MarkDirty();
+            ForgetShellPics();
+            Refresh();
+            return;
+        }
+
+        if (StartsWith(key, "clear.")) {
+            PushUndo();
+            SetShellImage(IdIndex(it.id), std::string());
+            MarkDirty();
+            ForgetShellPics();
+            Refresh();
+            return;
+        }
         return;
     }
 
@@ -1341,6 +1529,92 @@ void PaintPanel(HDC dc) {
                 SelectObject(dc, of);
                 break;
             }
+            case ItemKind::Color: {
+                RECT label = rc;
+                label.right = rc.left + 96;
+                RECT box = rc;
+                box.left = label.right + 6;
+
+                HGDIOBJ of = SelectObject(dc, g.tools.slotFont);
+                SetTextColor(dc, RGB(0x5a, 0x62, 0x74));
+                std::wstring t = Utf8ToWide(it.text);
+                DrawTextW(dc, t.c_str(), -1, &label,
+                          DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+
+                HBRUSH b = CreateSolidBrush(RGB(0xff, 0xff, 0xff));
+                FillRect(dc, &box, b);
+                DeleteObject(b);
+                HBRUSH edge = CreateSolidBrush(RGB(0xc8, 0xcf, 0xdc));
+                FrameRect(dc, &box, edge);
+                DeleteObject(edge);
+
+                // 右はしに、その色の四角
+                RECT chip = box;
+                chip.left = box.right - 34;
+                InflateRect(&chip, -4, -4);
+                HBRUSH c = CreateSolidBrush(ColorFromHex(it.value.c_str(),
+                                                         RGB(255, 255, 255)));
+                FillRect(dc, &chip, c);
+                DeleteObject(c);
+                FrameRect(dc, &chip, (HBRUSH)GetStockObject(GRAY_BRUSH));
+
+                RECT inner = box;
+                inner.left += 5;
+                inner.right = chip.left - 4;
+                SetTextColor(dc, RGB(0x22, 0x26, 0x33));
+                std::wstring v = Utf8ToWide(it.value);
+                DrawTextW(dc, v.c_str(), -1, &inner,
+                          DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+                SelectObject(dc, of);
+                break;
+            }
+            case ItemKind::Image: {
+                HBRUSH b = CreateSolidBrush(RGB(0xf7, 0xf9, 0xfd));
+                FillRect(dc, &rc, b);
+                DeleteObject(b);
+                HBRUSH edge = CreateSolidBrush(RGB(0xdd, 0xe2, 0xec));
+                FrameRect(dc, &rc, edge);
+                DeleteObject(edge);
+
+                const ShellPic* pic = ShellPicFor(it.surface);
+                if (pic && pic->w > 0) {
+                    // 高さに合わせて、はみ出さないように縮めます
+                    const int destH = rc.bottom - rc.top - 8;
+                    int destW = pic->w * destH / pic->h;
+                    if (destW > 80) { destW = 80; }
+                    BITMAPINFO bi;
+                    ZeroMemory(&bi, sizeof(bi));
+                    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+                    bi.bmiHeader.biWidth = pic->w;
+                    bi.bmiHeader.biHeight = pic->h;
+                    bi.bmiHeader.biPlanes = 1;
+                    bi.bmiHeader.biBitCount = 32;
+                    bi.bmiHeader.biCompression = BI_RGB;
+                    SetStretchBltMode(dc, COLORONCOLOR);
+                    StretchDIBits(dc, rc.left + 4, rc.top + 4, destW, destH,
+                                  0, 0, pic->w, pic->h, &pic->bgr[0], &bi,
+                                  DIB_RGB_COLORS, SRCCOPY);
+                }
+
+                HGDIOBJ of = SelectObject(dc, g.tools.slotFont);
+                RECT line = rc;
+                line.left += 92;
+                line.bottom = rc.top + 24;
+                SetTextColor(dc, RGB(0x22, 0x26, 0x33));
+                std::wstring t = Utf8ToWide(it.text);
+                DrawTextW(dc, t.c_str(), -1, &line,
+                          DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+                RECT sub = rc;
+                sub.left += 92;
+                sub.top = rc.top + 24;
+                SetTextColor(dc, RGB(0x88, 0x90, 0xa0));
+                std::wstring v = Utf8ToWide(it.value.empty()
+                    ? "下の色から作ります。押すと画像をえらべます" : it.value);
+                DrawTextW(dc, v.c_str(), -1, &sub,
+                          DT_LEFT | DT_TOP | DT_WORDBREAK | DT_END_ELLIPSIS);
+                SelectObject(dc, of);
+                break;
+            }
             case ItemKind::Row: {
                 HBRUSH b = CreateSolidBrush(it.mark == 2 ? RGB(0xff, 0xf0, 0xf0)
                                           : it.mark == 1 ? RGB(0xff, 0xfa, 0xe8)
@@ -1770,6 +2044,8 @@ bool ProbePanel(const PanelProbe& probe, std::string* items, std::string* json) 
                 case ItemKind::Button: kind = "button"; break;
                 case ItemKind::Field:  kind = "field"; break;
                 case ItemKind::Row:    kind = "row"; break;
+                case ItemKind::Color:  kind = "color"; break;
+                case ItemKind::Image:  kind = "image"; break;
                 default: break;
             }
             char buf[64];
