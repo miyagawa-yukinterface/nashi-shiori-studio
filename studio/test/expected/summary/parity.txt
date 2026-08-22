@@ -1,0 +1,259 @@
+title	OnP01
+block	さくら の表情を 3 番にする
+block	さくら が いちぎょうめ。 と話す 改行する
+block	さくら が つづき と話す 改行しない
+block	うにゅう が うにゅうです。 と話す 改行する
+block	3 回 改行する
+block	さくら が もどった。 と話す 改行する
+title	OnP02
+block	750 ミリ秒待つ
+block	クリックされるまで待つ
+block	バルーンの文字を消す
+block	バルーンを 2 番にする
+block	音 pon.wav を鳴らす
+block	音 ◯ を鳴らす
+block	さくら が おわり と話す 改行しない
+title	OnP03
+block	選択肢「うん」→ こたえ を出す
+block	選択肢「◯」→ でない を出す
+block	リンク「ホームページ」→ https://example.com を出す
+block	リンク「◯」→ https://example.org を出す
+block	さくらスクリプト \![raise,OnTest] をそのまま出す
+title	OnP04
+block	もし （1 ＜ 2） なら
+block	さくら が とおった と話す 改行する
+block	1 ＜ 2
+block	もし （1 ＞ 2） なら
+block	さくら が でない と話す 改行する
+block	1 ＞ 2
+block	もし （あ ＝ あ） なら
+block	さくら が こっち と話す 改行する
+block	さくら が でない と話す 改行する
+block	あ ＝ あ
+block	もし （あ ＝ い） なら
+block	さくら が でない と話す 改行する
+block	さくら が そうでないほう と話す 改行する
+block	あ ＝ い
+title	OnP05
+block	3 回くりかえす
+block	さくら が ぐるぐる と話す 改行する
+block	カウンタ を 0 にする
+block	（（カウンタ） ＜ 4） の間くりかえす
+block	カウンタ を 1 ずつ変える
+block	さくら が （カウンタ） と話す 改行する
+block	カウンタ
+block	（カウンタ） ＜ 4
+block	カウンタ
+block	2 回くりかえす
+block	2 回くりかえす
+block	さくら が なか と話す 改行しない
+title	OnP06
+block	あたい を 10 にする
+block	あたい を -3 ずつ変える
+block	さくら が （あたい） と話す 改行する
+block	あたい
+block	さくら が （2 ＋ 3） と話す 改行する
+block	2 ＋ 3
+block	さくら が （2 − 5） と話す 改行する
+block	2 − 5
+block	さくら が （4 × 2.5） と話す 改行する
+block	4 × 2.5
+block	さくら が （7 ÷ 2） と話す 改行する
+block	7 ÷ 2
+block	さくら が （7 ÷ 0） と話す 改行する
+block	7 ÷ 0
+block	さくら が （7 のあまり 3） と話す 改行する
+block	7 のあまり 3
+block	さくら が （-7 のあまり 3） と話す 改行する
+block	-7 のあまり 3
+block	さくら が （7 のあまり 0） と話す 改行する
+block	7 のあまり 0
+block	さくら が （初期値つき） と話す 改行する
+block	初期値つき
+block	さくら が （ないへんすう） と話す 改行する
+block	ないへんすう
+title	OnP07
+block	さくら が （10 ＜ 9） と話す 改行する
+block	10 ＜ 9
+block	さくら が （あ ＜ い） と話す 改行する
+block	あ ＜ い
+block	さくら が （1 ≠ 2） と話す 改行する
+block	1 ≠ 2
+block	さくら が （2 ＞ 1） と話す 改行する
+block	2 ＞ 1
+block	さくら が （1.0 ＝ 1） と話す 改行する
+block	1.0 ＝ 1
+block	もし （（1 ＝ 1） かつ （2 ＝ 2）） なら
+block	さくら が かつ と話す 改行する
+block	（1 ＝ 1） かつ （2 ＝ 2）
+block	1 ＝ 1
+block	2 ＝ 2
+block	もし （（1 ＝ 9） または （2 ＝ 2）） なら
+block	さくら が または と話す 改行する
+block	（1 ＝ 9） または （2 ＝ 2）
+block	1 ＝ 9
+block	2 ＝ 2
+block	もし （（1 ＝ 9） ではない） なら
+block	さくら が ではない と話す 改行する
+block	（1 ＝ 9） ではない
+block	1 ＝ 9
+title	OnP08
+block	さくら が （こんにちは と さん をつなげる） と話す 改行する
+block	こんにちは と さん をつなげる
+block	さくら が （あいうえお に うえ がふくまれる） と話す 改行する
+block	あいうえお に うえ がふくまれる
+block	さくら が （あいうえお に かき がふくまれる） と話す 改行する
+block	あいうえお に かき がふくまれる
+block	さくら が （あいうえお に ◯ がふくまれる） と話す 改行する
+block	あいうえお に ◯ がふくまれる
+block	さくら が （あいうえお の文字数） と話す 改行する
+block	あいうえお の文字数
+block	さくら が （abc の文字数） と話す 改行する
+block	abc の文字数
+block	さくら が （2.5 を 四捨五入） と話す 改行する
+block	2.5 を 四捨五入
+block	さくら が （-2.5 を 四捨五入） と話す 改行する
+block	-2.5 を 四捨五入
+block	さくら が （2.9 を 切り捨て） と話す 改行する
+block	2.9 を 切り捨て
+block	さくら が （2.1 を 切り上げ） と話す 改行する
+block	2.1 を 切り上げ
+block	さくら が （-3.5 を 絶対値に） と話す 改行する
+block	-3.5 を 絶対値に
+title	OnP09
+block	さくら が （イベントの情報 0番目） と話す 改行する
+block	イベントの情報 0番目
+block	さくら が （イベントの情報 2番目） と話す 改行する
+block	イベントの情報 2番目
+block	さくら が （イベントの情報 5番目） と話す 改行する
+block	イベントの情報 5番目
+title	OnP10
+block	さくら が （話しかけてきた相手） と話す 改行する
+block	話しかけてきた相手
+block	さくら が （言われたこと） と話す 改行する
+block	言われたこと
+block	さくら が （ゴースト名） と話す 改行する
+block	ゴースト名
+block	さくら が （シェル名） と話す 改行する
+block	シェル名
+title	OnP11
+block	そとがわ をよぶ
+block	ないなまえ をよぶ
+block	さくら が もどってきた と話す 改行する
+title	「そとがわ」
+block	さくら が そと と話す 改行する
+block	うちがわ をよぶ
+title	「うちがわ」
+block	さくら が うち と話す 改行する
+block	そとがわ をよぶ
+title	OnP12
+block	さくら が ここまで と話す 改行する
+block	ここでトークをおわる
+block	さくら が でない と話す 改行する
+title	OnP13
+block	さくら が またね と話す 改行する
+block	ゴーストを終了する
+title	OnP14
+block	さくら が （話しかけてきた相手） に やあ、そちらも元気？ と話しかける
+block	話しかけてきた相手
+title	OnP15
+block	さくら が え\んと%username と話す 改行する
+block	さくら が いち に と話す 改行する
+block	さくら が でない と話す 改行する
+block	さくらスクリプト \s[5] をそのまま出す
+title	OnP16
+block	さくら が （5 から 5 までのランダムな数） と話す 改行する
+block	5 から 5 までのランダムな数
+block	さくら が （0 ％のかくりつ） と話す 改行する
+block	0 ％のかくりつ
+block	さくら が （100 ％のかくりつ） と話す 改行する
+block	100 ％のかくりつ
+block	つぎのどれかをランダムに
+block	さくら が どれでもおなじ と話す 改行する
+block	さくら が どれでもおなじ と話す 改行する
+block	さくら が どれでもおなじ と話す 改行する
+title	OnP18
+block	さくら が さくら と話す 改行する
+block	これから 2 番のキャラが話す
+block	さくら が これは who=0 なので戻る と話す 改行する
+block	これから 3 番のキャラが話す
+block	さくらスクリプト 3人目 をそのまま出す
+block	これから 3 番のキャラが話す
+block	さくらスクリプト 同じなら出ない をそのまま出す
+block	これから 0 番のキャラが話す
+block	さくらスクリプト もどる をそのまま出す
+title	OnP19
+block	さくら が （nai.dll を x ◯ でよんだ答え ◯） と話す 改行する
+block	nai.dll を x ◯ でよんだ答え ◯
+block	さくら が （◯ を ◯ ◯ でよんだ答え ◯） と話す 改行する
+block	◯ を ◯ ◯ でよんだ答え ◯
+title	OnP20
+block	うごき 0 を再生する
+block	うごき 3 を再生する
+block	うごき -5 を再生する
+title	OnP28
+block	文字の初期値 を abcd にする
+block	15 回くりかえす
+block	文字の初期値 を （（文字の初期値） と （文字の初期値） をつなげる） にする
+block	（文字の初期値） と （文字の初期値） をつなげる
+block	文字の初期値
+block	文字の初期値
+block	さくら が （（文字の初期値） の文字数） と話す 改行する
+block	（文字の初期値） の文字数
+block	文字の初期値
+block	文字の初期値 を あいう にする
+block	14 回くりかえす
+block	文字の初期値 を （（文字の初期値） と （文字の初期値） をつなげる） にする
+block	（文字の初期値） と （文字の初期値） をつなげる
+block	文字の初期値
+block	文字の初期値
+block	さくら が （（文字の初期値） の文字数） と話す 改行する
+block	（文字の初期値） の文字数
+block	文字の初期値
+title	OnP27
+block	リンク「（言われたこと）」→ （言われたこと） を出す
+block	言われたこと
+block	言われたこと
+block	音 （言われたこと） を鳴らす
+block	言われたこと
+block	選択肢「（言われたこと）」→ （言われたこと） を出す
+block	言われたこと
+block	言われたこと
+title	OnP25
+block	さくら が （（いまごろ(朝/昼/夕方/夜)） と （いまの季節） をつなげる） と話す 改行する
+block	（いまごろ(朝/昼/夕方/夜)） と （いまの季節） をつなげる
+block	いまごろ(朝/昼/夕方/夜)
+block	いまの季節
+block	さくら が （いまの曜日(名前)） と話す 改行する
+block	いまの曜日(名前)
+title	OnP26
+block	あさ のトークをどれかよぶ
+block	ないまとまり のトークをどれかよぶ
+title	ランダムトーク「あさのあいさつ」（あさ）
+block	さくら が おはよう と話す 改行する
+title	OnP23
+block	たずねて、答えを こたえ に入れる（はじめから なまえ と書いておく）
+block	たずねて、答えを ◯ に入れる（はじめから 入れ先が空なので出ない と書いておく）
+block	https://example.com/a,b[c] をブラウザで開く
+block	イベント OnMyEvent を自分で起こす（情報 おまけ を付ける）
+block	イベント OnNoRef を自分で起こす（情報 ◯ を付ける）
+block	5 秒後に あとで をよぶ
+block	さくら が きいた と話す 改行する
+title	OnP24
+block	みかん に交代する
+block	さくら が ここは出ない と話す 改行する
+title	「あとで」
+block	さくら が おまたせ と話す 改行する
+title	OnP22
+block	nai.dll を 1 ◯ でよぶ（答えを待たずに ◯ に入れる）◯
+block	さくら が よんだ と話す 改行する
+title	OnP21
+block	さくら が 新しくなってるか見てくるね。 と話す 改行する
+block	ネットワーク更新をする
+title	OnP17
+block	ランダムトークの間隔を 90 秒にする
+block	さくら が かえた と話す 改行する
+title	OnP29
+block	400 回くりかえす
+block	さくら が あいうえおかきくけこあいうえおかきくけこあいうえおかきくけこ と話す 改行する
+block	さくら が しっぽ と話す 改行しない

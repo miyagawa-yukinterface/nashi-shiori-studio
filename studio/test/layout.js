@@ -43,7 +43,7 @@ function check(name, got, want) {
 
 // ------------------------------------------------ 1. 定義が blocks.js と合っているか
 global.window = {};
-(0, eval)(fs.readFileSync(path.join(root, 'ui', 'js', 'blocks.js'), 'utf8'));
+(0, eval)(fs.readFileSync(path.join(root, 'tools', 'blocks.js'), 'utf8'));
 const N = global.window.NASHI;
 
 const defs = run(['--defs']);

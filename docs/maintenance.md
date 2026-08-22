@@ -27,10 +27,10 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 | SSP に入れたゴースト | `nashi.dll`（32bit）の `interp.cpp` |
 | エディタの「ためす」 | `nashi-studio.exe`（64bit）に積んだ **同じ** `interp.cpp` |
 
-画面（`ui/js/`）はブロックを解釈しません。`POST /api/preview` に頼んで、
-返ってきたさくらスクリプトを `ui/js/player.js` が再生するだけです。
+画面はブロックを解釈しません。`preview.cpp` ごしに栞へ頼んで、
+返ってきたさくらスクリプトを出すだけです。
 
-> むかしは `ui/js/sim.js` に同じ規則を JavaScript でもう一度書いていました。
+> むかしは画面の JavaScript に同じ規則をもう一度書いていました。
 > 片方だけ直すと、エディタでは思ったとおりなのに SSP では違う、という形で
 > あとから分かる、いちばん厄介なズレかたをしました。474 行を消してあります。
 
@@ -48,7 +48,7 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 
 順番に、4 か所です。`node tools\check-blocks.js` が、抜けたところを名指しで教えます。
 
-1. **`ui/js/blocks.js`** — `def({ type: '…', cat: '…', shape: '…', spec: '…', args: {…} })`。
+1. **`tools/blocks.js`** — `def({ type: '…', cat: '…', shape: '…', spec: '…', args: {…} })`。
    見た目と `ghost.json` の形が決まります。そして `N.PALETTE` の、置きたいカテゴリに
    名前を足します（足さないと、定義してもパレットに並びません）。
 2. **`shiori/src/interp.cpp`** — `RunBlock` に `if (type == "…")`。**ここだけが動かす側です。**
@@ -57,9 +57,11 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
 4. **`shiori/test/parity/ghost.json`** — `OnP**` の帽子で 1 つ。`id` も付けてください。
    **毎回おなじ結果になる形**にしてください（乱数や時計を使うと、毎回ちがう答えになります）。
 
-「空だと困る欄」があるブロックなら、**`ui/js/lint.js`**（チェックタブ）にも足します。
+「空だと困る欄」があるブロックなら、**`studio/src/w2k/lint.cpp`**（チェックのたな）にも
+足します。
 
-`ui/` を直したら、**`studio\build.ps1` で exe を作りなおします**（UI は exe に埋め込まれています）。
+`tools/blocks.js` を直したら、**`.\build.ps1` を通してください**
+（`tools\gen-blockdefs.js` が C++ の表を作りなおします）。
 `interp.cpp` を直したときは、**栞とスタジオの両方**を作りなおしてください
 （`.\build.ps1` が順に作ります）。
 
@@ -116,49 +118,31 @@ node tools\check-blocks.js     # 1 秒。ビルド不要。ブロックがそろ
   `ビルドとテスト`（5 分ほど）が本番と同じ手順を通します。
 * できた `nashi-studio.exe` と `nashi.dll` は、実行結果の画面から 14 日間落とせます
   （署名していないので、手元の exe と同じく Windows に止められることがあります）。
-* ランナーには MSVC も Windows SDK も入っていて、WebView2 の SDK は
-  `studio/third_party` に置いてあるので、**落としてくるものはありません**。
+* ランナーには MSVC も Windows SDK も入っています。**落としてくるものはありません**
+  （外の物には何も頼っていないので）。
 * スマートアプリコントロールはランナーには無いので、手元より素直に通ります。
 
 ---
 
-## 画面のファイルの決まりごと
+## 画面（`studio\src\w2k`）
 
-`ui/js/` は `index.html` に書いた順に読みこまれ、それぞれ `window.NASHI`（`N`）に
-自分のぶんを載せます。**読みこみ順が、そのまま依存の向き**です。
-
-```
-blocks → model → player → lint → render → drag → app → shell / search / dialog / ssp
-```
-
-* **先に読まれるものは、載せてある名前をそのまま受け取れます**
-  （`const Model = N.Model;` のように、ファイルの先頭で）。
-* **あとに読まれるものを呼ぶときは、その場で引きます**（`N.Shell.playSakura(...)`）。
-  先頭で `const Shell = N.Shell;` と書くと、まだ載っていないので `undefined` になります。
-* `app.js` が分けたファイルへ渡すものは、`app.js` の終わりのほうで `App.api = api;` の形で
-  まとめて載せています。足すときはそこに書いてください。
-
-`node ui\test\modules.js` が、この決まりを守れているかを見ます
-（`N.Xxx.yyy()` の呼び先が無ければ、ファイルと行を名指しします）。
-
----
-
-## ネイティブ版の画面（`studio\src\w2k`）
-
-WebView2 は Windows 10 からしか動かないので、画面は Win32 と GDI で作りなおしています。
-ここは**わざと 2 つに分けてあります**。
+画面は Win32 と GDI だけで描いています。WebView2 は Windows 10 からしか動かないので、
+外しました。ここは**わざと分けてあります**。
 
 | ファイル | 何をするか | GDI |
 |---|---|---|
-| `blockdefs.h` / `blockdefs_gen.h` | ブロックの表（`ui\js\blocks.js` から `tools\gen-blockdefs.js` が作る） | 使わない |
+| `blockdefs.h` / `blockdefs_gen.h` | ブロックの表（`tools\blocks.js` から `tools\gen-blockdefs.js` が作る） | 使わない |
 | `layout.cpp` | 幅と高さを決める。どこを押したかを探す | **使わない** |
 | `drag.cpp` | どこにつなげるか。つまむ・はなすと ghost.json がどう変わるか | **使わない** |
-| `paint.cpp` | 決まったものを描く | 使う |
 | `panel.cpp` | 右の作業だなの中身を組み立てる | **使わない** |
 | `lint.cpp` | あぶないところ探し（チェック） | **使わない** |
+| `paint.cpp` | 決まったものを描く | 使う |
 | `window.cpp` | 窓を出して、マウスとキーを受ける | 使う |
 
-`layout.cpp` と `drag.cpp` に GDI が出てこないのは、**画面を出さずにテストするため**です。
+設定ファイルを知っているのは `main.cpp` だけです。画面のコードには
+`SetShioriDll` / `SetSspHint` / `SetProjectsDir` と `EditorOptions` で渡します。
+
+GDI が出てこないものが多いのは、**画面を出さずにテストするため**です。
 文字の幅だけは環境で変わるので、`TextMeasurer` を外から渡してもらいます
 （本物は GDI、テストは「半角 7px・全角 14px」の決め打ち）。
 
@@ -229,8 +213,6 @@ WebView2 は Windows 10 からしか動かないので、画面は Win32 と GDI
 | 7 | 書き出し | フォルダ／`.nar`／SSP に入れて動かす。栞は `SetShioriDll` で渡してもらいます |
 | 8 | ヘルプ | つかいかたとキーの案内 |
 
-これで、WebView2 版にあってネイティブ版に無いものは無くなりました。
-
 「立ち絵」のたなは、**書いた PNG デコーダの出番**です。割りあてられた PNG は
 `pngread.cpp` で読み、仮シェルは `exporter.cpp` の `RenderSurfacePng` で描いて、
 どちらも同じように GDI へ渡します（`StretchDIBits`）。同じ絵を何度も作らないよう、
@@ -256,23 +238,24 @@ WebView2 は Windows 10 からしか動かないので、画面は Win32 と GDI
 .\studio\test\render_host.exe .\shiori\test\parity\ghost.json --window out.png 1200 760 4
 ```
 
-「ためす」と「書き出し」は、**中身を移していません**。どちらも
-`studio\src\preview.cpp` と `studio\src\exporter.cpp` を呼ぶだけです
-（WebView2 版も同じものを呼んでいます）。`window.cpp` が exe のリソースを
+「ためす」と「書き出し」の中身は `studio\src\preview.cpp` と
+`studio\src\exporter.cpp` にあります。`window.cpp` が exe のリソースを
 直に見ないのは、テストからも動かせるようにするためです。栞（`nashi.dll`）は
 `SetShioriDll` で渡してもらい、`main.cpp` がそれを入れます。
 
-### 二重になっているあいだの見張り
+### 言葉が変わっていないか見張る
 
-`blockSummary`（ブロックを字にする）と `scriptTitle`（かたまりの見出し）は、
-いま **JavaScript（`ui\js`）と C++（`panel.cpp`）の両方にあります**。
-WebView2 版を外すまでのあいだだけです。
+チェックの言いかたと、ブロック・かたまりの言いあらわしは、**前と同じかを 1 つずつ
+くらべます**。期待するものは `studio\test\expected\` に置いてあります。
+言いかたをわざと直したときは、**出てきたものを目で確かめてから**置きかえます。
 
-チェック（`lint.js` と `lint.cpp`）も同じです。
+```powershell
+node studio\test\lint.js --update
+node studio\test\panel.js --update
+```
 
-そのあいだ、`studio\test\panel.js` と `studio\test\lint.js` が
-**同じ ghost.json を両方に通して、出てくるものが 1 つずつ同じかを見張ります**。
-栞の二重実装を `parity.js` で見張ったのと同じやりかたです。
+もとは JavaScript 版（`lint.js` / `model.js`）と見くらべていました。
+そちらを外したので、いまは「前と同じか」を見ています。
 
 * `panel.js` … かたまりの見出しとブロックの言いあらわし（3 つのゴースト、323 行）
 * `lint.js` … チェックの結果を、出た順・段階・言葉・説明の 4 つとも
@@ -287,8 +270,6 @@ WebView2 版を外すまでのあいだだけです。
    **編集するときは `area` / `who` / `from` / `contains` にほどく**必要があります。
 2. `settings` と `meta` の**既定値をうめていません**でした。
    うめないと「しゃべる間隔が 0 秒」と言ってしまいます。
-
-WebView2 版を外したら JavaScript 側が消えるので、この見張りも要らなくなります。
 
 ### 部品のたぐい
 
@@ -324,17 +305,12 @@ WebView2 版を外したら JavaScript 側が消えるので、この見張り�
 * 数の欄は、ちゃんと数になっていれば**数として**入れます（`ValueForField`）。
   「1.5あ」のように途中までしか数でないものは、文字のままにします。
 
-**ネイティブ版が既定になりました。** ふつうに起動すると、こちらが出ます。
-
 ```powershell
-.\nashi-studio.exe                              前に開いていたものを出します
+.\nashi-studio.exe                                    前に開いていたものを出します
 .\nashi-studio.exe .\studio\test\drag_fixture.json  そのファイルを開きます
-.\nashi-studio.exe --webview                    前の WebView2 版（見くらべ用）
 ```
 
-窓の場所は `nashi-studio.json` に覚えます。読み書きするのは `main.cpp` で、
-`window.cpp` は `EditorOptions` と `EditorState` でやりとりするだけです
-（画面のコードが設定ファイルを知らないでいられるように）。
+窓の場所と、前に開いていたものは `nashi-studio.json` に覚えます。
 
 ### SSP に送るところ
 
@@ -358,15 +334,16 @@ SSP の場所は設定（`nashi-studio.json` の `sspPath`）に覚えてある�
 `ssp.forget` は本当にファイルを消すので、テストでは**名前のかぶらないゴースト**で
 呼んでいます（うっかり本物の記憶を消さないため）。
 
-WebView2 版はまだ残してあります。しばらく使ってもらって、困りごとが出ないことを
-確かめてから外します。外すときにやることは:
+**WebView2 は外しました。** 画面も、ブロックの表も、チェックも、下ごしらえも、
+ぜんぶ C++ にあります。JavaScript で残っているのは `tools/blocks.js`（ブロック定義の
+「正」）と、node で走らせるテストだけです。
 
-* `webview.cpp` / `webreq.cpp` / `api.cpp` の HTTP のところ / `ui\` 一式 / SDK
-* `SetProcessDpiAwarenessContext` など、新しい Windows にしか無い呼び出し
-* **exe を 32bit で組みなおす**（いまは 64bit なので、そのままでは古い Windows で動きません）
-* `tools\check-imports.js` を exe にも通す
-* 二重になっている見張り（`panel.js` と `lint.js` の JavaScript くらべ）を畳む
-* LICENSE から WebView2 の BSD 条項を外す
+のこりの仕事:
+
+* **exe を 32bit で組みなおす**（いまは 64bit なので、そのままでは古い Windows で
+  動きません）
+* `tools\check-imports.js` を exe にも通して、Windows 2000 を機械で確かめる
+* `SetProcessDpiAwarenessContext` など、新しい Windows にしか無い呼び出しを落とす
 
 つなぎかたの決まりは `ui\js\drag.js` と同じにしてあります。片方だけ変えないでください。
 

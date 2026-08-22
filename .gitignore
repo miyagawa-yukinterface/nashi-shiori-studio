@@ -4,7 +4,6 @@ shiori/dist/
 studio/obj/
 nashi-studio.exe
 nashi-studio.json
-webview-data/
 projects/
 output/
 **/nashi_save.json

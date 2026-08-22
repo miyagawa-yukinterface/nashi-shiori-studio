@@ -1,0 +1,54 @@
+title	起動したとき
+block	さくら が おきた と話す 改行しない
+title	終了するとき
+block	さくら が ばいばい と話す 改行しない
+title	なでられたとき
+block	さくら が どこか と話す 改行しない
+title	どちらかのあたまがなでられたとき
+block	さくら が あたま と話す 改行しない
+title	話しかけられたとき
+block	さくら が だれか と話す 改行しない
+title	だれかに「こんにちは」と話しかけられたとき
+block	さくら が あいさつ と話す 改行しない
+title	みかんに「ねえ」と話しかけられたとき
+block	さくら が （話しかけてきた相手） に みかんだ と話しかける
+block	話しかけてきた相手
+title	3秒ごとにくりかえす
+block	かず を 1 ずつ変える
+block	さくら が （かず） と話す 改行しない
+block	かず
+title	OnEmptyOut
+block	かず を （かず） にする
+block	かず
+title	OnSaoriReal
+block	slow_saori.dll を 200 ぬるい でよぶ（答えを待たずに こたえ に入れる）◯
+title	OnSaoriVerySlow
+block	slow_saori.dll を 6500 おそい でよぶ（答えを待たずに こたえ に入れる）◯
+title	OnSaoriSync
+block	さくら が （slow_saori.dll を 50 すぐ でよんだ答え （答え）） と話す 改行しない
+block	slow_saori.dll を 50 すぐ でよんだ答え （答え）
+title	OnSaoriTest
+block	nai.dll を ひとつめ ◯ でよぶ（答えを待たずに こたえ に入れる）◯
+title	SAORI の答えがとどいたとき
+block	さくら が （とどいた: と （イベントの情報 0番目） をつなげる） と話す 改行しない
+block	とどいた: と （イベントの情報 0番目） をつなげる
+block	イベントの情報 0番目
+title	OnGroupTest
+block	よる のトークをどれかよぶ
+title	ランダムトーク「よるのトーク」（よる）
+block	さくら が おやすみ と話す 改行しない
+title	ランダムトーク「まとまり無し」
+block	さくら が でない と話す 改行しない
+title	OnAskTest
+block	たずねて、答えを こたえ に入れる（はじめから ◯ と書いておく）
+title	OnShowAnswer
+block	さくら が （こたえ） と話す 改行しない
+block	こたえ
+title	OnLaterTest
+block	5 秒後に あとで をよぶ
+title	「あとで」
+block	さくら が おまたせ と話す 改行しない
+title	OnChoiceTest
+block	選択肢「はい」→ こたえ を出す
+title	「こたえ」
+block	さくら が えらばれた と話す 改行しない

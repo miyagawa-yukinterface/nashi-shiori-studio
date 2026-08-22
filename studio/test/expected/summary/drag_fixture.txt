@@ -1,0 +1,10 @@
+title	起動したとき
+block	sakura が はじめ と話す 改行する
+block	ここでトークをおわる
+block	sakura が ここには来ない と話す 改行する
+title	ずっとくりかえす
+block	もし ◯ なら
+title	クリックされたとき
+block	500 ミリ秒待つ
+block	カウンタ を 0 にする
+title	ランダムトーク「あいさつ」

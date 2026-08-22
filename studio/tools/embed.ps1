@@ -1,11 +1,9 @@
-# なしスタジオ - UI・栞・サンプルを exe に埋め込むためのリソースを作る
+# なしスタジオ - 栞・見本・アイコンを exe に埋め込むためのリソースを作る
 #
-#   assets.rc      … rc.exe に渡すリソース定義
-#   assets_gen.h   … パス → リソースID の対応表
+#   assets.rc … rc.exe に渡すリソース定義
 #
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)][string]$PublicDir,
     [Parameter(Mandatory = $true)][string]$StageDir,
     [string]$DllPath,
     [string]$SamplePath,
@@ -15,41 +13,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$MimeMap = @{
-    '.html' = 'text/html; charset=utf-8'
-    '.css'  = 'text/css; charset=utf-8'
-    '.js'   = 'text/javascript; charset=utf-8'
-    '.json' = 'application/json; charset=utf-8'
-    '.svg'  = 'image/svg+xml'
-    '.png'  = 'image/png'
-    '.ico'  = 'image/x-icon'
-    '.woff2' = 'font/woff2'
-    '.map'  = 'application/json; charset=utf-8'
-}
-
 $assetsDir = Join-Path $StageDir 'assets'
 if (Test-Path $assetsDir) { Remove-Item -Recurse -Force $assetsDir }
 New-Item -ItemType Directory -Force -Path $assetsDir | Out-Null
 
-# ---- UI ファイルを ASCII 名で並べ直す（rc.exe に日本語パスを渡さないため）----
-# ui\test\ は画面では使わない（node で動かすテスト）ので、exe には入れません
-$files = Get-ChildItem -Path $PublicDir -Recurse -File |
-    Where-Object { $_.FullName -notmatch '\\test\\' } |
-    Sort-Object FullName
-$entries = @()
-$id = 1000
-foreach ($f in $files) {
-    $rel = $f.FullName.Substring((Resolve-Path $PublicDir).Path.Length).TrimStart('\', '/')
-    $webPath = '/' + ($rel -replace '\\', '/')
-    $stageName = 'a{0}.bin' -f $id
-    Copy-Item $f.FullName (Join-Path $assetsDir $stageName) -Force
-    $ext = $f.Extension.ToLowerInvariant()
-    $mimeType = if ($MimeMap.ContainsKey($ext)) { $MimeMap[$ext] } else { 'application/octet-stream' }
-    $entries += [pscustomobject]@{ Path = $webPath; Id = $id; Mime = $mimeType; File = $stageName }
-    $id++
-}
-
-# ---- 栞・サンプル・アイコン ----------------------------------------------
+# ---- 栞・見本・アイコン ----------------------------------------------
 $rc = New-Object System.Text.StringBuilder
 [void]$rc.AppendLine('// このファイルは studio\tools\embed.ps1 が自動生成します。編集しないでください。')
 
@@ -67,10 +35,6 @@ if ($SamplePath -and (Test-Path $SamplePath)) {
     Copy-Item $SamplePath (Join-Path $assetsDir 'sample.json') -Force
     [void]$rc.AppendLine('901 RCDATA "assets\\sample.json"')
 }
-foreach ($e in $entries) {
-    [void]$rc.AppendLine(('{0} RCDATA "assets\\{1}"' -f $e.Id, $e.File))
-}
-
 # ---- exe のプロパティに出るバージョン情報 ----------------------------------
 $nums = @($Version -split '[.\-+]' | Where-Object { $_ -match '^\d+$' })
 while ($nums.Count -lt 4) { $nums += '0' }
@@ -102,21 +66,4 @@ $v4 = ($nums[0..3]) -join ','
 $rcPath = Join-Path $StageDir 'assets.rc'
 [System.IO.File]::WriteAllText($rcPath, $rc.ToString(), (New-Object System.Text.UTF8Encoding($false)))
 
-# ---- 対応表 ---------------------------------------------------------------
-$h = New-Object System.Text.StringBuilder
-[void]$h.AppendLine('// このファイルは studio\tools\embed.ps1 が自動生成します。編集しないでください。')
-[void]$h.AppendLine('#pragma once')
-[void]$h.AppendLine('')
-[void]$h.AppendLine('struct WebAsset { const char* path; int id; const char* mime; };')
-[void]$h.AppendLine('')
-[void]$h.AppendLine('static const WebAsset kWebAssets[] = {')
-foreach ($e in $entries) {
-    [void]$h.AppendLine(('    {{ "{0}", {1}, "{2}" }},' -f $e.Path, $e.Id, $e.Mime))
-}
-[void]$h.AppendLine('};')
-[void]$h.AppendLine(('static const int kWebAssetCount = {0};' -f $entries.Count))
-
-$hPath = Join-Path $StageDir 'assets_gen.h'
-[System.IO.File]::WriteAllText($hPath, $h.ToString(), (New-Object System.Text.UTF8Encoding($false)))
-
-Write-Host ("[embed] UI {0} ファイルを埋め込みます" -f $entries.Count) -ForegroundColor DarkGray
+Write-Host '[embed] 栞と見本を埋め込みます' -ForegroundColor DarkGray

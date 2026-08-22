@@ -22,14 +22,12 @@ AIを思いっきり使ってます。
 |  | |
 |---|---|
 | **書き出したゴースト**（`nashi.dll` が入ります） | **Windows 2000 以降**。SSP の動作環境に合わせてあります |
-| **なしスタジオ**（`nashi-studio.exe`） | **64bit の Windows**（WebView2 は要りません） |
+| **なしスタジオ**（`nashi-studio.exe`） | **64bit の Windows** |
 
-エディタの画面は Win32 と GDI だけで描いているので、**WebView2（Edge）は要らなくなりました**。
+エディタの画面は Win32 と GDI だけで描いています。**外の物には何も頼りません**
+（ブラウザの部品も、実行時ランタイムも要りません）。
 いまは 64bit ビルドなので 64bit の Windows が要りますが、これも古い Windows へ
 下ろしていく途中です。
-
-> `--webview` を付けて起動すると、前の WebView2 版の画面が出ます（見くらべ用です。
-> いずれ外します）。そちらには WebView2 ランタイムが要ります。
 
 栞のほうは、そこに合わせるために **Visual Studio の C ランタイムを使わずに**組んでいます。
 ふつうに組むと、自分では呼んでいない Vista からの API が混ざってしまい、
@@ -153,7 +151,6 @@ SSP 側で「SSTP を受け付ける」設定が有効（既定でオン）に�
 | `projects\` | プロジェクト（作りかけのブロック）。初回起動時にサンプルが入ります |
 | `output\` | 書き出したゴースト（書き出し先を変えていない場合） |
 | `nashi-studio.json` | 最後に開いたプロジェクト・書き出し先・ウィンドウの大きさ |
-| `webview-data\` | WebView2 の作業フォルダ（消しても再生成されます） |
 
 exe のとなりに `nashi.dll` を置くと、埋め込みのものより **そちらが優先** されます（栞を作り直したときに便利）。
 
@@ -200,13 +197,12 @@ zip の名前と exe のプロパティ（右クリック→プロパティ→�
 打ち忘れても止まるようにするためのものです。設定は `.github/workflows/build.yml`。
 
 個別に作るときは `shiori\build.ps1` / `studio\build.ps1`。
-スタジオのビルドでは `studio\tools\embed.ps1` が `ui\` 以下と `nashi.dll` を
-リソースにまとめ、exe に埋め込みます（UI を直したら再ビルドしてください）。
+スタジオのビルドでは `studio\tools\embed.ps1` が `nashi.dll` と見本のゴーストを
+リソースにまとめ、exe に埋め込みます。
 
-WebView2 の SDK は `studio\third_party\webview2\` に入れてあります（ヘッダと静的リンク用の
-`WebView2LoaderStatic.lib` だけ。**BSD 3-Clause**）。ダウンロードは不要です。
-exe に静的リンクしているので、**配るときは著作権表示の同梱が要ります**。
-その本文はルートの [`LICENSE`](LICENSE) の後ろに入れてあり、配布用の zip にも入ります。
+ブロックの定義は `tools\blocks.js` が「正」です。`tools\gen-blockdefs.js` が、
+そこから C++ の表（`studio\src\w2k\blockdefs_gen.h`）を作ります。
+ブロックを足すときに触るのは、これまでどおり `tools\blocks.js` だけです。
 
 ### スマートアプリコントロールでブロックされたら
 
@@ -263,41 +259,32 @@ nashi-shiori/
 │   ├── test/               答え合わせテスト（-Test でコンソールも作る）
 │   │                         export_host  … 書き出したファイルの中身を見る
 │   │                         preview_host … 「ためす」の結果を見る
-│   ├── res/                アイコン・埋め込むサンプルプロジェクト
-│   ├── third_party/        WebView2 SDK（ヘッダ + 静的ローダ）
-│   ├── tools/embed.ps1     ui\ と nashi.dll をリソース化
+│   ├── res/                アイコン・埋め込む見本のゴースト
+│   ├── tools/embed.ps1     nashi.dll と見本をリソース化
 │   └── src/
-│       ├── main.cpp        ウィンドウ・起動終了・多重起動防止
-│       ├── webview.cpp     WebView2 の埋め込みと要求の横取り
-│       ├── webreq.cpp      要求の解析（URL デコードなど）
-│       ├── assets.cpp      exe に埋め込んだ ui\ と nashi.dll を取り出す
+│       ├── main.cpp        起動の段どり（窓を出すまで）
+│       ├── config.cpp      置き場所と、覚えておく設定
+│       ├── assets.cpp      exe に埋め込んだものを取り出す
 │       ├── sstp.cpp        SSP との連携（SSTP と ssp.exe の検出）
-│       ├── api.cpp         保存・読み込み・書き出し・ためす の処理
 │       ├── preview.cpp     「ためす」を栞そのものに実行させる
 │       ├── exporter.cpp    ゴースト一式の組み立て（仮シェル込み）
 │       ├── image.cpp       PNG 出力と簡易ラスタライザ
+│       ├── pngread.cpp     PNG を読む
+│       ├── inflate.cpp     deflate をほどく
 │       ├── zip.cpp         .nar (ZIP) 出力
 │       ├── deflate.cpp     deflate 圧縮（固定ハフマン + LZ77）
-│       └── fsutil.cpp      ファイル操作
-├── ui/                     画面（exe に埋め込まれる）
-│   ├── index.html
-│   ├── style.css
-│   ├── test/               画面を出さずに動かすテスト
-│   │                         editor.js  … 整形とチェックタブ
-│   │                         modules.js … 読みこみと呼び先のそろい
-│   └── js/
-│       ├── blocks.js       ブロック定義（ここを増やすとブロックが増える）
-│       ├── model.js        プロジェクトのデータと Undo
-│       ├── render.js       ブロックの描画
-│       ├── drag.js         ドラッグ＆スナップ
-│       ├── lint.js         チェックタブ（空のセリフ・無い変数・行き先のない選択肢）
-│       ├── player.js       さくらスクリプトの再生（動かすのは栞）
-│       ├── app.js          画面の骨組み（状態・再描画・パレット・変数・起動）
-│       ├── shell.js        立ち絵とうごき（「ゴースト」タブ）とステージ
-│       ├── search.js       「チェック」タブと「さがす」タブ
-│       ├── dialog.js       保存 / 読込 と 書き出し
-│       └── ssp.js          動いている SSP との連携
+│       ├── fsutil.cpp      ファイル操作
+│       └── w2k/            画面（Win32 と GDI だけ）
+│           ├── blockdefs.cpp  ブロックの表（tools\blocks.js から生成）
+│           ├── layout.cpp     置き場所の計算（GDI を使いません）
+│           ├── drag.cpp       つまむ・つなぐ（GDI を使いません）
+│           ├── panel.cpp      右の作業だな（GDI を使いません）
+│           ├── lint.cpp       あぶないところ探し（GDI を使いません）
+│           ├── paint.cpp      ブロックを描く
+│           └── window.cpp     窓・マウス・キー
 ├── tools/
+│   ├── blocks.js           **ブロック定義の「正」**（ここを増やすとブロックが増える）
+│   ├── gen-blockdefs.js    blocks.js から C++ の表を作る
 │   ├── check-blocks.js     ブロックが全部のファイルにそろっているか見る（ビルド不要）
 │   └── check-imports.js    栞が Windows 2000 から読みこめるか見る
 └── docs/
@@ -311,8 +298,8 @@ nashi-shiori/
 ## 栞のしくみ
 
 エディタの「ためす」も、**この栞そのもの**が動かしています。なしスタジオは
-`shiori/src/interp.cpp` を 64bit で組んだものを積んでいて、画面は `POST /api/preview`
-で頼むだけです（画面側にブロックの解釈はありません）。
+`shiori/src/interp.cpp` を 64bit で組んだものを積んでいて、画面はそれを呼ぶだけです
+（画面側にブロックの解釈はありません）。
 違うのは 2 つだけで、**SAORI は呼びません**（本物の 32bit DLL が要るため）、
 **時計や起動回数は画面から渡します**。それ以外は SSP に入れたときと同じ答えになります。
 
@@ -391,13 +378,9 @@ nashi-shiori/
 
 ## 安全のはなし
 
-* **ポートは開きません。** 画面からの要求は WebView2 の中で受け取り、そのまま exe の中で
-  処理しています。外に出る通信は、SSP と話すときの `127.0.0.1:9801` だけです。
-* 画面は `https://nashi.example/` という**見せかけのアドレス**で動いていて、
-  そこから外のページへは移動しません（移動しようとしたら、既定のブラウザに渡します）。
-  外部リンクを開くときも `http` / `https` だけを渡します。
-* exe の中の API は、**画面自身から出た要求だけ**を受け付けます
-  （独自ヘッダか、同じアドレスから来たことの確認）。
+* **ポートは開きません。** 外に出る通信は、SSP と話すときの `127.0.0.1:9801` だけです。
+* 画面は Win32 と GDI だけで描いています。ブラウザの部品を使っていないので、
+  外のページを読みこむ道すじがそもそもありません。
 * 栞は、**外から来た文字**（他のゴーストに言われたこと、入力ボックスに書かれたもの）を
   さくらスクリプトに入れるとき、タグを閉じる `[` `]` と改行を落とします。
   ただし `さくらスクリプトをそのまま出す` ブロックは素通しなので、そこに外から来た文字を
@@ -461,9 +444,8 @@ https://github.com/miyagawa-yukinterface/nashi-shiori-studio
 
 ### 同梱しているもの
 
-`nashi-studio.exe` には **Microsoft Edge WebView2 SDK**（BSD 3-Clause）を
-静的リンクしています。その著作権表示は `LICENSE` の後ろに入っていて、
-配布用の zip にも必ず入ります。
+ありません。`nashi-studio.exe` も `nashi.dll` も、外のソフトウェアを
+組みこんでいません。
 
 > **独自ライセンスなので、GitHub はライセンス名を表示しません。**
 > 中身は許諾型（MIT や zlib と同じ系統）で、コピーレフトではありません。
@@ -473,8 +455,7 @@ https://github.com/miyagawa-yukinterface/nashi-shiori-studio
 ## メモ
 
 * 生成される仮シェルは、絵を用意するまでの繋ぎです。配布するゴーストには自分の絵を使ってください。
-* PNG も .nar も外部ライブラリを使わず自前で書き出しています（zlib 不要）。
-* 画面は WebView2 の中で動く HTML/CSS/JS ですが、`https://nashi.example/` という
-  見せかけのアドレスから exe の中身を直接返しているだけで、通信はしていません。
-* `ui\index.html` をブラウザで直接開くと、画面の見た目は出ますが、保存・書き出し・
-  「ためす」は動きません（どれも exe の中の処理を呼んでいるためです）。
+* PNG は、書くのも読むのも外部ライブラリを使わず自前です（zlib 不要）。
+  .nar（ZIP）も同じです。
+* 画面は Win32 と GDI だけで描いています。角丸や影がなめらかでないのは、
+  古い Windows でも同じように出すためです。

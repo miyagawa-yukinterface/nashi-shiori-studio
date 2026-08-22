@@ -1,6 +1,6 @@
 // なしスタジオ（ネイティブ版）- ブロックの定義
 //
-// 中身の表は tools\gen-blockdefs.js が ui\js\blocks.js から作ります
+// 中身の表は tools\gen-blockdefs.js が tools\blocks.js から作ります
 // （blockdefs_gen.h）。ブロックを足すときに触るのは、これまでどおり blocks.js だけです。
 //
 // ここにあるのは、その表を読むための型と、引きかたです。

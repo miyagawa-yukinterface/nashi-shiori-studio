@@ -69,7 +69,6 @@ $version = if (Test-Path $versionFile) { (Get-Content $versionFile -Raw).Trim() 
 Write-Host "[studio] リソースを準備中... (v$version)" -ForegroundColor Cyan
 & (Join-Path $root 'tools\embed.ps1') `
     -Version $version `
-    -PublicDir (Join-Path $repo 'ui') `
     -StageDir $obj `
     -DllPath $dll `
     -SamplePath $sample `
@@ -87,10 +86,8 @@ try {
 # ---- コンパイル ------------------------------------------------------------
 $sources = @(
     (Join-Path $src 'main.cpp'),
-    (Join-Path $src 'api.cpp'),
+    (Join-Path $src 'config.cpp'),
     (Join-Path $src 'assets.cpp'),
-    (Join-Path $src 'webview.cpp'),
-    (Join-Path $src 'webreq.cpp'),
     (Join-Path $src 'sstp.cpp'),
     (Join-Path $src 'exporter.cpp'),
     (Join-Path $src 'image.cpp'),
@@ -115,15 +112,10 @@ $sources = @(
     (Join-Path $repo 'shiori\src\util.cpp')
 )
 
-$wv2 = Join-Path $root 'third_party\webview2'
-if (-not (Test-Path (Join-Path $wv2 'include\WebView2.h'))) {
-    throw "WebView2 SDK が見つかりません: $wv2 (studio\third_party\webview2\README.md を参照)"
-}
-
 $clArgs = @(
     '/nologo', '/c', '/O2', '/MT', '/EHsc', '/W3', '/GS', '/std:c++17', '/utf-8',
     '/DNDEBUG', '/DWIN32', '/D_WINDOWS', '/DUNICODE', '/D_UNICODE', '/D_CRT_SECURE_NO_WARNINGS',
-    "/I$src", "/I$repo\shiori\src", "/I$obj", "/I$wv2\include",
+    "/I$src", "/I$repo\shiori\src", "/I$obj",
     "/Fo:$obj\"
 ) + $sources
 
@@ -135,7 +127,7 @@ if ($LASTEXITCODE -ne 0) { throw 'コンパイルに失敗しました。' }
 $objs = $sources | ForEach-Object { Join-Path $obj ([System.IO.Path]::GetFileNameWithoutExtension($_) + '.obj') }
 $linkArgs = @(
     '/nologo', "/OUT:$exeOut", '/SUBSYSTEM:WINDOWS', '/OPT:REF', '/OPT:ICF'
-) + $objs + @((Join-Path $obj 'assets.res'), (Join-Path $wv2 "$Arch\WebView2LoaderStatic.lib")) +
+) + $objs + @((Join-Path $obj 'assets.res')) +
     @('kernel32.lib', 'user32.lib', 'gdi32.lib', 'shell32.lib', 'shlwapi.lib',
       'comdlg32.lib', 'advapi32.lib', 'ole32.lib', 'oleaut32.lib', 'version.lib', 'ws2_32.lib')
 

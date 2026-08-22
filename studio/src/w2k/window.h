@@ -34,6 +34,7 @@ struct EditorOptions {
 struct EditorState {
     int x = 0, y = 0, w = 0, h = 0;
     bool maximized = false;
+    std::wstring lastFile;     // 閉じたときに開いていた ghost.json
 };
 
 /**
@@ -50,6 +51,9 @@ void SetShioriDll(const std::string& bytes);
 
 /** SSP の場所（設定に覚えてあるもの）。探すときの手がかりに使います。 */
 void SetSspHint(const std::wstring& hint);
+
+/** ゴーストの置き場所。ひらく・保存するときに、はじめに出すフォルダです。 */
+void SetProjectsDir(const std::wstring& dir);
 
 /**
  * 窓を出さずに、いまの画面をそのまま PNG にします（確かめ用）。

@@ -3,7 +3,7 @@
  *   node tools\gen-blockdefs.js          書き出す
  *   node tools\gen-blockdefs.js --check  いまの中身と合っているか見るだけ
  *
- * ブロックの「正」は これまでどおり ui\js\blocks.js です。
+ * ブロックの「正」は これまでどおり tools\blocks.js です。
  * ネイティブ版の画面（studio\src\w2k）も同じ定義で描くので、
  * 手で書き写さずに、ここから C++ の表を作ります。
  *
@@ -21,10 +21,10 @@ const C = { red: '\x1b[31m', green: '\x1b[32m', dim: '\x1b[2m', off: '\x1b[0m' }
 
 // ------------------------------------------------------------ blocks.js を読む
 global.window = {};
-(0, eval)(fs.readFileSync(path.join(root, 'ui', 'js', 'blocks.js'), 'utf8'));
+(0, eval)(fs.readFileSync(path.join(__dirname, 'blocks.js'), 'utf8'));
 const N = global.window.NASHI;
 if (!N || !N.BLOCKS) {
-  console.error(`${C.red}[生成] ui\\js\\blocks.js を読めませんでした。${C.off}`);
+  console.error(`${C.red}[生成] tools\\blocks.js を読めませんでした。${C.off}`);
   process.exit(2);
 }
 

@@ -958,6 +958,9 @@ void RunOne(int scriptIndex) {
 /** SSP の場所（設定に覚えてあるもの）。main.cpp が入れます。 */
 std::wstring g_sspHint;
 
+/** ゴーストの置き場所。ひらく・保存するときに、はじめに出すフォルダです。 */
+std::wstring g_projectsDir;
+
 /** いま動いている SSP を探して、様子を書きとめる。 */
 SspInfo LookSsp() {
     const SspInfo ssp = DetectSsp(g_sspHint);
@@ -2102,6 +2105,7 @@ void DoOpen() {
     ofn.lpstrFilter = L"ゴーストの設計図 (ghost.json)\0*.json\0すべて\0*.*\0";
     ofn.lpstrFile = buf;
     ofn.nMaxFile = MAX_PATH;
+    if (!g_projectsDir.empty()) ofn.lpstrInitialDir = g_projectsDir.c_str();
     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
     if (!GetOpenFileNameW(&ofn)) return;
     if (!LoadGhost(buf)) {
@@ -2223,6 +2227,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 g.lastPlacement.h = r.bottom - r.top;
                 g.lastPlacement.maximized = (wp.showCmd == SW_SHOWMAXIMIZED);
             }
+            g.lastPlacement.lastFile = g.path;   // 次に開いたとき、これを出します
             PostQuitMessage(0);
             return 0;
         }
@@ -2548,6 +2553,8 @@ bool RenderEditor(const std::wstring& ghostPath, int width, int height,
 void SetShioriDll(const std::string& bytes) { g.shioriDll = bytes; }
 
 void SetSspHint(const std::wstring& hint) { g_sspHint = hint; }
+
+void SetProjectsDir(const std::wstring& dir) { g_projectsDir = dir; }
 
 const wchar_t* EditorWindowClass() { return kClass; }
 

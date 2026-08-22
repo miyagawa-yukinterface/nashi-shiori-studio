@@ -3,12 +3,12 @@
  *
  * ここは 2 つのことを見ます。
  *
- *  1. **言いあらわしが JavaScript 版と同じか**
- *     ブロックを字にする blockSummary と、かたまりの見出し scriptTitle は、
- *     いま JavaScript（ui\js）と C++（studio\src\w2k\panel.cpp）の両方にあります。
- *     WebView2 版を外すまでの間だけ二重になるので、そのあいだは
- *     **同じ ghost.json を両方に通して、字が一致するか**を見張ります。
- *     （WebView2 版を外したら JavaScript 側が消えるので、この見張りも要らなくなります）
+ *  1. ブロックを字にする言いあらわし（blockSummary）と、かたまりの見出し
+ *     （scriptTitle）が、前と同じか。期待するものは
+ *     studio\test\expected\summary\ に置いてあります。
+ *     言いかたを直したときは、出てきたものを**目で確かめてから**
+ *       node studio\test\panel.js --update
+ *     で置きかえてください。
  *
  *  2. 作業だなが組み立てられて、押したとおりに ghost.json が変わるか
  */
@@ -75,32 +75,6 @@ function run(args) {
   }
 }
 
-// ------------------------------------------- ui\js を、画面を出さずに読みこむ
-// ui\test\modules.js と同じやりかたです。
-const noop = () => {};
-const elStub = new Proxy({}, {
-  get: (t, k) => (k === 'style' || k === 'classList' || k === 'dataset' ? elStub : noop),
-  set: () => true,
-});
-global.document = {
-  addEventListener: noop,
-  removeEventListener: noop,
-  querySelector: () => null,
-  querySelectorAll: () => [],
-  createElement: () => elStub,
-  body: elStub,
-};
-global.window = { NASHI: {}, addEventListener: noop, location: { href: '' } };
-if (!globalThis.navigator) global.navigator = { userAgent: 'node' };
-global.fetch = () => Promise.reject(new Error('テストでは通信しません'));
-
-const html = fs.readFileSync(path.join(root, 'ui', 'index.html'), 'utf8');
-const listed = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m) => m[1]);
-for (const f of listed) {
-  (0, eval)(fs.readFileSync(path.join(root, 'ui', 'js', f), 'utf8'));
-}
-const N = global.window.NASHI;
-
 /**
  * 押したあとの ghost.json を取り出す。
  * 見つからないときは、空のものを返します（落とさずに「ちがう」と言わせるため）。
@@ -115,56 +89,39 @@ function jsonOf(said) {
   }
 }
 
-/**
- * JavaScript 版で、同じならびを作る（--summary と同じ形）。
- * 見る順は ui\js\search.js の walkBlocks と同じにしてあります。
- */
-function summaryFromJs(project) {
-  const lines = [];
-  const visit = (b) => lines.push('block\t' + N.App.blockSummary(b));
+// ---------------------------------------------- 期待するものの置き場所
+const expectedDir = path.join(root, 'studio', 'test', 'expected', 'summary');
+const updating = process.argv.includes('--update');
+if (updating) fs.mkdirSync(expectedDir, { recursive: true });
 
-  const stack = (arr) => {
-    if (!Array.isArray(arr)) return;
-    for (const b of arr) {
-      if (!b || typeof b !== 'object') continue;
-      visit(b);
-      inner(b);
-    }
-  };
-  const inner = (b) => {
-    const d = N.getDef(b);
-    if (!d) return;
-    for (const sub of d.subs || []) stack(b[sub.key]);
-    if (d.dynamic && Array.isArray(b[d.dynamic])) b[d.dynamic].forEach(stack);
-    for (const name in (d.args || {})) {
-      const v = b[name];
-      if (v && typeof v === 'object' && v.type) { visit(v); inner(v); }
-    }
-  };
-
-  for (const s of project.scripts) {
-    lines.push('title\t' + N.Model.scriptTitle(s));
-    stack(s.blocks);
-  }
-  return lines;
-}
-
-// ---------------------------------------- 1. JavaScript 版と字が一致するか
-console.log(`${C.dim}-- 言いあらわしが JavaScript 版と同じか${C.off}`);
+// ------------------------------------- 1. 言いあらわしが、前と同じか
+console.log(`${C.dim}-- ブロックとかたまりの言いあらわし${C.off}`);
 for (const name of ['drag_fixture', 'parity', 'behavior']) {
   const file = name === 'drag_fixture' ? fixture
     : name === 'parity' ? path.join(root, 'shiori', 'test', 'parity', 'ghost.json')
       : path.join(root, 'shiori', 'test', 'behavior', 'main', 'ghost.json');
   if (!fs.existsSync(file)) continue;
 
-  const project = N.Model.normalize(JSON.parse(fs.readFileSync(file, 'utf8')));
-  const wantLines = summaryFromJs(project);
   const gotLines = run([file, '--summary']).split(/\r?\n/).filter((l) => l.length);
+  const expected = path.join(expectedDir, name + '.txt');
+
+  if (updating) {
+    fs.writeFileSync(expected, gotLines.join('\n') + '\n', 'utf8');
+    console.log(`${C.dim}  書きました  ${name}（${gotLines.length} 行）${C.off}`);
+    continue;
+  }
+  if (!fs.existsSync(expected)) {
+    check(`${name}（期待するものがありません）`,
+      `studio\\test\\expected\\summary\\${name}.txt`, 'あるはず');
+    continue;
+  }
+  const wantLines = fs.readFileSync(expected, 'utf8')
+    .split(/\r?\n/).filter((l) => l.length);
 
   let firstDiff = '';
   for (let i = 0; i < Math.max(wantLines.length, gotLines.length); i++) {
     if (wantLines[i] === gotLines[i]) continue;
-    firstDiff = `${i} 行め\n        C++ : ${gotLines[i]}\n        JS  : ${wantLines[i]}`;
+    firstDiff = `${i} 行め\n        いま  : ${gotLines[i]}\n        まえ  : ${wantLines[i]}`;
     break;
   }
   check(`${name}.json の言いあらわし（${gotLines.length} 行）`,
@@ -606,7 +563,8 @@ try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) { /* 消せ�
 
 console.log('');
 if (bad) {
-  console.log(`${C.red}[たな] ${bad} か所ちがいます。${C.off}`);
+  console.log(`${C.red}[たな] ${bad} か所ちがいます。`
+    + ` 言いかたをわざと変えたのなら、node studio\\test\\panel.js --update${C.off}`);
   process.exit(1);
 }
 console.log(`${C.green}[たな] 右の作業だなは期待どおりです。${C.off}`);

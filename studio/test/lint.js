@@ -1,12 +1,13 @@
 /*
- * なしスタジオ - チェック（ネイティブ版）のテスト
+ * なしスタジオ - チェック（lint.cpp）のテスト
  *
- * チェックの中身は、いま **JavaScript（ui\js\lint.js）と C++（studio\src\w2k\lint.cpp）
- * の両方にあります**。WebView2 版を外すまでのあいだだけの二重です。
+ * 同じ ghost.json を通して、出た順・段階（まちがい／気になる）・言葉・説明が
+ * 前と同じかを 1 件ずつくらべます。期待するものは studio\test\expected\lint\ に
+ * 置いてあります。
  *
- * そのあいだ、ここが「同じ ghost.json に、同じことを言うか」を見張ります。
- * くらべるのは、出た順・段階（まちがい／気になる）・言葉・説明の 4 つぜんぶです。
- * 栞の二重実装を parity.js で見張ったのと同じやりかたです。
+ * 言いかたを直したときは、出てきたものを**目で確かめてから**
+ *   node studio\test\lint.js --update
+ * で置きかえてください。
  *
  * 見本のゴーストだけでは通らない道が多いので、わざと変なところのある
  * ghost.json をこの場で組み立てて、それも通します。
@@ -58,33 +59,13 @@ function run(args) {
   }
 }
 
-// ------------------------------------------- ui\js を、画面を出さずに読みこむ
-const noop = () => {};
-const elStub = new Proxy({}, {
-  get: (t, k) => (k === 'style' || k === 'classList' || k === 'dataset' ? elStub : noop),
-  set: () => true,
-});
-global.document = {
-  addEventListener: noop, removeEventListener: noop,
-  querySelector: () => null, querySelectorAll: () => [],
-  createElement: () => elStub, body: elStub,
-};
-global.window = { NASHI: {}, addEventListener: noop, location: { href: '' } };
-if (!globalThis.navigator) global.navigator = { userAgent: 'node' };
-global.fetch = () => Promise.reject(new Error('テストでは通信しません'));
+// ---------------------------------------------- 期待するものの置き場所
+const expectedDir = path.join(root, 'studio', 'test', 'expected', 'lint');
+const updating = process.argv.includes('--update');
+if (updating) fs.mkdirSync(expectedDir, { recursive: true });
 
-const html = fs.readFileSync(path.join(root, 'ui', 'index.html'), 'utf8');
-const listed = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m) => m[1]);
-for (const f of listed) (0, eval)(fs.readFileSync(path.join(root, 'ui', 'js', f), 'utf8'));
-const N = global.window.NASHI;
-
-/** JavaScript 版のチェックを、--lint と同じ形にする。 */
-function lintFromJs(project) {
-  return N.Lint.run(project).map((it) => `${it.level}\t${it.message}\t${it.hint}`);
-}
-
-/** C++ 版のチェック。 */
-function lintFromCpp(file) {
+/** チェックの結果を、1 件 1 行にして返す。 */
+function lintOf(file) {
   const said = run([file, '--lint']).split(/\r?\n/);
   const out = [];
   for (let i = 0; i + 2 < said.length; i += 3) {
@@ -94,17 +75,33 @@ function lintFromCpp(file) {
   return out;
 }
 
-function compare(name, project) {
-  const file = path.join(tmp, name + '.json');
-  fs.writeFileSync(file, JSON.stringify(project), 'utf8');
+/** ファイル名に使えない字を、使える字に。 */
+function safeName(name) {
+  return name.replace(/[\\/:*?"<>|]/g, '_');
+}
 
-  const want = lintFromJs(N.Model.normalize(JSON.parse(JSON.stringify(project))));
-  const got = lintFromCpp(file);
+function compare(name, project) {
+  const file = path.join(tmp, safeName(name) + '.json');
+  fs.writeFileSync(file, JSON.stringify(project), 'utf8');
+  const got = lintOf(file);
+
+  const expected = path.join(expectedDir, safeName(name) + '.txt');
+  if (updating) {
+    fs.writeFileSync(expected, got.join('\n') + (got.length ? '\n' : ''), 'utf8');
+    console.log(`${C.dim}  書きました  ${name}（${got.length} 件）${C.off}`);
+    return;
+  }
+  if (!fs.existsSync(expected)) {
+    check(`${name}（期待するものがありません）`,
+      `studio\\test\\expected\\lint\\${safeName(name)}.txt`, 'あるはず');
+    return;
+  }
+  const want = fs.readFileSync(expected, 'utf8').split(/\r?\n/).filter((l) => l.length);
 
   let diff = '';
   for (let i = 0; i < Math.max(want.length, got.length); i++) {
     if (want[i] === got[i]) continue;
-    diff = `${i} 件め\n        C++ : ${got[i]}\n        JS  : ${want[i]}`;
+    diff = `${i} 件め\n        いま  : ${got[i]}\n        まえ  : ${want[i]}`;
     break;
   }
   check(`${name}（${got.length} 件）`, diff || '同じ', '同じ');
@@ -330,7 +327,8 @@ try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) { /* 消せ�
 
 console.log('');
 if (bad) {
-  console.log(`${C.red}[チェック] ${bad} か所ちがいます。${C.off}`);
+  console.log(`${C.red}[チェック] ${bad} か所ちがいます。`
+    + ` わざと変えたのなら、node studio\\test\\lint.js --update${C.off}`);
   process.exit(1);
 }
-console.log(`${C.green}[チェック] JavaScript 版と同じことを言います。${C.off}`);
+console.log(`${C.green}[チェック] 前と同じことを言います。${C.off}`);
