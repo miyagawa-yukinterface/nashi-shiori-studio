@@ -236,6 +236,7 @@ if ($Test) {
         (Join-Path $src 'exporter.cpp'),
         (Join-Path $src 'fsutil.cpp'),
         (Join-Path $src 'zip.cpp'),
+        (Join-Path $src 'sstp.cpp'),
         (Join-Path $repo 'shiori\src\interp.cpp'),
         (Join-Path $repo 'shiori\src\program.cpp'),
         (Join-Path $repo 'shiori\src\json.cpp'),
@@ -254,7 +255,7 @@ if ($Test) {
     $renExe = Join-Path $root 'test\render_host.exe'
     & link '/nologo' "/OUT:$renExe" '/SUBSYSTEM:CONSOLE' @renObjs `
         'kernel32.lib' 'user32.lib' 'gdi32.lib' 'shell32.lib' 'shlwapi.lib' 'advapi32.lib' `
-        'ole32.lib' 'comdlg32.lib'
+        'ole32.lib' 'comdlg32.lib' 'ws2_32.lib'
     if ($LASTEXITCODE -ne 0) { throw '描画テスト用コンソールのリンクに失敗しました。' }
     Write-Host "[studio] OK -> $renExe" -ForegroundColor Green
 

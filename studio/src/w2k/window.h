@@ -48,6 +48,9 @@ int RunEditor(HINSTANCE hInstance, const EditorOptions& options, EditorState* st
  */
 void SetShioriDll(const std::string& bytes);
 
+/** SSP の場所（設定に覚えてあるもの）。探すときの手がかりに使います。 */
+void SetSspHint(const std::wstring& hint);
+
 /**
  * 窓を出さずに、いまの画面をそのまま PNG にします（確かめ用）。
  * render_host と同じ考えで、画面まわりも目で見られるようにしておきます。

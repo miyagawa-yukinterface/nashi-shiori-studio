@@ -269,6 +269,36 @@ console.log(`${C.dim}-- ためすたな${C.off}`);
   }
 }
 
+// ------------------------------------------- 4.5 SSP に送るところ
+// ここを走らせる機械で SSP が動いているとはかぎらないので、
+// 「動いていないときに、ちゃんとそう言うか」を見ます。
+console.log(`${C.dim}-- SSP に送るところ${C.off}`);
+{
+  const said = run([fixture, '--panel', '0']);
+  check('SSP のボタンがそろう',
+    ['ssp.check', 'ssp.say', 'ssp.event', 'ssp.comm', 'ssp.forget']
+      .filter((id) => said.includes(`button ${id} `)).length, 5);
+
+  const look = run([fixture, '--panel', '0', '--click', 'ssp.check']);
+  check('様子を言う', /hint - .*SSP (が|は)/.test(look) ? 'はい' : 'いいえ', 'はい');
+
+  // SSP が動いていないときは、送らずにそう言うこと
+  const say = run([fixture, '--panel', '0', '--click', 'ssp.say']);
+  const line = (say.match(/^text - .*?\d+x\d+\s+(.*)$/m) || [])[1] || '';
+  check('動いていなければ、送らずに言う',
+    /受けつけていません|先に、かたまりを動かして|送れませんでした/.test(line) ? 'はい' : line,
+    'はい');
+
+  // 「記憶を消す」は、本当に消すので、名前のかぶらないゴーストで見ます
+  const lonely = path.join(tmp, 'lonely.json');
+  const project = JSON.parse(fs.readFileSync(fixture, 'utf8'));
+  project.meta = { name: 'なしスタジオのテスト用ゴースト' };
+  fs.writeFileSync(lonely, JSON.stringify(project), 'utf8');
+  const forget = run([lonely, '--panel', '0', '--click', 'ssp.forget']);
+  check('消すものが無ければ、そう言う',
+    /消すものはありませんでした/.test(forget) ? 'はい' : 'いいえ', 'はい');
+}
+
 // ---------------------------------------------------- 5. ゴーストのたな
 console.log(`${C.dim}-- ゴーストのたな${C.off}`);
 {
@@ -302,6 +332,8 @@ console.log(`${C.dim}-- ゴーストのたな${C.off}`);
 console.log(`${C.dim}-- 書き出しのたな${C.off}`);
 {
   const said = run([fixture, '--panel', '7']);
+  check('SSP に入れるボタンもある',
+    /button ssp\.install /.test(said) ? 'はい' : 'いいえ', 'はい');
   check('出す先とボタンがある',
     /field export\.dir /.test(said) && /button export\.folder /.test(said)
       && /button export\.nar /.test(said) ? 'はい' : 'いいえ', 'はい');
@@ -423,8 +455,18 @@ console.log(`${C.dim}-- 立ち絵のたな${C.off}`);
     try {
       pixel = execFileSync(pngHost, ['--pixel', shot, String(x), String(y)],
         { encoding: 'utf8' }).trim();
-    } catch (e) { pixel = String(e.message); }
-    check('割りあてた絵の色が、画面に出ている', pixel, '200 30 40 255');
+    } catch (e) {
+      // 作りたての exe は、スマートアプリコントロールに止められることがあります
+      if (String(e.code) === 'UNKNOWN'
+          || /Application Control|アプリケーション制御/.test(String(e.message))) {
+        console.log(`${C.dim}  ――  png_host.exe を起動できませんでした`
+          + `（スマートアプリコントロール）。色の確かめは飛ばします。${C.off}`);
+        pixel = '';
+      } else {
+        pixel = String(e.message);
+      }
+    }
+    if (pixel) check('割りあてた絵の色が、画面に出ている', pixel, '200 30 40 255');
   }
 }
 

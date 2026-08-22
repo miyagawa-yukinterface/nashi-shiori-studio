@@ -15,6 +15,7 @@
 #include "panel.h"
 #include "../exporter.h"
 #include "../preview.h"
+#include "../sstp.h"
 #include "../image.h"
 #include "../../../shiori/src/json.h"
 #include "../../../shiori/src/util.h"
@@ -952,6 +953,74 @@ void RunOne(int scriptIndex) {
     SplitLines(res.script, 34, &g.panel.runOut);
 }
 
+// -------------------------------------------------------------- SSP に送る
+
+/** SSP の場所（設定に覚えてあるもの）。main.cpp が入れます。 */
+std::wstring g_sspHint;
+
+/** いま動いている SSP を探して、様子を書きとめる。 */
+SspInfo LookSsp() {
+    const SspInfo ssp = DetectSsp(g_sspHint);
+    std::string state;
+    if (!ssp.running) {
+        state = ssp.exePath.empty() ? "SSP が見つかりません" : "SSP は動いていません";
+    } else if (!ssp.sstp) {
+        state = "SSP は動いていますが、SSTP を受けつけていません";
+    } else {
+        state = "SSP が動いています";
+        if (!ssp.ghostName.empty()) state += "（いま: " + ssp.ghostName + "）";
+    }
+    g.panel.sspState = state;
+    return ssp;
+}
+
+/** SSP に送ったときの言い分を書きとめる。 */
+void SaySsp(const SstpResult& r, const std::string& done) {
+    g.panel.sspOut.clear();
+    if (r.ok) {
+        g.panel.sspOut.push_back(done);
+    } else {
+        g.panel.sspOut.push_back("送れませんでした");
+        if (!r.error.empty()) g.panel.sspOut.push_back(r.error);
+    }
+}
+
+/** いま出ているさくらスクリプト（ためすたなで動かしたもの）。 */
+std::string LastScript() {
+    std::string out;
+    for (size_t i = 0; i < g.panel.runOut.size(); i++) out += g.panel.runOut[i];
+    return out;
+}
+
+/** そのゴーストのフォルダ名（書き出したときと同じ決めかた）。 */
+std::wstring GhostFolderName() {
+    std::string folder = g.project["meta"]["folder"].asStr();
+    if (folder.empty()) folder = g.project["meta"]["name"].asStr("nashi-ghost");
+    return Utf8ToWide(SafeFolderName(folder, "nashi-ghost"));
+}
+
+/** 書き出したゴーストが覚えている変数を消す。 */
+void ForgetGhostMemory() {
+    const std::wstring folder = GhostFolderName();
+    std::vector<std::wstring> roots;
+    if (!g.panel.exportDir.empty()) roots.push_back(Utf8ToWide(g.panel.exportDir));
+    const SspInfo ssp = LookSsp();
+    if (!ssp.ghostDir.empty()) roots.push_back(ssp.ghostDir);
+
+    g.panel.sspOut.clear();
+    int done = 0;
+    for (size_t i = 0; i < roots.size(); i++) {
+        const std::wstring path = PathJoin(PathJoin(PathJoin(PathJoin(roots[i], folder),
+                                                             L"ghost"), L"master"),
+                                           L"nashi_save.json");
+        if (DeleteFileIfExists(path)) {
+            g.panel.sspOut.push_back("消しました: " + WideToUtf8(path));
+            done++;
+        }
+    }
+    if (!done) g.panel.sspOut.push_back("消すものはありませんでした");
+}
+
 /** 書き出す先をえらんでもらう。 */
 std::wstring AskFolder() {
     if (!g.hwnd) return std::wstring();   // 窓が無いとき（テスト）は、たずねません
@@ -1307,6 +1376,89 @@ void OnPanelClick(int sx, int sy) {
             Refresh();
             return;
         }
+        return;
+    }
+
+    // ---- SSP に送る
+    if (StartsWith(it.id, "ssp.")) {
+        const std::string what = it.id.substr(4);
+        g.panel.sspOut.clear();
+
+        if (what == "check") {
+            LookSsp();
+            Refresh();
+            return;
+        }
+        if (what == "forget") {
+            ForgetGhostMemory();
+            Refresh();
+            return;
+        }
+
+        const SspInfo ssp = LookSsp();
+        if (!ssp.sstp && what != "install") {
+            g.panel.sspOut.push_back("SSP が SSTP を受けつけていません");
+            Refresh();
+            return;
+        }
+
+        if (what == "say") {
+            const std::string script = LastScript();
+            if (script.empty()) {
+                g.panel.sspOut.push_back("先に、かたまりを動かしてください");
+            } else {
+                SaySsp(SstpSend(script, "なしスタジオ"), "しゃべらせました");
+            }
+        } else if (what == "event") {
+            // さいごに動かしたかたまりのイベント名を送ります
+            std::string event;
+            const JValue& scripts = g.project["scripts"];
+            for (size_t i = 0; i < scripts.size(); i++) {
+                if (ScriptTitle(scripts.at(i)) != g.panel.runTitle) continue;
+                event = scripts.at(i)["event"].asStr();
+                break;
+            }
+            if (event.empty()) {
+                g.panel.sspOut.push_back("先に、イベントのかたまりを動かしてください");
+            } else {
+                SaySsp(SstpNotify(event, std::vector<std::string>(), "なしスタジオ"),
+                       "イベントを送りました: " + event);
+            }
+        } else if (what == "comm") {
+            SaySsp(SstpCommunicate("こんにちは", "なしスタジオ"),
+                   "「こんにちは」と話しかけました");
+        } else if (what == "install") {
+            if (ssp.ghostDir.empty()) {
+                g.panel.sspOut.push_back("SSP が見つかりません");
+            } else {
+                std::string dll;
+                if (!ReadBinaryFile(PathJoin(ExeDir(), L"nashi.dll"), dll) || dll.empty()) {
+                    dll = g.shioriDll;
+                }
+                const ExportResult r = ExportToDir(g.project, ssp.ghostDir, dll, true, false);
+                if (!r.ok) {
+                    g.panel.sspOut.push_back("入れられませんでした");
+                    g.panel.sspOut.push_back(r.error);
+                } else {
+                    g.panel.sspOut.push_back("SSP に入れました");
+                    g.panel.sspOut.push_back(WideToUtf8(r.root));
+                    // そのゴーストに切りかえる（もう出ていれば、栞だけ読みなおす）
+                    const std::string name = g.project["meta"]["name"].asStr();
+                    if (ssp.sstp && !name.empty()) {
+                        const bool already = !ssp.ghostName.empty()
+                            && (ssp.ghostName == name
+                                || ssp.ghostName == g.project["meta"]["sakuraName"].asStr());
+                        const SstpResult sent = already
+                            ? SstpSend("\\![reload,shiori]", "なしスタジオ")
+                            : SstpSend("\\![change,ghost," + name + "]", "なしスタジオ");
+                        g.panel.sspOut.push_back(sent.ok
+                            ? (already ? "栞を読みなおさせました" : "そのゴーストに切りかえました")
+                            : "切りかえは、うまくいきませんでした");
+                    }
+                }
+            }
+        }
+        Refresh();
         return;
     }
 
@@ -2394,6 +2546,8 @@ bool RenderEditor(const std::wstring& ghostPath, int width, int height,
 }
 
 void SetShioriDll(const std::string& bytes) { g.shioriDll = bytes; }
+
+void SetSspHint(const std::wstring& hint) { g_sspHint = hint; }
 
 const wchar_t* EditorWindowClass() { return kClass; }
 

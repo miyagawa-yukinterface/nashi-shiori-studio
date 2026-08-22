@@ -187,10 +187,23 @@ void BuildRun(Builder& b, const JValue& project, const PanelState& state) {
               scripts.at(i)["id"].asStr(), 0);
     }
 
-    if (state.runOut.empty()) return;
-    b.Head("さくらスクリプト");
-    if (!state.runTitle.empty()) b.Hint(state.runTitle);
-    for (size_t i = 0; i < state.runOut.size(); i++) b.Text(state.runOut[i]);
+    if (!state.runOut.empty()) {
+        b.Head("さくらスクリプト");
+        if (!state.runTitle.empty()) b.Hint(state.runTitle);
+        for (size_t i = 0; i < state.runOut.size(); i++) b.Text(state.runOut[i]);
+    }
+
+    // ---- 動いている SSP に送ってみる
+    b.Head("SSP に送る");
+    b.Hint(state.sspState.empty() ? "「様子を見る」を押すと、SSP を探します。"
+                                  : state.sspState);
+    b.Button("ssp.check", "様子を見る");
+    b.Button("ssp.say", "いまのスクリプトをしゃべらせる");
+    b.Button("ssp.event", "このイベントを送る");
+    b.Button("ssp.comm", "話しかけてみる");
+    b.Button("ssp.forget", "ゴーストの記憶を消す");
+    b.Hint("「記憶を消す」は、書き出したゴーストが覚えた変数（nashi_save.json）を消します。");
+    for (size_t i = 0; i < state.sspOut.size(); i++) b.Text(state.sspOut[i]);
 }
 
 // ------------------------------------------------------------ ゴーストのたな
@@ -364,7 +377,15 @@ void BuildExport(Builder& b, const PanelState& state) {
     b.Button("export.folder", "フォルダに書き出す");
     b.Button("export.nar", ".nar にまとめる");
 
+    b.Head("SSP に入れる");
+    b.Hint(state.sspState.empty() ? "「様子を見る」を押すと、SSP を探します。"
+                                  : state.sspState);
+    b.Button("ssp.check", "様子を見る");
+    b.Button("ssp.install", "SSP に入れて動かす");
+    b.Hint("SSP の ghost フォルダへ書き出して、そのゴーストに切りかえます。");
+
     for (size_t i = 0; i < state.exportOut.size(); i++) b.Text(state.exportOut[i]);
+    for (size_t i = 0; i < state.sspOut.size(); i++) b.Text(state.sspOut[i]);
 }
 
 // ------------------------------------------------------------ チェックのたな

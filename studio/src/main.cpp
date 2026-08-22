@@ -161,6 +161,7 @@ static int RunNativeEditor(HINSTANCE hInstance, const std::wstring& ghostPath) {
 
     g_api.Init();
     w2k::SetShioriDll(g_api.DllBytes());   // 書き出しに使います
+    w2k::SetSspHint(Utf8ToWide(g_api.LoadConfig()["sspPath"].asStr()));
 
     w2k::EditorOptions opt;
     opt.ghostPath = ghostPath;

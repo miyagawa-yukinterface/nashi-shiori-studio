@@ -74,6 +74,10 @@ struct PanelState {
     std::string runTitle;              // さいごに動かしたかたまり
     std::vector<std::string> runOut;   // 出てきたさくらスクリプト（行ごと）
 
+    // ---- SSP まわり（ためす・書き出しの両方で使います）
+    std::string sspState;              // 「動いています」など、いまの様子
+    std::vector<std::string> sspOut;   // 送ったときの言い分
+
     // ---- 書き出し
     std::string exportDir;             // 出す先
     std::vector<std::string> exportOut;
