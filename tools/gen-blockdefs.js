@@ -238,8 +238,12 @@ const text = lines.join('\n');
 const check = process.argv.includes('--check');
 const current = fs.existsSync(outPath) ? fs.readFileSync(outPath, 'utf8') : null;
 
+// 行の終わりは git の設定で変わる（CRLF になる）ので、くらべるときは そろえます
+const same = (a, b) => a != null && b != null
+  && a.replace(/\r\n/g, '\n') === b.replace(/\r\n/g, '\n');
+
 if (check) {
-  if (current === text) {
+  if (same(current, text)) {
     console.log(`${C.green}[生成] blockdefs_gen.h は tools\\blocks.js と合っています。${C.off}`);
     process.exit(0);
   }
