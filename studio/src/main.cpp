@@ -1,8 +1,8 @@
 // なしスタジオ - Windows ネイティブアプリ
 //
-// ・自前のウィンドウに WebView2 を埋め込んで画面を出す（ブラウザは開かない）
-// ・画面（HTML/CSS/JS）と栞 nashi.dll は exe に埋め込み済み
-// ・ネットワークは使わない。要求は WebView2 の中で受け取って直接返している
+// ・画面は Win32 と GDI だけで描きます（studio\src\w2k）。古い Windows でも動きます
+// ・栞 nashi.dll は exe に埋め込み済み。ネットワークは使いません
+// ・--webview を付けると、前の WebView2 版の画面が出ます（見くらべ用。いずれ外します）
 //
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -144,26 +144,86 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
+// ------------------------------------------------------ ネイティブ版の画面
+
+/** ネイティブ版（Win32 と GDI だけの画面）を出します。 */
+static int RunNativeEditor(HINSTANCE hInstance, const std::wstring& ghostPath) {
+    // 二重起動したときは、すでに開いているウィンドウを前に出すだけ
+    HANDLE mutex = CreateMutexW(NULL, TRUE, kMutexName);
+    if (mutex && GetLastError() == ERROR_ALREADY_EXISTS) {
+        HWND other = FindWindowW(w2k::EditorWindowClass(), NULL);
+        if (other) {
+            if (IsIconic(other)) ShowWindow(other, SW_RESTORE);
+            SetForegroundWindow(other);
+        }
+        return 0;
+    }
+
+    g_api.Init();
+    w2k::SetShioriDll(g_api.DllBytes());   // 書き出しに使います
+
+    w2k::EditorOptions opt;
+    opt.ghostPath = ghostPath;
+    if (opt.ghostPath.empty()) {
+        // 何も言われなければ、前に開いていたものを出します
+        const std::string last = g_api.LoadConfig()["lastProject"].asStr();
+        if (!last.empty()) {
+            const std::wstring file =
+                PathJoin(g_api.projectsDir(), Utf8ToWide(last) + L".json");
+            if (PathExists(file)) opt.ghostPath = file;
+        }
+    }
+    opt.icon = (HICON)LoadImageW(hInstance, MAKEINTRESOURCEW(IDI_NASHI_APP), IMAGE_ICON,
+                                 0, 0, LR_DEFAULTSIZE);
+    opt.iconSmall = (HICON)LoadImageW(hInstance, MAKEINTRESOURCEW(IDI_NASHI_APP), IMAGE_ICON,
+                                      16, 16, 0);
+
+    // 前に覚えていた窓の場所
+    const JValue win = g_api.LoadConfig()["window"];
+    opt.x = win["x"].asInt(0);
+    opt.y = win["y"].asInt(0);
+    opt.w = win["w"].asInt(0);
+    opt.h = win["h"].asInt(0);
+    opt.maximized = win["max"].asBool(false);
+
+    w2k::EditorState state;
+    const int code = w2k::RunEditor(hInstance, opt, &state);
+
+    if (state.w > 0) {
+        JValue out = JValue::makeObj();
+        out.set("x", JValue::makeNum(state.x));
+        out.set("y", JValue::makeNum(state.y));
+        out.set("w", JValue::makeNum(state.w));
+        out.set("h", JValue::makeNum(state.h));
+        out.set("max", JValue::makeBool(state.maximized));
+        g_api.SaveConfig("window", out);
+    }
+    if (mutex) CloseHandle(mutex);
+    return code;
+}
+
 // -------------------------------------------------------------------- main
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int) {
-    // --w2k は、作りかけのネイティブ版（WebView2 を使わない画面）を出します。
-    // WebView2 版と入れかえるまでの間、こうして横に置いて見くらべます。
+    // ふだんはネイティブ版の画面を出します。
+    // --webview を付けたときだけ、前の WebView2 版が出ます（見くらべ用）。
+    bool useWebView = false;
+    std::wstring openPath;
     {
         int argc = 0;
         LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
         if (argv) {
             for (int i = 1; i < argc; i++) {
-                if (std::wstring(argv[i]) != L"--w2k") continue;
-                std::wstring ghost = (i + 1 < argc) ? argv[i + 1] : L"";
-                LocalFree(argv);
-                g_api.Init();
-                w2k::SetShioriDll(g_api.DllBytes());   // 書き出しに使います
-                return w2k::RunEditor(hInstance, ghost);
+                const std::wstring a = argv[i];
+                if (a == L"--webview") useWebView = true;
+                else if (a == L"--w2k") { /* 前の名まえ。いまは既定なので、何もしません */ }
+                else if (!a.empty() && a[0] != L'-') openPath = a;
             }
             LocalFree(argv);
         }
     }
+
+    if (!useWebView) return RunNativeEditor(hInstance, openPath);
 
     // 二重起動したときは、すでに開いているウィンドウを前に出すだけ
     HANDLE mutex = CreateMutexW(NULL, TRUE, kMutexName);

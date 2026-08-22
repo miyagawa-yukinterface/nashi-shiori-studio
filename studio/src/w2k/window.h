@@ -17,12 +17,30 @@
 namespace nashi {
 namespace w2k {
 
+/** 窓の名まえ（二重起動のときに、先のものを探すのに使います）。 */
+const wchar_t* EditorWindowClass();
+
+/** 窓を出すときの、こまごまとした頼みごと。 */
+struct EditorOptions {
+    std::wstring ghostPath;    // 空でなければ、その ghost.json を読んでおきます
+    HICON icon = NULL;         // 窓のアイコン（無ければ既定のもの）
+    HICON iconSmall = NULL;
+    int x = 0, y = 0;          // 前に覚えていた窓の場所（w が 0 なら、まんなかに出します）
+    int w = 0, h = 0;
+    bool maximized = false;
+};
+
+/** 窓を閉じたときの、覚えておきたいこと。 */
+struct EditorState {
+    int x = 0, y = 0, w = 0, h = 0;
+    bool maximized = false;
+};
+
 /**
  * 編集の窓を出して、閉じられるまで動かします。
- * ghostPath が空でなければ、その ghost.json を読んでおきます。
  * 返すのは終了コード（0 なら何ごともなし）。
  */
-int RunEditor(HINSTANCE hInstance, const std::wstring& ghostPath);
+int RunEditor(HINSTANCE hInstance, const EditorOptions& options, EditorState* stateOut);
 
 /**
  * 書き出しに使う栞（nashi.dll）の中身を渡しておきます。

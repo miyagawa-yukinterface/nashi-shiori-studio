@@ -92,6 +92,7 @@ struct Editor {
     std::string choiceItem;          // えらぶ欄を、窓なしで打ちこんでいるとき
 
     std::string shioriDll;           // 書き出しに使う栞（exe に入れてあるもの）
+    EditorState lastPlacement;       // 閉じたときの窓の場所
 
     // ---- 右の作業だな
     PanelState panel;
@@ -159,7 +160,7 @@ bool InPalette(int sx, int sy) {
 
 void UpdateTitle() {
     if (!g.hwnd) return;
-    std::wstring title = L"なしスタジオ（ためし版）";
+    std::wstring title = L"なしスタジオ";
     if (!g.path.empty()) title = g.path + L" - " + title;
     if (g.dirty) title = L"* " + title;
     SetWindowTextW(g.hwnd, title.c_str());
@@ -2058,9 +2059,21 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             DestroyWindow(hwnd);
             return 0;
 
-        case WM_DESTROY:
+        case WM_DESTROY: {
+            // 次に開いたとき、同じところに出せるように覚えておきます
+            WINDOWPLACEMENT wp;
+            wp.length = sizeof(wp);
+            if (GetWindowPlacement(hwnd, &wp)) {
+                const RECT& r = wp.rcNormalPosition;
+                g.lastPlacement.x = r.left;
+                g.lastPlacement.y = r.top;
+                g.lastPlacement.w = r.right - r.left;
+                g.lastPlacement.h = r.bottom - r.top;
+                g.lastPlacement.maximized = (wp.showCmd == SW_SHOWMAXIMIZED);
+            }
             PostQuitMessage(0);
             return 0;
+        }
     }
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
@@ -2126,6 +2139,7 @@ bool SetUpHeadless(const std::wstring& ghostPath, int width, int height,
 
     g.project = JValue::makeObj();
     g.project.set("scripts", JValue::makeArr());
+    NormalizeProject(g.project);
     if (!ghostPath.empty()) {
         std::string text;
         JValue root;
@@ -2381,7 +2395,9 @@ bool RenderEditor(const std::wstring& ghostPath, int width, int height,
 
 void SetShioriDll(const std::string& bytes) { g.shioriDll = bytes; }
 
-int RunEditor(HINSTANCE hInstance, const std::wstring& ghostPath) {
+const wchar_t* EditorWindowClass() { return kClass; }
+
+int RunEditor(HINSTANCE hInstance, const EditorOptions& options, EditorState* stateOut) {
     g.inst = hInstance;
     g.style.gridStep = 24;
 
@@ -2394,11 +2410,28 @@ int RunEditor(HINSTANCE hInstance, const std::wstring& ghostPath) {
     wc.lpszClassName = kClass;
     wc.hCursor = LoadCursorW(NULL, IDC_ARROW);
     wc.hbrBackground = NULL;
+    wc.hIcon = options.icon;
+    wc.hIconSm = options.iconSmall;
     if (!RegisterClassExW(&wc)) return 1;
 
-    HWND hwnd = CreateWindowExW(0, kClass, L"なしスタジオ（ためし版）", WS_OVERLAPPEDWINDOW,
-                                CW_USEDEFAULT, CW_USEDEFAULT, 1100, 760,
-                                NULL, NULL, hInstance, NULL);
+    // 前に覚えていた場所へ。はみ出していたら、まんなかに出しなおします。
+    RECT work;
+    SystemParametersInfoW(SPI_GETWORKAREA, 0, &work, 0);
+    const int maxW = work.right - work.left;
+    const int maxH = work.bottom - work.top;
+    int w = options.w > 0 ? options.w : 1100;
+    int h = options.h > 0 ? options.h : 760;
+    if (w < kPaletteW + kMinCanvas + kPanelW) w = kPaletteW + kMinCanvas + kPanelW;
+    if (h < 400) h = 400;
+    if (w > maxW) w = maxW;
+    if (h > maxH) h = maxH;
+    int x = options.w > 0 ? options.x : work.left + (maxW - w) / 2;
+    int y = options.h > 0 ? options.y : work.top + (maxH - h) / 2;
+    if (x < work.left - 40 || x > work.right - 80) x = work.left + (maxW - w) / 2;
+    if (y < work.top - 10 || y > work.bottom - 80) y = work.top + (maxH - h) / 2;
+
+    HWND hwnd = CreateWindowExW(0, kClass, L"なしスタジオ", WS_OVERLAPPEDWINDOW,
+                                x, y, w, h, NULL, NULL, hInstance, NULL);
     if (!hwnd) return 1;
     g.hwnd = hwnd;
 
@@ -2410,14 +2443,15 @@ int RunEditor(HINSTANCE hInstance, const std::wstring& ghostPath) {
     if (g.project.isNull()) {
         g.project = JValue::makeObj();
         g.project.set("scripts", JValue::makeArr());
+        NormalizeProject(g.project);
     }
-    if (!ghostPath.empty() && !LoadGhost(ghostPath)) {
+    if (!options.ghostPath.empty() && !LoadGhost(options.ghostPath)) {
         MessageBoxW(hwnd, L"ghost.json を読めませんでした。", L"なしスタジオ", MB_ICONWARNING);
     }
     Relayout();
     UpdateTitle();
 
-    ShowWindow(hwnd, SW_SHOW);
+    ShowWindow(hwnd, options.maximized ? SW_SHOWMAXIMIZED : SW_SHOW);
     UpdateWindow(hwnd);
 
     MSG msg;
@@ -2430,6 +2464,7 @@ int RunEditor(HINSTANCE hInstance, const std::wstring& ghostPath) {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
+    if (stateOut) *stateOut = g.lastPlacement;
     g.tools.Free();
     return 0;
 }

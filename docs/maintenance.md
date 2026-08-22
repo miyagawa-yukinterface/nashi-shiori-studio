@@ -323,11 +323,27 @@ WebView2 版を外したら JavaScript 側が消えるので、この見張り�
 * 数の欄は、ちゃんと数になっていれば**数として**入れます（`ValueForField`）。
   「1.5あ」のように途中までしか数でないものは、文字のままにします。
 
-作りかけの画面は、こうして出せます（WebView2 版はそのままです）。
+**ネイティブ版が既定になりました。** ふつうに起動すると、こちらが出ます。
 
 ```powershell
-.\nashi-studio.exe --w2k .\studio\test\drag_fixture.json
+.\nashi-studio.exe                              前に開いていたものを出します
+.\nashi-studio.exe .\studio\test\drag_fixture.json  そのファイルを開きます
+.\nashi-studio.exe --webview                    前の WebView2 版（見くらべ用）
 ```
+
+窓の場所は `nashi-studio.json` に覚えます。読み書きするのは `main.cpp` で、
+`window.cpp` は `EditorOptions` と `EditorState` でやりとりするだけです
+（画面のコードが設定ファイルを知らないでいられるように）。
+
+WebView2 版はまだ残してあります。しばらく使ってもらって、困りごとが出ないことを
+確かめてから外します。外すときにやることは:
+
+* `webview.cpp` / `webreq.cpp` / `api.cpp` の HTTP のところ / `ui\` 一式 / SDK
+* `SetProcessDpiAwarenessContext` など、新しい Windows にしか無い呼び出し
+* **exe を 32bit で組みなおす**（いまは 64bit なので、そのままでは古い Windows で動きません）
+* `tools\check-imports.js` を exe にも通す
+* 二重になっている見張り（`panel.js` と `lint.js` の JavaScript くらべ）を畳む
+* LICENSE から WebView2 の BSD 条項を外す
 
 つなぎかたの決まりは `ui\js\drag.js` と同じにしてあります。片方だけ変えないでください。
 
